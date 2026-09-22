@@ -1,5 +1,6 @@
 import type { EventEnvelope } from "@dhruv/shared";
-import type { DhruvDb } from "./db.js";
+import type { DhruvDb, OutboxEntry } from "./db.js";
+import { getLinkState } from "./link.js";
 
 export interface PushBatchResult {
   device_id: string;
@@ -31,19 +32,53 @@ export async function commitLocalEvent(db: DhruvDb, event: EventEnvelope): Promi
 export interface DrainResult {
   pushed: number;
   remaining: number;
+  skipped: "offline" | null;
+}
+
+export interface DrainOptions {
+  /** Priority (inclusive ceiling) still sent while Degraded. Lower tier = higher priority; tier 0 is incident. */
+  degradedPriorityCeiling?: number;
+  /** Caps how many entries go out in one push while Degraded. */
+  degradedMaxBatchSize?: number;
+}
+
+const DEFAULT_DEGRADED_PRIORITY_CEILING = 2;
+const DEFAULT_DEGRADED_MAX_BATCH_SIZE = 10;
+
+function sortByPriorityThenQueueOrder(entries: OutboxEntry[]): OutboxEntry[] {
+  return [...entries].sort((a, b) => a.priority - b.priority || a.queued_at.localeCompare(b.queued_at));
 }
 
 /**
- * Drain the outbox by pushing everything queued to /sync/push and removing
- * whatever the server acknowledges (applied:true = newly stored,
- * applied:false = already had it — both mean it's safely synced and can
- * leave the outbox). FIFO for now; Phase 3 replaces the ordering with
- * priority-tier-first and adds Degraded/Offline gating.
+ * Drain the outbox by pushing to /sync/push and removing whatever the
+ * server acknowledges (applied:true = newly stored, applied:false = already
+ * had it — both mean it's safely synced and can leave the outbox).
+ *
+ * Priority drain (section 8.1, "never cut"): tier 0 (incident) goes out
+ * first, always. Link-state gating: Offline skips the push entirely — no
+ * network attempt is made, matching the demo's "link set to Offline" test.
+ * Degraded sends only the highest-priority tiers, capped to a batch size,
+ * so a thin link doesn't get swamped by low-priority chatter.
  */
-export async function drainOutbox(db: DhruvDb, push: PushBatchFn): Promise<DrainResult> {
-  const entries = await db.outbox.orderBy("queued_at").toArray();
+export async function drainOutbox(db: DhruvDb, push: PushBatchFn, options: DrainOptions = {}): Promise<DrainResult> {
+  const linkState = await getLinkState(db);
+  const allEntries = await db.outbox.toArray();
+
+  if (linkState === "offline") {
+    return { pushed: 0, remaining: allEntries.length, skipped: "offline" };
+  }
+
+  const ordered = sortByPriorityThenQueueOrder(allEntries);
+
+  const entries =
+    linkState === "degraded"
+      ? ordered
+          .filter((entry) => entry.priority <= (options.degradedPriorityCeiling ?? DEFAULT_DEGRADED_PRIORITY_CEILING))
+          .slice(0, options.degradedMaxBatchSize ?? DEFAULT_DEGRADED_MAX_BATCH_SIZE)
+      : ordered;
+
   if (entries.length === 0) {
-    return { pushed: 0, remaining: 0 };
+    return { pushed: 0, remaining: allEntries.length, skipped: null };
   }
 
   const { results } = await push(entries.map((entry) => entry.event));
@@ -53,5 +88,5 @@ export async function drainOutbox(db: DhruvDb, push: PushBatchFn): Promise<Drain
 
   await db.outbox.bulkDelete(ackedIds);
 
-  return { pushed: ackedIds.length, remaining: entries.length - ackedIds.length };
+  return { pushed: ackedIds.length, remaining: allEntries.length - ackedIds.length, skipped: null };
 }
