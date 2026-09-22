@@ -1,0 +1,6 @@
+packages:
+  - "backend"
+  - "packages/*"
+  # frontend is intentionally excluded: it already has its own npm
+  # package-lock.json (committed by B) — don't let two package managers
+  # fight over the same folder. Revisit once the team agrees to unify.
