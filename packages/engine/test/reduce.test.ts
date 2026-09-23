@@ -398,4 +398,96 @@ describe("reduce", () => {
     expect(state.inventory.get("item-1")?.stock).toBe(90);
     expect(state.inventory.get("item-1")?.lastObservedAt).toBe("2026-10-01T00:00:00.000Z");
   });
+  it("7. Non-critical person status is plain last-write-wins, not conservative", () => {
+    const events: OpEvent[] = [
+    {
+      event_id: "7a000000-0000-4000-8000-000000000001",
+      device_id: "device-a",
+      seq: 1,
+      type: "PERSON_STATUS_SET",
+      entity_type: "personnel",
+      entity_id: "person-1",
+      node_id: "node-1",
+      payload: { person_id: "person-1", status: "EVACUATED" },
+      observed_at: "2026-10-02T10:00:00.000Z",
+      created_at_client: "2026-10-02T10:00:00.000Z",
+      priority: 1,
+      actor_role: "STATION_LEADER",
+      schema_version: 1,
+    },
+    {
+      event_id: "7b000000-0000-4000-8000-000000000002",
+      device_id: "device-b",
+      seq: 1,
+      type: "PERSON_STATUS_SET",
+      entity_type: "personnel",
+      entity_id: "person-1",
+      node_id: "node-1",
+      payload: { person_id: "person-1", status: "ON_STATION" },
+      observed_at: "2026-10-02T12:00:00.000Z",
+      created_at_client: "2026-10-02T12:00:00.000Z",
+      priority: 1,
+      actor_role: "STATION_LEADER",
+      schema_version: 1,
+    },
+    ];
+
+    const state = reduce(fixtureSeed, events);
+
+    expect(state.personnel.get("person-1")?.status).toBe("ON_STATION");
+  });
+
+  it("8. Safety-critical person status still persists over a later benign update", () => {
+    const events: OpEvent[] = [
+    {
+      event_id: "8a000000-0000-4000-8000-000000000001",
+      device_id: "device-a",
+      seq: 1,
+      type: "PERSON_STATUS_SET",
+      entity_type: "personnel",
+      entity_id: "person-1",
+      node_id: "node-1",
+      payload: { person_id: "person-1", status: "ON_STATION" },
+      observed_at: "2026-10-02T10:00:00.000Z",
+      created_at_client: "2026-10-02T10:00:00.000Z",
+      priority: 1,
+      actor_role: "STATION_LEADER",
+      schema_version: 1,
+    },
+    {
+      event_id: "8b000000-0000-4000-8000-000000000002",
+      device_id: "device-b",
+      seq: 1,
+      type: "PERSON_STATUS_SET",
+      entity_type: "personnel",
+      entity_id: "person-1",
+      node_id: "node-1",
+      payload: { person_id: "person-1", status: "INJURED" },
+      observed_at: "2026-10-02T11:00:00.000Z",
+      created_at_client: "2026-10-02T11:00:00.000Z",
+      priority: 1,
+      actor_role: "STATION_LEADER",
+      schema_version: 1,
+    },
+    {
+      event_id: "8a000000-0000-4000-8000-000000000003",
+      device_id: "device-a",
+      seq: 2,
+      type: "PERSON_STATUS_SET",
+      entity_type: "personnel",
+      entity_id: "person-1",
+      node_id: "node-1",
+      payload: { person_id: "person-1", status: "ON_STATION" },
+      observed_at: "2026-10-02T12:00:00.000Z",
+      created_at_client: "2026-10-02T12:00:00.000Z",
+      priority: 1,
+      actor_role: "STATION_LEADER",
+      schema_version: 1,
+    },
+    ];
+
+    const state = reduce(fixtureSeed, events);
+
+    expect(state.personnel.get("person-1")?.status).toBe("INJURED");
+  });
 });

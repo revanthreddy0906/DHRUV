@@ -295,25 +295,34 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
           });
 
           const records = [...perDevice.values()];
-          const severityMap = config.conflicts.personStatusSeverity as Record<string, number>;
-          const mostConservative = records.reduce((best, curr) => {
-            const bestSev = severityMap[best.status] ?? 0;
-            const currSev = severityMap[curr.status] ?? 0;
-            if (currSev > bestSev) return curr;
-            if (currSev === bestSev && curr.observedAt > best.observedAt) return curr;
-            return best;
-          });
+          // Conservative merge only when a safety-critical status is involved;
+          // otherwise events arrive in canonical order, so the current one wins.
+          const involvesSafetyCritical = records.some((r) =>
+            config.conflicts.safetyCriticalPersonStatuses.includes(r.status),
+          );
+          let resolvedStatus = p.status;
+          if (involvesSafetyCritical) {
+            const severityMap = config.conflicts.personStatusSeverity as Record<string, number>;
+            const mostConservative = records.reduce((best, curr) => {
+              const bestSev = severityMap[best.status] ?? 0;
+              const currSev = severityMap[curr.status] ?? 0;
+              if (currSev > bestSev) return curr;
+              if (currSev === bestSev && curr.observedAt > best.observedAt) return curr;
+              return best;
+            });
+            resolvedStatus = mostConservative.status;
+          }
 
           const person = personnel.get(personId);
           if (person) {
-            person.status = mostConservative.status;
+            person.status = resolvedStatus;
             person.lastObservedAt = event.observed_at;
           } else {
             personnel.set(personId, {
               personId,
               role: "",
               nodeId: event.node_id,
-              status: mostConservative.status,
+              status: resolvedStatus,
               lastObservedAt: event.observed_at,
             });
           }
