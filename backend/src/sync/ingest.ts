@@ -15,6 +15,7 @@ import { DEVICES } from "@dhruv/seed";
 import { getEvent, insertEvent, listAllEvents, nextSeq } from "../db/events.js";
 import { listConflicts, rebuildProjections } from "../db/projections.js";
 import { seedStock } from "../db/seedData.js";
+import { checkApproval, checkRejection, conflictFlag, entityOwner, ownerOf } from "./authorize.js";
 
 export interface Identity {
   device_id: string;
@@ -43,7 +44,7 @@ export interface IngestOptions {
   demoMode: boolean;
 }
 
-function check(raw: unknown, identity: Identity | undefined, recordedAt: string, demoMode: boolean): { event: OpEvent } | Rejection {
+function check(db: Database.Database, raw: unknown, identity: Identity | undefined, recordedAt: string, demoMode: boolean): { event: OpEvent } | Rejection {
   const parsed = opEventSchema.safeParse(raw);
   const eventId = typeof (raw as { event_id?: unknown })?.event_id === "string" ? (raw as { event_id: string }).event_id : "unknown";
   if (!parsed.success) {
@@ -61,14 +62,53 @@ function check(raw: unknown, identity: Identity | undefined, recordedAt: string,
     if (event.device_id !== identity.device_id) {
       return { event_id: eventId, code: "INVALID_EVENT", message: "event device_id does not match the authenticated device" };
     }
-    if (event.actor_role !== identity.role && event.actor_role !== "SYSTEM") {
-      return { event_id: eventId, code: "ROLE_FORBIDDEN", message: `actor_role ${event.actor_role} does not match the logged-in role` };
+    // A caller writes as exactly the role in its token. SYSTEM events come only from the server
+    // itself (emitServerEvent, Director beats), which call ingest without an identity.
+    if (event.actor_role !== identity.role) {
+      return { event_id: eventId, code: "ROLE_FORBIDDEN", message: `actor_role ${event.actor_role} does not match the logged-in role ${identity.role}` };
     }
-    if (!EVENT_RULES[event.type].allowedRoles.includes(event.actor_role)) {
-      return { event_id: eventId, code: "ROLE_FORBIDDEN", message: `${event.actor_role} may not write ${event.type}` };
+    if (!EVENT_RULES[event.type].allowedRoles.includes(identity.role)) {
+      return { event_id: eventId, code: "ROLE_FORBIDDEN", message: `${identity.role} may not write ${event.type}` };
     }
     if (identity.role !== "HQ_OPS" && event.node_id !== identity.node_id) {
       return { event_id: eventId, code: "NODE_FORBIDDEN", message: `${identity.role} may only write events for node ${identity.node_id}` };
+    }
+
+    // The node rule applies to the record being changed, not just the event's own node_id.
+    const ownership = ownerOf(db, event);
+    if ("unknown" in ownership) return { event_id: eventId, code: "NOT_FOUND", message: ownership.unknown };
+    if (identity.role !== "HQ_OPS" && ownership.owner && ownership.owner !== identity.node_id) {
+      return { event_id: eventId, code: "NODE_FORBIDDEN", message: `${event.type} targets a record owned by ${ownership.owner}` };
+    }
+
+    // Offline station-level decisions sync as events (section 9); they get the same rules as
+    // POST /decisions/:id/approve and /reject, via the same validator.
+    if (event.type === "DECISION_APPROVED" || event.type === "DECISION_REJECTED") {
+      const p = event.payload as { decision_id: string; chosen_option_id: string; verify_ack: boolean; approver?: string };
+      const checked =
+        event.type === "DECISION_APPROVED"
+          ? checkApproval(db, identity, { decision_id: p.decision_id, chosen_option_id: p.chosen_option_id, verify_ack: p.verify_ack, now: event.observed_at })
+          : checkRejection(db, identity, p.decision_id, event.observed_at);
+      if (!checked.ok) return { event_id: eventId, code: checked.code, message: checked.message };
+
+      const decisionNode = "decision" in checked.value ? checked.value.decision.node_id : checked.value.node_id;
+      if (event.node_id !== decisionNode) {
+        return { event_id: eventId, code: "NODE_FORBIDDEN", message: `decision ${p.decision_id} belongs to ${decisionNode}` };
+      }
+      if (event.type === "DECISION_APPROVED" && p.approver !== identity.device_id) {
+        return { event_id: eventId, code: "INVALID_EVENT", message: "approver must be the approving device's own id" };
+      }
+    }
+
+    if (event.type === "CONFLICT_RESOLVED") {
+      const p = event.payload as { conflict_id: string; resolver: string };
+      if (conflictFlag(db, p.conflict_id)?.resolved) {
+        return { event_id: eventId, code: "INVALID_EVENT", message: `conflict ${p.conflict_id} is already resolved` };
+      }
+      // The audit trail names the device that resolved it, so it must be the caller's own.
+      if (p.resolver !== identity.device_id) {
+        return { event_id: eventId, code: "INVALID_EVENT", message: "resolver must be the resolving device's own id" };
+      }
     }
   }
 
@@ -133,13 +173,17 @@ function flagConflicts(db: Database.Database, accepted: OpEvent[], recordedAt: s
 function emitConflictFlag(db: Database.Database, finding: ConflictFinding, conflictId: string, recordedAt: string): OpEvent {
   const contenderEvents = finding.contenders.map((c) => getEvent(db, c.event_id)).filter((e): e is OpEvent => e !== null);
   const latest = contenderEvents.reduce((a, b) => (a.observed_at >= b.observed_at ? a : b));
+  // The flag belongs to the entity's station, so that station can resolve it. An HQ contender's
+  // node_id says nothing about who owns the asset, so prefer the seed, then a station's own write.
+  const stationWrite = contenderEvents.filter((e) => e.actor_role !== "HQ_OPS").at(-1);
+  const node = entityOwner(db, finding.entity_type, finding.entity_id) ?? stationWrite?.node_id ?? latest.node_id;
   return emitServerEvent(
     db,
     {
       type: "CONFLICT_FLAGGED",
       entity_type: finding.entity_type,
       entity_id: finding.entity_id,
-      node_id: latest.node_id,
+      node_id: node,
       observed_at: latest.observed_at,
       payload: {
         conflict_id: conflictId,
@@ -165,7 +209,7 @@ export function ingest(db: Database.Database, rawEvents: unknown[], options: Ing
     const result: IngestResult = { accepted: [], duplicates: [], rejected: [], recorded_at_server: recordedAt, emitted: [] };
 
     for (const raw of rawEvents) {
-      const checked = check(raw, options.identity, recordedAt, options.demoMode);
+      const checked = check(db, raw, options.identity, recordedAt, options.demoMode);
       if (!("event" in checked)) {
         result.rejected.push(checked);
         continue;

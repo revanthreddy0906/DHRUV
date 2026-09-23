@@ -114,7 +114,10 @@ describe("offline-to-online round trip: the Director drives beats 1-11 against t
     const [conflict] = listConflicts(db, "OPEN");
     expect(conflict).toMatchObject({ entity_id: "SK-2", conservative_value: "DOWN" });
     await sync(hq);
-    expect(await hq.db.events.where("type").equals("CONFLICT_FLAGGED").count()).toBe(1);
+    const flags = await hq.db.events.where("type").equals("CONFLICT_FLAGGED").toArray();
+    expect(flags).toHaveLength(1);
+    // The flag belongs to Maitri (SK-2's station), so Maitri's leader can resolve it too.
+    expect(flags[0].node_id).toBe("MAITRI");
 
     // HQ resolves it as a human action; beat 11: the approval.
     await writeEvent(hq.db, hq.identity, {

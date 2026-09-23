@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { rebuildProjections } from "../db/projections.js";
+import { emitServerEvent } from "../sync/ingest.js";
 import { API, auth, login, makeApp, makeEvent, push, t, type Device } from "../test/helpers.js";
 
 async function director(app: FastifyInstance, device: Device, beat: string) {
@@ -51,19 +53,26 @@ describe("decision approval flow (section 15)", () => {
   });
 
   it("requires verify_ack when the option depends on stale inputs (R14)", async () => {
-    const { app } = makeApp();
+    const { app, db } = makeApp();
     const hq = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
     const maitri = await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
     const trigger = makeEvent(maitri, "STOCK_COUNTED", { entity_type: "inventory_item", entity_id: "INV-DSL" }, { item_id: "INV-DSL", qty: 92 }, t(24, "04:00"));
     await push(app, maitri, [trigger]);
-    await push(app, maitri, [
-      makeEvent(maitri, "DECISION_PROPOSED", { entity_type: "decision", entity_id: "DEC-02" }, {
+    // Proposals are engine output: only the server writes them (clients may not claim SYSTEM).
+    emitServerEvent(db, {
+      type: "DECISION_PROPOSED",
+      entity_type: "decision",
+      entity_id: "DEC-02",
+      node_id: "MAITRI",
+      observed_at: t(25, "16:00"),
+      payload: {
         decision_id: "DEC-02",
         trigger_event_id: trigger.event_id,
         options: [{ id: "OPT-1", levers: ["CONSERVE"], deadline: "2027-02-27T00:00:00.000Z", requiresVerify: ["Fuel count 36 h old"] }],
         trace: [],
-      }, t(25, "16:00"), { actor_role: "SYSTEM" }),
-    ]);
+      },
+    }, new Date().toISOString());
+    rebuildProjections(db);
 
     const noAck = await approve(app, hq, { chosen_option_id: "OPT-1", verify_ack: false, observed_at: t(25, "16:20") }, "DEC-02");
     expect(noAck.json().error.code).toBe("VERIFY_REQUIRED");

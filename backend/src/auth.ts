@@ -2,9 +2,13 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { LOGIN_ROLES, type LoginResponse } from "@dhruv/shared";
+import { DEVICES } from "@dhruv/seed";
 import { DEMO_PINS, env, roleAllowedAtNode } from "./env.js";
 import { sendError } from "./errors.js";
 import type { Identity } from "./sync/ingest.js";
+
+/** Device ids the server writes under; no client may log in as them and forge server events. */
+const RESERVED_DEVICE_IDS: ReadonlySet<string> = new Set([DEVICES.SERVER, DEVICES.DIRECTOR]);
 
 const loginSchema = z.object({
   device_id: z.string().min(1),
@@ -29,6 +33,9 @@ export function registerAuth(app: FastifyInstance): void {
     const { device_id, pin, role, node_id } = parsed.data;
     if (DEMO_PINS[node_id] === undefined || DEMO_PINS[node_id] !== pin) {
       return sendError(reply, 401, "UNAUTHORIZED", "wrong PIN for this node");
+    }
+    if (RESERVED_DEVICE_IDS.has(device_id)) {
+      return sendError(reply, 403, "ROLE_FORBIDDEN", `device id ${device_id} is reserved for the server`);
     }
     if (!roleAllowedAtNode(role, node_id)) {
       return sendError(reply, 403, "NODE_FORBIDDEN", `${role} cannot log in at ${node_id}`);

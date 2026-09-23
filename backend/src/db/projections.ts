@@ -62,25 +62,6 @@ function applyProjection(db: Database.Database, e: OpEvent): void {
   }
 }
 
-export interface DecisionRow {
-  id: string;
-  trigger_event_id: string;
-  status: "PROPOSED" | "APPROVED" | "REJECTED";
-  options: Record<string, unknown>[];
-  node_id: string;
-}
-
-export function getDecision(db: Database.Database, id: string): DecisionRow | null {
-  const row = db.prepare(`SELECT id, trigger_event_id, status, options FROM decisions WHERE id = ?`).get(id) as
-    | { id: string; trigger_event_id: string; status: DecisionRow["status"]; options: string }
-    | undefined;
-  if (!row) return null;
-  const proposal = db
-    .prepare(`SELECT node_id FROM events WHERE type = 'DECISION_PROPOSED' AND entity_id = ? ORDER BY server_cursor LIMIT 1`)
-    .get(id) as { node_id: string } | undefined;
-  return { ...row, options: JSON.parse(row.options), node_id: proposal?.node_id ?? "" };
-}
-
 export interface ConflictRow {
   id: string;
   entity_type: string;

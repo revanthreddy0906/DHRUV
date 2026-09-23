@@ -16,7 +16,7 @@ export interface EventDraft {
   node_id?: string;
   observed_at?: string;
   priority?: number;
-  /** Defaults to the logged-in role; engine-emitted events on this device use SYSTEM. */
+  /** Defaults to the logged-in role. SYSTEM is only accepted for local-only events. */
   actor_role?: ActorRole;
 }
 
@@ -28,7 +28,10 @@ export interface EventDraft {
 export async function writeEvent(db: DhruvDb, identity: DeviceIdentity, draft: EventDraft, { demoMode = true } = {}): Promise<OpEvent> {
   const rule = EVENT_RULES[draft.type];
   const actorRole = draft.actor_role ?? identity.role;
-  if (actorRole !== identity.role && actorRole !== "SYSTEM") throw new Error(`actor_role ${actorRole} does not match ${identity.role}`);
+  // Mirrors the server: a client writes SYSTEM only for local-only events (link switch, clock).
+  if (actorRole !== identity.role && !(actorRole === "SYSTEM" && rule.localOnly)) {
+    throw new Error(`actor_role ${actorRole} does not match ${identity.role}`);
+  }
   if (!rule.allowedRoles.includes(actorRole)) throw new Error(`${actorRole} may not write ${draft.type}`);
 
   const observedAt = draft.observed_at ?? (await now(db, { demoMode }));

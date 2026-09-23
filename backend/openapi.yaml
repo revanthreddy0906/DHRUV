@@ -14,7 +14,7 @@ info:
     the client may send it; otherwise the server uses the latest observed_at it has seen.
 
     Not implemented yet: POST /ai/explain and POST /ai/brief (section 15; AI explainer is pending).
-    Admin endpoints exist only when DEMO_MODE=true.
+    Admin endpoints exist only when DEMO_MODE=true (they are not registered otherwise) and require HQ_OPS.
 servers:
   - url: http://localhost:4000/api/v1
 security:
@@ -24,6 +24,7 @@ paths:
   /auth/login:
     post:
       summary: Demo login (role switcher with device id and fixed PIN per node)
+      description: The device ids SERVER and DIRECTOR are reserved for server-written events (403).
       security: []
       requestBody:
         required: true
@@ -60,6 +61,19 @@ paths:
         under `duplicates`. The same (device_id, seq) with a different event_id is DUPLICATE_SEQ_CONFLICT.
         CLOCK_ADVANCED and LINK_STATE_SET are local-only and always rejected. Accepted events may make
         the server emit CONFLICT_FLAGGED events, which arrive through /sync/pull.
+
+        Authorization rules applied to every event:
+        - actor_role must equal the token's role (SYSTEM is never accepted from a client), and that
+          role must be allowed to write the type.
+        - Station and Field Leads may only write for their own node, and only change records their
+          node owns: an incident's owner is the node that opened it, a conflict's owner is its
+          entity's node, and seeded stock, assets, people and missions belong to their seed node.
+        - DECISION_APPROVED / DECISION_REJECTED (offline station-level decisions) pass the same checks
+          as POST /decisions/{id}/approve and /reject, plus: node_id must be the decision's node, the
+          approver must be the sending device, the decision must not already be decided, and the
+          event cannot be dated before the proposal.
+        - CONFLICT_RESOLVED needs an existing, unresolved conflict_id, and resolver must be the
+          sending device.
       requestBody:
         required: true
         content:
@@ -200,7 +214,7 @@ paths:
 
   /admin/seed:
     post:
-      summary: Reset to Start (demo only)
+      summary: Reset to Start (demo only, HQ_OPS)
       responses:
         "200":
           description: Reset
@@ -211,7 +225,7 @@ paths:
 
   /admin/director/{beat}:
     post:
-      summary: Inject a server-side Scenario Director beat (demo only)
+      summary: Inject a server-side Scenario Director beat (demo only, HQ_OPS)
       description: |
         Server beats: 1 (slip), 2 (decision proposed), 5 (HQ's SK-2 edit), 11 (approval). Client beats
         (3, 4, 6, 7, 8, 9) must run on the device's own tab through the Director panel and answer 400 here;

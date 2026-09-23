@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type Database from "better-sqlite3";
 import { EVENT_RULES, type OpEvent, type Seed } from "@dhruv/shared";
 import { DEVICES, findBeat, NODES } from "@dhruv/seed";
@@ -14,20 +14,25 @@ import { ingest } from "../sync/ingest.js";
  * Section 15 demo-only endpoints: POST /admin/seed and POST /admin/director/:beat.
  * Only server-side beats run here; client beats (link, clock, Maitri's offline entries)
  * must be written on the device itself or the offline story breaks.
+ *
+ * Outside demo mode the routes are not registered at all. A URL-prefix check is not enough:
+ * the router decodes the path (/api/v1/%61dmin/seed matches /admin/seed) but request.url does not.
  */
-export function registerAdminRoutes(app: FastifyInstance, db: Database.Database, seed: Seed | undefined): void {
-  app.addHook("onRequest", async (request, reply) => {
-    if (request.url.startsWith("/api/v1/admin") && !env.demoMode) {
-      return sendError(reply, 404, "NOT_FOUND", "admin endpoints are demo-only");
-    }
-  });
+export function registerAdminRoutes(app: FastifyInstance, db: Database.Database, seed: Seed | undefined, demoMode: boolean): void {
+  if (!demoMode) return;
 
-  app.post("/admin/seed", { preHandler: app.requireAuth }, async () => {
+  // Resetting everyone's data or injecting HQ events is an HQ Ops action.
+  const requireHqOps = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.identity.role !== "HQ_OPS") return sendError(reply, 403, "ROLE_FORBIDDEN", "admin endpoints require HQ_OPS");
+  };
+  const guards = { preHandler: [app.requireAuth, requireHqOps] };
+
+  app.post("/admin/seed", guards, async () => {
     resetToStart(db, seed);
     return { ok: true };
   });
 
-  app.post("/admin/director/:beat", { preHandler: app.requireAuth }, async (request, reply) => {
+  app.post("/admin/director/:beat", guards, async (request, reply) => {
     const { beat: beatId } = request.params as { beat: string };
     const beat = findBeat(beatId);
     if (!beat) return sendError(reply, 404, "NOT_FOUND", `no Director beat ${beatId}`);

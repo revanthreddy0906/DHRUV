@@ -19,6 +19,8 @@ export interface AppOptions {
   seed?: Seed;
   /** Browser origins allowed to call the API; defaults to env.corsOrigins. */
   corsOrigins?: string[];
+  /** Defaults to env.demoMode; tests override it to check production behaviour. */
+  demoMode?: boolean;
 }
 
 export function buildApp(db: Database.Database, options: AppOptions = {}): FastifyInstance {
@@ -48,7 +50,7 @@ export function buildApp(db: Database.Database, options: AppOptions = {}): Fasti
       registerEventRoutes(api, db);
       registerDecisionRoutes(api, db);
       registerScenarioRoutes(api, db);
-      registerAdminRoutes(api, db, options.seed);
+      registerAdminRoutes(api, db, options.seed, options.demoMode ?? env.demoMode);
     },
     { prefix: API_BASE },
   );
