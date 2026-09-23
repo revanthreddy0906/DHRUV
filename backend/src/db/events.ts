@@ -1,116 +1,158 @@
 import type Database from "better-sqlite3";
-import type { EventEnvelope } from "@dhruv/shared";
-
-export interface WriteEventResult {
-  applied: boolean;
-}
-
-export interface WriteEventBatchResult extends WriteEventResult {
-  device_id: string;
-  seq: number;
-}
-
-/**
- * Idempotent write: INSERT OR IGNORE on the (device_id, seq) primary key
- * means re-posting the same event is a no-op, not an error.
- */
-export function writeEvent(db: Database.Database, event: EventEnvelope): WriteEventResult {
-  const stmt = db.prepare(`
-    INSERT OR IGNORE INTO events (device_id, seq, observed_at, priority, type, payload, received_at)
-    VALUES (@device_id, @seq, @observed_at, @priority, @type, @payload, @received_at)
-  `);
-
-  const result = stmt.run({
-    device_id: event.device_id,
-    seq: event.seq,
-    observed_at: event.observed_at,
-    priority: event.priority,
-    type: event.type,
-    payload: JSON.stringify(event.payload),
-    received_at: new Date().toISOString(),
-  });
-
-  return { applied: result.changes > 0 };
-}
-
-/**
- * Idempotent batch write for /sync/push. Applies the whole batch in one
- * transaction and reports per-event status, so a client can tell which
- * events were newly applied vs. already-known (idempotent replay) without
- * treating either outcome as an error.
- */
-export function writeEventBatch(db: Database.Database, events: EventEnvelope[]): WriteEventBatchResult[] {
-  const applyAll = db.transaction((batch: EventEnvelope[]) => {
-    return batch.map((event) => ({
-      device_id: event.device_id,
-      seq: event.seq,
-      ...writeEvent(db, event),
-    }));
-  });
-
-  return applyAll(events);
-}
+import { compareEvents, type OpEvent } from "@dhruv/shared";
 
 interface EventRow {
+  event_id: string;
   device_id: string;
   seq: number;
-  observed_at: string;
-  priority: number;
   type: string;
+  entity_type: string;
+  entity_id: string;
+  node_id: string;
   payload: string;
+  observed_at: string;
+  created_at_client: string;
+  recorded_at_server: string | null;
+  priority: number;
+  actor_role: string;
+  schema_version: number;
+  server_cursor: number;
 }
 
-function rowToEvent(row: EventRow): EventEnvelope {
-  return {
+const COLUMNS = `event_id, device_id, seq, type, entity_type, entity_id, node_id, payload, observed_at,
+  created_at_client, recorded_at_server, priority, actor_role, schema_version, server_cursor`;
+
+function rowToEvent(row: EventRow): OpEvent {
+  const event: OpEvent = {
+    event_id: row.event_id,
     device_id: row.device_id,
     seq: row.seq,
-    observed_at: row.observed_at,
-    priority: row.priority,
-    type: row.type,
+    type: row.type as OpEvent["type"],
+    entity_type: row.entity_type,
+    entity_id: row.entity_id,
+    node_id: row.node_id,
     payload: JSON.parse(row.payload),
+    observed_at: row.observed_at,
+    created_at_client: row.created_at_client,
+    priority: row.priority,
+    actor_role: row.actor_role as OpEvent["actor_role"],
+    schema_version: 1,
   };
+  if (row.recorded_at_server) event.recorded_at_server = row.recorded_at_server;
+  return event;
 }
+
+export type InsertOutcome = "accepted" | "duplicate" | "seq_conflict";
 
 /**
- * Ordered projection of the whole event log (section 2.5 ordering rule).
- * This is the raw event list, not the reduced State — the reducer belongs
- * to A's packages/engine; the backend just serves what it has.
+ * Idempotency (section 6): (device_id, seq) is unique. Re-sending the identical event is a duplicate;
+ * the same (device_id, seq) with a different event_id, or the same event_id at a different
+ * (device_id, seq), is DUPLICATE_SEQ_CONFLICT. server_cursor is assigned monotonically on insert.
  */
-export function listEvents(db: Database.Database): EventEnvelope[] {
-  const rows = db
-    .prepare(`SELECT device_id, seq, observed_at, priority, type, payload FROM events ORDER BY observed_at, device_id, seq`)
-    .all() as EventRow[];
+export function insertEvent(db: Database.Database, event: OpEvent, recordedAtServer: string): InsertOutcome {
+  const existing = db
+    .prepare(`SELECT event_id, device_id, seq FROM events WHERE (device_id = ? AND seq = ?) OR event_id = ?`)
+    .all(event.device_id, event.seq, event.event_id) as { event_id: string; device_id: string; seq: number }[];
 
-  return rows.map(rowToEvent);
-}
-
-export interface SyncCursor {
-  observed_at: string;
-  device_id: string;
-  seq: number;
-}
-
-/**
- * Cursor-based read for /sync/pull. Returns events strictly after the given
- * (observed_at, device_id, seq) watermark, in canonical order — omit the
- * cursor to pull the full log (first sync from a fresh client).
- *
- * SQLite's row-value comparison makes this a single tuple comparison rather
- * than a three-branch OR chain.
- */
-export function listEventsAfter(db: Database.Database, cursor?: SyncCursor): EventEnvelope[] {
-  if (!cursor) {
-    return listEvents(db);
+  if (existing.length > 0) {
+    const same = existing.length === 1 && existing[0].event_id === event.event_id && existing[0].device_id === event.device_id && existing[0].seq === event.seq;
+    return same ? "duplicate" : "seq_conflict";
   }
 
+  db.prepare(`
+    INSERT INTO events (${COLUMNS})
+    VALUES (@event_id, @device_id, @seq, @type, @entity_type, @entity_id, @node_id, @payload, @observed_at,
+      @created_at_client, @recorded_at_server, @priority, @actor_role, @schema_version,
+      (SELECT COALESCE(MAX(server_cursor), 0) + 1 FROM events))
+  `).run({
+    ...event,
+    payload: JSON.stringify(event.payload),
+    recorded_at_server: recordedAtServer,
+  });
+  return "accepted";
+}
+
+export function getEvent(db: Database.Database, eventId: string): OpEvent | null {
+  const row = db.prepare(`SELECT ${COLUMNS} FROM events WHERE event_id = ?`).get(eventId) as EventRow | undefined;
+  return row ? rowToEvent(row) : null;
+}
+
+/** All events in reduce order (observed_at, device_id, seq). */
+export function listAllEvents(db: Database.Database): OpEvent[] {
+  const rows = db.prepare(`SELECT ${COLUMNS} FROM events`).all() as EventRow[];
+  return rows.map(rowToEvent).sort(compareEvents);
+}
+
+export function currentCursor(db: Database.Database): number {
+  const row = db.prepare(`SELECT COALESCE(MAX(server_cursor), 0) AS cursor FROM events`).get() as { cursor: number };
+  return row.cursor;
+}
+
+/**
+ * GET /sync/pull (section 9): events from other devices after `since`, in server_cursor order.
+ * When nothing from other devices is left, the cursor still advances past this device's own events.
+ */
+export function pullSince(db: Database.Database, since: number, excludeDeviceId: string, limit: number): { events: OpEvent[]; cursor: number } {
+  const rows = db
+    .prepare(`SELECT ${COLUMNS} FROM events WHERE server_cursor > ? AND device_id != ? ORDER BY server_cursor LIMIT ?`)
+    .all(since, excludeDeviceId, limit) as EventRow[];
+
+  const cursor = rows.length === limit ? rows[rows.length - 1].server_cursor : Math.max(since, currentCursor(db));
+  return { events: rows.map(rowToEvent), cursor };
+}
+
+export interface AuditFilter {
+  entity_id?: string;
+  type?: string;
+  from?: string;
+  to?: string;
+  limit: number;
+}
+
+/** GET /events audit list, newest first. */
+export function listAudit(db: Database.Database, filter: AuditFilter): OpEvent[] {
+  const where: string[] = [];
+  const params: Record<string, unknown> = { limit: filter.limit };
+  if (filter.entity_id) {
+    where.push("entity_id = @entity_id");
+    params.entity_id = filter.entity_id;
+  }
+  if (filter.type) {
+    where.push("type = @type");
+    params.type = filter.type;
+  }
+  if (filter.from) {
+    where.push("observed_at >= @from");
+    params.from = filter.from;
+  }
+  if (filter.to) {
+    where.push("observed_at <= @to");
+    params.to = filter.to;
+  }
   const rows = db
     .prepare(`
-      SELECT device_id, seq, observed_at, priority, type, payload
-      FROM events
-      WHERE (observed_at, device_id, seq) > (@observed_at, @device_id, @seq)
-      ORDER BY observed_at, device_id, seq
+      SELECT ${COLUMNS} FROM events
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ORDER BY observed_at DESC, device_id DESC, seq DESC
+      LIMIT @limit
     `)
-    .all(cursor) as EventRow[];
-
+    .all(params) as EventRow[];
   return rows.map(rowToEvent);
+}
+
+export function nextSeq(db: Database.Database, deviceId: string): number {
+  const row = db.prepare(`SELECT COALESCE(MAX(seq), 0) + 1 AS next FROM events WHERE device_id = ?`).get(deviceId) as { next: number };
+  return row.next;
+}
+
+export function latestEventOf(db: Database.Database, type: string, entityId: string): OpEvent | null {
+  const rows = db.prepare(`SELECT ${COLUMNS} FROM events WHERE type = ? AND entity_id = ?`).all(type, entityId) as EventRow[];
+  const events = rows.map(rowToEvent).sort(compareEvents);
+  return events.at(-1) ?? null;
+}
+
+/** Latest demo time the server has seen: the server has no demo clock (section 8). */
+export function latestObservedAt(db: Database.Database): string | null {
+  const row = db.prepare(`SELECT MAX(observed_at) AS latest FROM events`).get() as { latest: string | null };
+  return row.latest;
 }

@@ -1,29 +1,14 @@
+import { config, type OpEvent } from "@dhruv/shared";
 import type { DhruvDb } from "./db.js";
 
-const NOW_KEY = "demo_clock_now";
-
 /**
- * The demo clock (section 7 of the architecture doc, C5: absolute jumps
- * only, never relative offsets). This is Director-authoritative control-plane
- * state, not station data — it does not go through the outbox/link-simulation
- * pipeline that Online/Degraded/Offline gates (see priorityDrain.ts). A node
- * learns the current demo "now" via /clock (see backend/src/routes/clock.ts),
- * independent of whether its *data* sync is simulated offline.
- *
- * Once cached here, reading it is a synchronous local Dexie lookup — the
- * property that matters for T-FRESH-04: freshness must be computable with
- * zero network round-trip once a node has learned the current clock value.
+ * clock.now() (section 8). In demo mode the time is the latest local CLOCK_ADVANCED jump
+ * (absolute, v2 C5), or the demo start if none; real mode uses the system time.
+ * CLOCK_ADVANCED is local-only and never synced, so reading it needs no network.
  */
-export async function setLocalNow(db: DhruvDb, iso: string): Promise<void> {
-  await db.meta.put({ key: NOW_KEY, value: iso });
-}
-
-/**
- * Falls back to the real system clock only if the demo clock has never been
- * set on this node yet (e.g. fresh install, before the first Director jump
- * or the first /clock poll) — never during normal demo operation.
- */
-export async function getLocalNow(db: DhruvDb): Promise<Date> {
-  const entry = await db.meta.get(NOW_KEY);
-  return entry ? new Date(entry.value as string) : new Date();
+export async function now(db: DhruvDb, { demoMode = true }: { demoMode?: boolean } = {}): Promise<string> {
+  if (!demoMode) return new Date().toISOString();
+  const jumps = await db.events.where("type").equals("CLOCK_ADVANCED").toArray();
+  const latest = jumps.sort((a, b) => a.seq - b.seq).at(-1) as OpEvent | undefined;
+  return latest ? (latest.payload as { now: string }).now : config.demo.startAt;
 }

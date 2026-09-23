@@ -1,0 +1,93 @@
+import { API_BASE, config, type ApiError, type PullResponse, type PushRequest, type PushResponse } from "@dhruv/shared";
+import { getMeta, setMeta, type DhruvDb } from "./db.js";
+import { linkStatus } from "./controls.js";
+import { drainOutbox, type DrainResult, type PushFn } from "./outbox.js";
+import type { DeviceIdentity } from "./write.js";
+
+export type PullFn = (since: number) => Promise<PullResponse>;
+
+export interface SyncApi {
+  push: PushFn;
+  pull: PullFn;
+}
+
+/** Section 9 step 3: pull other devices' events after the cursor into the local store. */
+export async function pullOnce(db: DhruvDb, pull: PullFn): Promise<number> {
+  const since = await getMeta<number>(db, "cursor", 0);
+  const response = await pull(since);
+  await db.transaction("rw", db.events, db.meta, async () => {
+    await db.events.bulkPut(response.events);
+    await setMeta(db, "cursor", response.cursor);
+  });
+  return response.events.length;
+}
+
+export type SyncOutcome =
+  | { ok: true; drain: DrainResult; pulled: number }
+  | { ok: false; skipped: "offline" }
+  | { ok: false; failures: number; retryInSeconds: number; stalled: boolean; error: string };
+
+/**
+ * One sync cycle: drain the outbox, then pull. Offline does nothing. On failure, retry with
+ * exponential backoff (2, 4, 8, 16, 30 s cap) and mark stalled after 5 failures (section 9).
+ */
+export async function syncOnce(db: DhruvDb, identity: DeviceIdentity, api: SyncApi, { cycleSeconds = 1 } = {}): Promise<SyncOutcome> {
+  if ((await linkStatus(db, identity.node_id)) === "OFFLINE") return { ok: false, skipped: "offline" };
+
+  try {
+    const drain = await drainOutbox(db, identity, api.push, { cycleSeconds });
+    const pulled = await pullOnce(db, api.pull);
+    await setMeta(db, "sync_failures", 0);
+    return { ok: true, drain, pulled };
+  } catch (err) {
+    const failures = (await getMeta<number>(db, "sync_failures", 0)) + 1;
+    await setMeta(db, "sync_failures", failures);
+    const backoff = config.sync.backoffSeconds;
+    return {
+      ok: false,
+      failures,
+      retryInSeconds: backoff[Math.min(failures, backoff.length) - 1],
+      stalled: failures >= config.sync.stalledAfterFailures,
+      error: (err as Error).message,
+    };
+  }
+}
+
+export interface SyncStatus {
+  pending: number;
+  rejected: number;
+  oldestPendingAt: string | null;
+  failures: number;
+  stalled: boolean;
+}
+
+/** What the Sync drawer shows: pending count, oldest pending age, rejected items, stalled. */
+export async function syncStatus(db: DhruvDb): Promise<SyncStatus> {
+  const entries = await db.outbox.toArray();
+  const pending = entries.filter((e) => e.status === "pending");
+  const failures = await getMeta<number>(db, "sync_failures", 0);
+  return {
+    pending: pending.length,
+    rejected: entries.length - pending.length,
+    oldestPendingAt: pending.map((e) => e.event.observed_at).sort()[0] ?? null,
+    failures,
+    stalled: failures >= config.sync.stalledAfterFailures,
+  };
+}
+
+/** fetch-based SyncApi against the section 15 endpoints. */
+export function createHttpApi(baseUrl: string, getToken: () => string, fetchImpl: typeof fetch = fetch): SyncApi {
+  async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const res = await fetchImpl(`${baseUrl}${API_BASE}${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, ...init.headers },
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error((body as ApiError).error?.message ?? `HTTP ${res.status}`);
+    return body as T;
+  }
+  return {
+    push: (request: PushRequest) => call<PushResponse>("/sync/push", { method: "POST", body: JSON.stringify(request) }),
+    pull: (since: number) => call<PullResponse>(`/sync/pull?since=${since}&limit=${config.sync.pullLimit}`),
+  };
+}

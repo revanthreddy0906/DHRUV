@@ -13,6 +13,9 @@ importers:
       '@dhruv/engine':
         specifier: workspace:*
         version: link:../packages/engine
+      '@dhruv/seed':
+        specifier: workspace:*
+        version: link:../packages/seed
       '@dhruv/shared':
         specifier: workspace:*
         version: link:../packages/shared
@@ -29,6 +32,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@dhruv/store':
+        specifier: workspace:*
+        version: link:../packages/store
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -38,6 +44,9 @@ importers:
       '@types/node':
         specifier: ^20.16.5
         version: 20.19.43
+      fake-indexeddb:
+        specifier: ^6.0.0
+        version: 6.2.5
       tsx:
         specifier: ^4.19.1
         version: 4.23.15
@@ -49,6 +58,16 @@ importers:
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.33.0)(terser@5.51.2)
 
   packages/engine:
+    dependencies:
+      '@dhruv/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  packages/seed:
     dependencies:
       '@dhruv/shared':
         specifier: workspace:*

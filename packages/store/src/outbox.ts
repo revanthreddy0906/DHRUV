@@ -1,92 +1,80 @@
-import type { EventEnvelope } from "@dhruv/shared";
+import { config, type LinkStatus, type PushRequest, type PushResponse } from "@dhruv/shared";
 import type { DhruvDb, OutboxEntry } from "./db.js";
-import { getLinkState } from "./link.js";
+import { linkStatus } from "./controls.js";
+import type { DeviceIdentity } from "./write.js";
 
-export interface PushBatchResult {
-  device_id: string;
-  seq: number;
-  applied: boolean;
-}
-
-export type PushBatchFn = (events: EventEnvelope[]) => Promise<{ results: PushBatchResult[] }>;
-
-/**
- * Commit an event locally: it lands in the client's own copy of the event
- * log immediately (so evaluate() can run offline with zero network
- * round-trip) and queues in the outbox until /sync/push acknowledges it.
- * Owned by C — B's screens call this, they don't write to Dexie directly.
- */
-export async function commitLocalEvent(db: DhruvDb, event: EventEnvelope): Promise<void> {
-  await db.transaction("rw", db.events, db.outbox, async () => {
-    await db.events.put(event);
-    await db.outbox.add({
-      device_id: event.device_id,
-      seq: event.seq,
-      priority: event.priority,
-      event,
-      queued_at: new Date().toISOString(),
-    });
-  });
-}
+export type PushFn = (request: PushRequest) => Promise<PushResponse>;
 
 export interface DrainResult {
-  pushed: number;
+  sent: number;
+  accepted: number;
+  duplicates: number;
+  rejected: number;
   remaining: number;
   skipped: "offline" | null;
 }
 
 export interface DrainOptions {
-  /** Priority (inclusive ceiling) still sent while Degraded. Lower tier = higher priority; tier 0 is incident. */
-  degradedPriorityCeiling?: number;
-  /** Caps how many entries go out in one push while Degraded. */
-  degradedMaxBatchSize?: number;
-}
-
-const DEFAULT_DEGRADED_PRIORITY_CEILING = 2;
-const DEFAULT_DEGRADED_MAX_BATCH_SIZE = 10;
-
-function sortByPriorityThenQueueOrder(entries: OutboxEntry[]): OutboxEntry[] {
-  return [...entries].sort((a, b) => a.priority - b.priority || a.queued_at.localeCompare(b.queued_at));
+  /** Demo seconds this drain cycle represents; sets the DEGRADED byte budget. */
+  cycleSeconds?: number;
 }
 
 /**
- * Drain the outbox by pushing to /sync/push and removing whatever the
- * server acknowledges (applied:true = newly stored, applied:false = already
- * had it — both mean it's safely synced and can leave the outbox).
- *
- * Priority drain (section 8.1, "never cut"): tier 0 (incident) goes out
- * first, always. Link-state gating: Offline skips the push entirely — no
- * network attempt is made, matching the demo's "link set to Offline" test.
- * Degraded sends only the highest-priority tiers, capped to a batch size,
- * so a thin link doesn't get swamped by low-priority chatter.
+ * Section 9 priority drain. Sort pending entries by (priority, seq); send until the link's
+ * budget is used: ONLINE unlimited, DEGRADED 2.5 KB per demo second with P5 waiting, OFFLINE
+ * nothing (no network attempt). Stops at the first entry that does not fit, so a large item
+ * never lets lower-priority ones overtake it.
  */
-export async function drainOutbox(db: DhruvDb, push: PushBatchFn, options: DrainOptions = {}): Promise<DrainResult> {
-  const linkState = await getLinkState(db);
-  const allEntries = await db.outbox.toArray();
+export function selectForDrain(pending: OutboxEntry[], status: LinkStatus, cycleSeconds: number): OutboxEntry[] {
+  if (status === "OFFLINE") return [];
+  const ordered = [...pending].sort((a, b) => a.priority - b.priority || a.seq - b.seq);
+  if (status === "ONLINE") return ordered;
 
-  if (linkState === "offline") {
-    return { pushed: 0, remaining: allEntries.length, skipped: "offline" };
+  let budget = config.sync.degradedBytesPerSecond * cycleSeconds;
+  const selected: OutboxEntry[] = [];
+  for (const entry of ordered) {
+    if (entry.priority > config.sync.degradedMaxPriority || entry.bytes > budget) break;
+    budget -= entry.bytes;
+    selected.push(entry);
+  }
+  return selected;
+}
+
+export async function drainOutbox(db: DhruvDb, identity: DeviceIdentity, push: PushFn, { cycleSeconds = 1 }: DrainOptions = {}): Promise<DrainResult> {
+  const pending = await db.outbox.where("status").equals("pending").toArray();
+  const status = await linkStatus(db, identity.node_id);
+  if (status === "OFFLINE") {
+    return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: "offline" };
   }
 
-  const ordered = sortByPriorityThenQueueOrder(allEntries);
-
-  const entries =
-    linkState === "degraded"
-      ? ordered
-          .filter((entry) => entry.priority <= (options.degradedPriorityCeiling ?? DEFAULT_DEGRADED_PRIORITY_CEILING))
-          .slice(0, options.degradedMaxBatchSize ?? DEFAULT_DEGRADED_MAX_BATCH_SIZE)
-      : ordered;
-
-  if (entries.length === 0) {
-    return { pushed: 0, remaining: allEntries.length, skipped: null };
+  const batch = selectForDrain(pending, status, cycleSeconds);
+  if (batch.length === 0) {
+    return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: null };
   }
 
-  const { results } = await push(entries.map((entry) => entry.event));
-  const acked = new Set(results.map((r) => `${r.device_id}:${r.seq}`));
+  const response = await push({ device_id: identity.device_id, events: batch.map((e) => e.event) });
+  const byId = new Map(batch.map((e) => [e.event.event_id, e]));
 
-  const ackedIds = entries.filter((entry) => acked.has(`${entry.device_id}:${entry.seq}`)).map((entry) => entry.id!);
+  await db.transaction("rw", db.outbox, db.events, async () => {
+    for (const id of [...response.accepted, ...response.duplicates]) {
+      const entry = byId.get(id);
+      if (!entry) continue;
+      await db.outbox.delete([entry.device_id, entry.seq]);
+      await db.events.update(id, { recorded_at_server: response.recorded_at_server });
+    }
+    for (const r of response.rejected) {
+      const entry = byId.get(r.event_id);
+      if (entry) await db.outbox.update([entry.device_id, entry.seq], { status: "rejected", rejected_code: r.code });
+    }
+  });
 
-  await db.outbox.bulkDelete(ackedIds);
-
-  return { pushed: ackedIds.length, remaining: allEntries.length - ackedIds.length, skipped: null };
+  const acknowledged = response.accepted.length + response.duplicates.length;
+  return {
+    sent: batch.length,
+    accepted: response.accepted.length,
+    duplicates: response.duplicates.length,
+    rejected: response.rejected.length,
+    remaining: pending.length - acknowledged - response.rejected.length,
+    skipped: null,
+  };
 }

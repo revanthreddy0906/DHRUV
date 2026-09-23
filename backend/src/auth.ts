@@ -1,59 +1,61 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
+import { LOGIN_ROLES, type LoginResponse } from "@dhruv/shared";
+import { DEMO_PINS, env, roleAllowedAtNode } from "./env.js";
+import { sendError } from "./errors.js";
+import type { Identity } from "./sync/ingest.js";
+
+const loginSchema = z.object({
+  device_id: z.string().min(1),
+  pin: z.string().min(1),
+  role: z.enum(LOGIN_ROLES),
+  node_id: z.string().min(1),
+});
+
+export function issueToken(identity: Identity): string {
+  return jwt.sign(identity, env.jwtSecret, { expiresIn: "12h" });
+}
 
 /**
- * JWT demo auth (section 2.3, LOCKED stack: "Fastify, better-sqlite3, JWT demo auth").
- * This is explicitly a demo mechanism, not production auth — single shared
- * secret, no refresh tokens, no password hashing beyond a fixed demo roster.
+ * Demo login (sections 4 and 15): a role switcher with a device id and a fixed PIN per node.
+ * The token carries device, role and node; every write is checked against them.
  */
-const DEMO_SECRET = process.env.DHRUV_JWT_SECRET ?? "dhruv-demo-secret-change-me";
-
-const DEMO_USERS: Record<string, { device_id: string; role: string }> = {
-  hq: { device_id: "hq-ops", role: "hq" },
-  maitri: { device_id: "maitri-leader", role: "station_leader" },
-  bharati: { device_id: "bharati-leader", role: "station_leader" },
-};
-
-export interface DemoTokenPayload {
-  device_id: string;
-  role: string;
-}
-
-export function issueDemoToken(username: string): string | null {
-  const user = DEMO_USERS[username];
-  if (!user) return null;
-  return jwt.sign(user, DEMO_SECRET, { expiresIn: "12h" });
-}
-
 export function registerAuth(app: FastifyInstance): void {
   app.post("/auth/login", async (request, reply) => {
-    const body = request.body as { username?: string };
-    const token = body.username ? issueDemoToken(body.username) : null;
-    if (!token) {
-      return reply.code(401).send({ error: "unknown demo user" });
+    const parsed = loginSchema.safeParse(request.body);
+    if (!parsed.success) return sendError(reply, 400, "INVALID_EVENT", "invalid login request", parsed.error.issues);
+
+    const { device_id, pin, role, node_id } = parsed.data;
+    if (DEMO_PINS[node_id] === undefined || DEMO_PINS[node_id] !== pin) {
+      return sendError(reply, 401, "UNAUTHORIZED", "wrong PIN for this node");
     }
-    return { token };
+    if (!roleAllowedAtNode(role, node_id)) {
+      return sendError(reply, 403, "NODE_FORBIDDEN", `${role} cannot log in at ${node_id}`);
+    }
+
+    const response: LoginResponse = { token: issueToken({ device_id, role, node_id }), role, node_id };
+    return response;
   });
 
   app.decorate("requireAuth", async (request: FastifyRequest, reply: FastifyReply) => {
     const header = request.headers.authorization;
     const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
-    if (!token) {
-      return reply.code(401).send({ error: "missing bearer token" });
-    }
+    if (!token) return sendError(reply, 401, "UNAUTHORIZED", "missing bearer token");
     try {
-      request.demoUser = jwt.verify(token, DEMO_SECRET) as DemoTokenPayload;
+      const { device_id, role, node_id } = jwt.verify(token, env.jwtSecret) as Identity;
+      request.identity = { device_id, role, node_id };
     } catch {
-      return reply.code(401).send({ error: "invalid or expired token" });
+      return sendError(reply, 401, "UNAUTHORIZED", "invalid or expired token");
     }
   });
 }
 
 declare module "fastify" {
   interface FastifyRequest {
-    demoUser?: DemoTokenPayload;
+    identity: Identity;
   }
   interface FastifyInstance {
-    requireAuth: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireAuth: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
   }
 }
