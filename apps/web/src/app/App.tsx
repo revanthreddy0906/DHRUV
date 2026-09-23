@@ -11,9 +11,11 @@ export function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/command" replace />} />
         <Route path="/command" element={<CommandCenter />} />
+        <Route path="/decisions" element={<DecisionDetail />} />
         <Route path="/decisions/:decisionId" element={<DecisionDetail />} />
         <Route path="/incident" element={<Incident />} />
         <Route path="/what-if" element={<WhatIf />} />
+        <Route path="*" element={<Navigate to="/command" replace />} />
       </Routes>
     </AppShell>
   )
