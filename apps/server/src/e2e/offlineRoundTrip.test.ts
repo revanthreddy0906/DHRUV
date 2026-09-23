@@ -14,6 +14,7 @@ import {
   type DirectorChannel,
   type SyncApi,
 } from "@dhruv/store";
+import { season48 } from "@dhruv/seed";
 import { listConflicts } from "../db/projections.js";
 import { API, auth, login, makeApp, type Device } from "../test/helpers.js";
 
@@ -69,7 +70,8 @@ const sync = (t: Tab, cycleSeconds = 1) => syncOnce(t.db, t.identity, t.api, { c
 
 describe("offline-to-online round trip: the Director drives beats 1-11 against the real server", () => {
   it("station keeps working offline, syncs safety-critical data first, and flags SK-2 for a human", async () => {
-    const { app, db } = makeApp();
+    // The frozen season48 seed, so the node rule and negative-stock checks see real owners and stock.
+    const { app, db } = makeApp({ seed: season48 });
     const channelName = `e2e-director-${Math.random()}`;
     const hqDevice = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
     const hq = openTab(app, hqDevice, channelName);
@@ -143,5 +145,6 @@ describe("offline-to-online round trip: the Director drives beats 1-11 against t
     expect(await maitri.db.events.count()).toBe(0);
     const state = await app.inject({ method: "GET", url: `${API}/state`, headers: auth(hqDevice) });
     expect(state.json().events).toEqual([]);
+    expect(state.json().seed).toEqual(season48);
   });
 });

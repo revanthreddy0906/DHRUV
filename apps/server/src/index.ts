@@ -1,9 +1,11 @@
+import { season48 } from "@dhruv/seed";
 import { openDb } from "./db/index.js";
 import { buildApp } from "./app.js";
 import { env } from "./env.js";
 
 const db = openDb(env.dbFile);
-const app = buildApp(db);
+// The Director's Reset to Start restores season48.
+const app = buildApp(db, { seed: season48 });
 
 // Close the HTTP server, then SQLite, so the WAL is checkpointed and nothing is left half-written.
 async function shutdown(signal: string) {

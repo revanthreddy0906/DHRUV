@@ -9,6 +9,25 @@ export const config = {
     startAt: "2027-01-24T08:00:00.000Z",
   },
 
+  /** Section 13 (SYNTHETIC, fictional calendar): values the section 14 tables have no column for. */
+  season: {
+    phases: [
+      { phase: "CLOSING", start: "2027-01-24T00:00:00.000Z", end: "2027-03-01T00:00:00.000Z", days: 36 },
+      { phase: "WINTER", start: "2027-03-01T00:00:00.000Z", end: "2027-11-16T00:00:00.000Z", days: 260 },
+      { phase: "MOBILISATION", start: "2027-11-16T00:00:00.000Z", end: "2027-11-20T00:00:00.000Z", days: 4 },
+    ],
+    /** Next resupply, the requirement horizon (300 days from start). */
+    horizonAt: "2027-11-20T00:00:00.000Z",
+    horizonDays: 300,
+    /** Person-days of food per person over the horizon (section 13: 24 people x 300 days). */
+    foodDaysPerPerson: 300,
+    checkInIntervalHours: 4,
+    checkInGraceHours: 3,
+    /** Personnel rule: minimum on station per critical role; GREEN needs at least need + 1. */
+    roleNeed: { DOCTOR: 1, DIESEL_MECHANIC: 1, COMMS_ENGINEER: 1, COOK: 1 } as Record<string, number>,
+    generatorsNeeded: 2,
+  },
+
   sync: {
     /** Section 9 (SYNTHETIC): bytes per second of demo time while DEGRADED (20 kbps link). */
     degradedBytesPerSecond: 2500,

@@ -3,13 +3,16 @@ import type { FastifyInstance } from "fastify";
 import type Database from "better-sqlite3";
 import { EVENT_RULES, type EventType, type LoginRole, type OpEvent } from "@dhruv/shared";
 import { openDb } from "../db/index.js";
-import { buildApp } from "../app.js";
+import { buildApp, type AppOptions } from "../app.js";
+import { resetToStart } from "../db/seedData.js";
 
 export const API = "/api/v1";
 
-export function makeApp(): { db: Database.Database; app: FastifyInstance } {
+/** In-memory server. With `options.seed` the DB starts from that seed, as after `pnpm seed`. */
+export function makeApp(options: AppOptions = {}): { db: Database.Database; app: FastifyInstance } {
   const db = openDb(":memory:");
-  return { db, app: buildApp(db) };
+  if (options.seed) resetToStart(db, options.seed);
+  return { db, app: buildApp(db, options) };
 }
 
 export interface Device {
