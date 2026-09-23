@@ -1,5 +1,6 @@
 import { config } from "@dhruv/shared";
 import type { CataloguedLever } from "./levers.js";
+import type { ConfidenceBand } from "./confidence.js";
 
 export interface GeneratedOption {
   id: string;
@@ -17,6 +18,8 @@ export interface GeneratedOption {
   bindingLeverId: string;
   slackDays: number | null;
   reachesTarget: boolean;
+  confidenceBand?: ConfidenceBand;
+  requiresVerify?: string[];
   trace: string;
 }
 

@@ -4,11 +4,35 @@ import type { OpEvent, Seed } from "@dhruv/shared";
 import { reduce } from "./reduce.js";
 import { computeRequirement } from "./rules/requirement.js";
 import { checkFeasibility } from "./rules/feasibility.js";
-import { computeAvailability } from "./rules/availability.js";
+import { computeAvailability, worstOf } from "./rules/availability.js";
+import { computePersonnelCoverage, computeAssetRedundancy, type CoverageResult } from "./rules/coverage.js";
+import { computeMissionImpact, type MissionImpactResult, type MissionNeeds } from "./rules/mission.js";
 import { catalogueLevers, type CataloguedLever, type LeverEffect } from "./rules/levers.js";
 import { generateOptions, type GeneratedOption, type GenerateOptionsParams } from "./rules/options.js";
 import { rankOptions, type RankedOption } from "./rules/ranking.js";
 import { computePnr, type PnrResult } from "./rules/pnr.js";
+import {
+  classifyFreshness,
+  worstFreshness,
+  type FreshnessClass,
+  type FreshnessResult,
+  type FreshnessTierKey,
+} from "./rules/freshness.js";
+import {
+  computeConfidenceBand,
+  type ConfidenceBand,
+  type ComputeConfidenceParams,
+} from "./rules/confidence.js";
+import {
+  evaluateOptionVerification,
+  type VerificationInputs,
+  type VerifyResult,
+} from "./rules/verify.js";
+import {
+  computeStationState,
+  type GateBanner,
+  type StationStateResult,
+} from "./rules/station.js";
 
 export { reduce } from "./reduce.js";
 export type {
@@ -36,6 +60,28 @@ export { catalogueLevers, type CataloguedLever, type LeverEffect } from "./rules
 export { generateOptions, type GeneratedOption, type GenerateOptionsParams } from "./rules/options.js";
 export { rankOptions, type RankedOption } from "./rules/ranking.js";
 export { computePnr, type PnrResult } from "./rules/pnr.js";
+export {
+  classifyFreshness,
+  worstFreshness,
+  type FreshnessClass,
+  type FreshnessResult,
+  type FreshnessTierKey,
+} from "./rules/freshness.js";
+export {
+  computeConfidenceBand,
+  type ConfidenceBand,
+  type ComputeConfidenceParams,
+} from "./rules/confidence.js";
+export {
+  evaluateOptionVerification,
+  type VerificationInputs,
+  type VerifyResult,
+} from "./rules/verify.js";
+export {
+  computeStationState,
+  type GateBanner,
+  type StationStateResult,
+} from "./rules/station.js";
 
 /**
  * Placeholder for the pure engine (Build Bible section 7, owned by A).
@@ -56,6 +102,8 @@ export interface DimensionEval {
   key: string;
   state: "GREEN" | "AMBER" | "RED";
   ratio: number | null;
+  freshness?: FreshnessClass;
+  confidence?: ConfidenceBand;
   trace: TraceStep[];
 }
 
@@ -66,6 +114,8 @@ export interface StationEval {
   levers?: CataloguedLever[];
   options?: RankedOption[];
   pnr?: PnrResult | null;
+  gates?: GateBanner[];
+  blocked?: boolean;
 }
 
 export interface Evaluation {
@@ -104,11 +154,41 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
 
     const avail = computeAvailability(dieselId, diesel.stock, feasibleQty, req.r);
 
+    // R12: Freshness classification for stock
+    const fuelFreshness = classifyFreshness(dieselId, "stock", diesel.lastObservedAt, now);
+
+    // R12: Freshness classification for cargo ETA
+    let legFreshness: FreshnessResult | undefined;
+    if (leg) {
+      legFreshness = classifyFreshness(leg.legId, "cargoEta", leg.eta, now);
+    }
+
+    // Rate for R13 confidence band
+    const closingProfile = input.seed.consumption_profiles.find(
+      (cp) => cp.item_id === dieselId && cp.phase === "CLOSING",
+    );
+    const rateNow = closingProfile?.rate_per_day ?? 0.55;
+
+    // R13: Confidence band for Fuel dimension
+    const fuelConfidence = computeConfidenceBand({
+      stock: diesel.stock,
+      inbound: feasibleQty,
+      requirement: req.r,
+      rateNow,
+      ageHours: fuelFreshness.ageHours,
+      freshness: fuelFreshness.freshness,
+    });
+
     const dimensionTrace: TraceStep[] = [
       { rule: "R01", text: req.trace },
       ...legTrace,
       { rule: "R03", text: avail.trace },
+      { rule: "R12", text: fuelFreshness.trace },
     ];
+    if (legFreshness) {
+      dimensionTrace.push({ rule: "R12", text: legFreshness.trace });
+    }
+    dimensionTrace.push({ rule: "R13", text: fuelConfidence.trace });
 
     let leversResult: CataloguedLever[] | undefined;
     let optionsResult: RankedOption[] | undefined;
@@ -134,11 +214,36 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
         });
 
         const ranked = rankOptions(allOptions);
-        optionsResult = ranked;
+
+        // Apply R13 (confidence band) and R14 (verify-first) to options
         for (const opt of ranked) {
+          const optInbound = Math.max(0, opt.availability - diesel.stock);
+          const optBand = computeConfidenceBand({
+            stock: diesel.stock,
+            inbound: optInbound,
+            requirement: opt.requirement,
+            rateNow,
+            ageHours: fuelFreshness.ageHours,
+            freshness: fuelFreshness.freshness,
+          });
+          opt.confidenceBand = optBand;
+
+          const ver = evaluateOptionVerification(
+            opt,
+            { stockFreshness: fuelFreshness, legFreshness },
+            optBand,
+          );
+          opt.requiresVerify = ver.requiresVerify.length > 0 ? ver.requiresVerify : undefined;
+
           dimensionTrace.push({ rule: "R09", text: opt.trace });
           dimensionTrace.push({ rule: "R10", text: opt.rankingTrace });
+          dimensionTrace.push({ rule: "R13", text: `[R13] Option ${opt.id}: ${optBand.trace}` });
+          if (ver.needsVerification) {
+            dimensionTrace.push({ rule: "R14", text: ver.trace });
+          }
         }
+
+        optionsResult = ranked;
 
         const pnr = computePnr(allOptions, now);
         pnrResult = pnr;
@@ -146,20 +251,91 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
       }
     }
 
+    const fuelDimension: DimensionEval = {
+      key: "FUEL",
+      state: avail.state,
+      ratio: avail.ratio,
+      freshness: fuelFreshness.freshness,
+      confidence: fuelConfidence,
+      trace: dimensionTrace,
+    };
+
+    const dimensions: DimensionEval[] = [fuelDimension];
+
+    // R05: PERSONNEL dimension (if personnel are seeded for this station)
+    if (input.seed.personnel && input.seed.personnel.length > 0) {
+      const stationPersonnel = Array.from(state.personnel.values()).filter(
+        (p) => p.nodeId === diesel.nodeId,
+      );
+      if (stationPersonnel.length > 0) {
+        const docCov = computePersonnelCoverage(stationPersonnel, "DOCTOR", 1);
+        const mechCov = computePersonnelCoverage(stationPersonnel, "DIESEL_MECHANIC", 1);
+        const commsCov = computePersonnelCoverage(stationPersonnel, "COMMS_ENGINEER", 1);
+        const cookCov = computePersonnelCoverage(stationPersonnel, "COOK", 1);
+        const roles = [docCov, mechCov, commsCov, cookCov];
+        const personnelState = worstOf(roles.map((r) => r.state));
+        const personnelTrace: TraceStep[] = roles.map((r) => ({ rule: "R05", text: r.trace }));
+        dimensions.push({
+          key: "PERSONNEL",
+          state: personnelState,
+          ratio: null,
+          trace: personnelTrace,
+        });
+      }
+    }
+
+    // R06: POWER dimension (if assets are seeded for this station)
+    if (input.seed.assets && input.seed.assets.length > 0) {
+      const stationAssets = Array.from(state.assets.values()).filter(
+        (a) => a.nodeId === diesel.nodeId,
+      );
+      if (stationAssets.length > 0) {
+        const genRed = computeAssetRedundancy(stationAssets, "GENERATOR", 2, "generators");
+        dimensions.push({
+          key: "POWER",
+          state: genRed.state,
+          ratio: null,
+          trace: [{ rule: "R06", text: genRed.trace }],
+        });
+      }
+    }
+
+    // R07: Missions impact
+    const missionImpacts: MissionImpactResult[] = [];
+    if (input.seed.missions && input.seed.missions.length > 0) {
+      for (const m of state.missions.values()) {
+        if (m.nodeId === diesel.nodeId && m.missionId === "F-27") {
+          const needs: MissionNeeds = {
+            fuelItemId: dieselId,
+            personIds: ["P-VERMA", "P-NAIR"],
+            assetIds: ["SK-4"],
+          };
+          const impact = computeMissionImpact(m, needs, avail.state, state.personnel, state.assets);
+          missionImpacts.push(impact);
+        }
+      }
+    }
+
+    // R15: Station State and Gates
+    const stationStateRes = computeStationState(
+      dimensions,
+      input.events,
+      missionImpacts,
+      diesel.nodeId,
+    );
+    for (const t of stationStateRes.trace) {
+      dimensionTrace.push({ rule: "R15", text: t });
+    }
+
     stations.push({
       nodeId: diesel.nodeId,
-      state: avail.state,
-      dimensions: [
-        {
-          key: "FUEL",
-          state: avail.state,
-          ratio: avail.ratio,
-          trace: dimensionTrace,
-        },
-      ],
+      state: stationStateRes.state,
+      dimensions,
       levers: leversResult,
       options: optionsResult,
       pnr: pnrResult,
+      gates: stationStateRes.gates.length > 0 ? stationStateRes.gates : undefined,
+      blocked: stationStateRes.blocked ? true : undefined,
     });
   }
 
