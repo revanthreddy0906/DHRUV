@@ -14,12 +14,14 @@ export interface ConfidenceBand {
   burnDepletion: number;
   uncertainty: number;
   freshness: FreshnessClass;
+  inboundUncertain?: boolean;
   trace: string;
 }
 
 export interface ComputeConfidenceParams {
   stock: number;
   inbound?: number;
+  inboundUncertain?: boolean;
   requirement: number;
   rateNow: number;
   ageHours: number;
@@ -58,6 +60,7 @@ export function computeConfidenceBand(params: ComputeConfidenceParams): Confiden
   const {
     stock,
     inbound = 0,
+    inboundUncertain = false,
     requirement,
     rateNow,
     ageHours,
@@ -71,7 +74,11 @@ export function computeConfidenceBand(params: ComputeConfidenceParams): Confiden
   const pointNumerator = stock + inbound;
   const point = requirement > 0 ? pointNumerator / requirement : Infinity;
 
-  const lowNumerator = stock * (1 - uncertainty) - burnDepletion + inbound;
+  // R17: If inbound is UNCERTAIN, band's low side is computed without it (evaluating to on-hand stock ratio = stock / requirement)
+  // Spec §7 line 330 & line 607 (T-ENG-18): point 1.0606, low 0.6970, high 1.0815 -> "GREEN, could be RED"
+  const lowNumerator = inboundUncertain
+    ? stock
+    : stock * (1 - uncertainty) - burnDepletion + inbound;
   const low = requirement > 0 ? lowNumerator / requirement : Infinity;
 
   const highNumerator = stock * (1 + uncertainty) + inbound;
@@ -104,7 +111,7 @@ export function computeConfidenceBand(params: ComputeConfidenceParams): Confiden
     uncertainty * 100
   ).toFixed(0)}%, b=${burnDepletion.toFixed(3)} kL, age ${ageHours.toFixed(
     1,
-  )}h) -> ${text} (straddles=${straddles})`;
+  )}h${inboundUncertain ? ", inbound UNCERTAIN excluded from low" : ""}) -> ${text} (straddles=${straddles})`;
 
   return {
     low,
@@ -119,6 +126,7 @@ export function computeConfidenceBand(params: ComputeConfidenceParams): Confiden
     burnDepletion,
     uncertainty,
     freshness,
+    inboundUncertain,
     trace,
   };
 }

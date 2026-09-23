@@ -1,3 +1,4 @@
+import type { CargoFeasibilityConfidence } from "./cargo.js";
 import type { ConfidenceBand } from "./confidence.js";
 import type { FreshnessResult } from "./freshness.js";
 import type { GeneratedOption } from "./options.js";
@@ -12,6 +13,7 @@ export interface VerificationInputs {
   stockFreshness?: FreshnessResult;
   legFreshness?: FreshnessResult;
   assetFreshness?: Map<string, FreshnessResult>;
+  cargoConfidence?: CargoFeasibilityConfidence;
 }
 
 /**
@@ -50,6 +52,14 @@ export function evaluateOptionVerification(
         `Inbound shipment ${lf.sourceId} has ${option.slackDays}d slack (${lf.freshness} ETA report)`,
       );
     }
+  }
+
+  // 4. Check R17 uncertain inbound
+  const cargoConf = inputs.cargoConfidence ?? option.cargoConfidence;
+  if (cargoConf?.uncertain) {
+    requiresVerify.push(
+      `Inbound shipment ${cargoConf.legId} is UNCERTAIN (${cargoConf.ageHours.toFixed(0)}h old, ${cargoConf.slackDays}d slack)`,
+    );
   }
 
   // Deduplicate entries

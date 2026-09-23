@@ -33,6 +33,17 @@ import {
   type GateBanner,
   type StationStateResult,
 } from "./rules/station.js";
+import {
+  computeFeederSlack,
+  computeSlipTolerance,
+  type FeederSlackResult,
+  type SlipToleranceResult,
+  type ComputeSlipToleranceParams,
+} from "./rules/slip.js";
+import {
+  checkCargoFeasibilityConfidence,
+  type CargoFeasibilityConfidence,
+} from "./rules/cargo.js";
 
 export { reduce } from "./reduce.js";
 export type {
@@ -82,6 +93,17 @@ export {
   type GateBanner,
   type StationStateResult,
 } from "./rules/station.js";
+export {
+  computeFeederSlack,
+  computeSlipTolerance,
+  type FeederSlackResult,
+  type SlipToleranceResult,
+  type ComputeSlipToleranceParams,
+} from "./rules/slip.js";
+export {
+  checkCargoFeasibilityConfidence,
+  type CargoFeasibilityConfidence,
+} from "./rules/cargo.js";
 
 /**
  * Placeholder for the pure engine (Build Bible section 7, owned by A).
@@ -104,6 +126,8 @@ export interface DimensionEval {
   ratio: number | null;
   freshness?: FreshnessClass;
   confidence?: ConfidenceBand;
+  slipTolerance?: SlipToleranceResult;
+  cargoConfidence?: CargoFeasibilityConfidence;
   trace: TraceStep[];
 }
 
@@ -146,10 +170,16 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
     const vessel = state.vessels.get("V-ICE-STAR");
     let feasibleQty = 0;
     const legTrace: TraceStep[] = [];
+    let feederSlack: FeederSlackResult | undefined;
+    let cargoConfidence: CargoFeasibilityConfidence | undefined;
+
     if (leg && vessel) {
       const feas = checkFeasibility(leg, vessel);
       legTrace.push({ rule: "R02", text: feas.trace });
       if (feas.feasible) feasibleQty = 48.0; // TODO(A): cargo qty hardcoded, no cargo_items lookup yet.
+
+      feederSlack = computeFeederSlack(leg.legId, leg.eta, vessel.loadCutoff);
+      legTrace.push({ rule: "R16", text: feederSlack.trace });
     }
 
     const avail = computeAvailability(dieselId, diesel.stock, feasibleQty, req.r);
@@ -160,7 +190,26 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
     // R12: Freshness classification for cargo ETA
     let legFreshness: FreshnessResult | undefined;
     if (leg) {
-      legFreshness = classifyFreshness(leg.legId, "cargoEta", leg.eta, now);
+      let legReportedAt: string | undefined;
+      for (let i = input.events.length - 1; i >= 0; i--) {
+        const ev = input.events[i]!;
+        if (
+          (ev.type === "LEG_UPDATED" || ev.type === "LEG_DELAYED") &&
+          (ev.entity_id === leg.legId || (ev.payload as { leg_id?: string })?.leg_id === leg.legId)
+        ) {
+          legReportedAt = ev.observed_at;
+          break;
+        }
+      }
+      legFreshness = classifyFreshness(leg.legId, "cargoEta", legReportedAt ?? leg.eta, now);
+      if (vessel) {
+        cargoConfidence = checkCargoFeasibilityConfidence(
+          leg.legId,
+          leg.eta,
+          vessel.loadCutoff,
+          legFreshness,
+        );
+      }
     }
 
     // Rate for R13 confidence band
@@ -169,14 +218,26 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
     );
     const rateNow = closingProfile?.rate_per_day ?? 0.55;
 
-    // R13: Confidence band for Fuel dimension
+    // R13: Confidence band for Fuel dimension (incorporating R17 cargo uncertainty)
     const fuelConfidence = computeConfidenceBand({
       stock: diesel.stock,
       inbound: feasibleQty,
+      inboundUncertain: cargoConfidence?.uncertain ?? false,
       requirement: req.r,
       rateNow,
       ageHours: fuelFreshness.ageHours,
       freshness: fuelFreshness.freshness,
+    });
+
+    // R16: Station resupply slip tolerance
+    const slipTol = computeSlipTolerance({
+      availability: avail.availability,
+      stock: diesel.stock,
+      reservePct: diesel.reservePct,
+      now,
+      phaseBoundaries: MAITRI_DIESEL_PHASE_BOUNDARIES,
+      consumptionProfiles: input.seed.consumption_profiles,
+      itemId: dieselId,
     });
 
     const dimensionTrace: TraceStep[] = [
@@ -189,6 +250,10 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
       dimensionTrace.push({ rule: "R12", text: legFreshness.trace });
     }
     dimensionTrace.push({ rule: "R13", text: fuelConfidence.trace });
+    dimensionTrace.push({ rule: "R16", text: slipTol.trace });
+    if (cargoConfidence) {
+      dimensionTrace.push({ rule: "R17", text: cargoConfidence.trace });
+    }
 
     let leversResult: CataloguedLever[] | undefined;
     let optionsResult: RankedOption[] | undefined;
@@ -215,12 +280,26 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
 
         const ranked = rankOptions(allOptions);
 
-        // Apply R13 (confidence band) and R14 (verify-first) to options
+        // Apply R13 (confidence band), R14 (verify-first), R16 (slip tolerance), and R17 (cargo confidence) to options
         for (const opt of ranked) {
           const optInbound = Math.max(0, opt.availability - diesel.stock);
+
+          let optCargoConfidence = cargoConfidence;
+          const holdVesselLever = opt.levers.find((l) => l.effect.newLoadCutoff);
+          if (holdVesselLever && leg && legFreshness) {
+            optCargoConfidence = checkCargoFeasibilityConfidence(
+              leg.legId,
+              leg.eta,
+              holdVesselLever.effect.newLoadCutoff!,
+              legFreshness,
+            );
+          }
+          opt.cargoConfidence = optCargoConfidence;
+
           const optBand = computeConfidenceBand({
             stock: diesel.stock,
             inbound: optInbound,
+            inboundUncertain: optCargoConfidence?.uncertain ?? false,
             requirement: opt.requirement,
             rateNow,
             ageHours: fuelFreshness.ageHours,
@@ -228,9 +307,28 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
           });
           opt.confidenceBand = optBand;
 
+          // R16: Slip tolerance for option
+          let burnUplift = 0;
+          for (const l of opt.levers) {
+            if (l.effect.burnRateUplift) {
+              burnUplift += l.effect.burnRateUplift;
+            }
+          }
+          const optSlip = computeSlipTolerance({
+            availability: opt.availability,
+            stock: diesel.stock,
+            reservePct: diesel.reservePct,
+            burnUplift,
+            now,
+            phaseBoundaries: MAITRI_DIESEL_PHASE_BOUNDARIES,
+            consumptionProfiles: input.seed.consumption_profiles,
+            itemId: dieselId,
+          });
+          opt.slipTolerance = optSlip;
+
           const ver = evaluateOptionVerification(
             opt,
-            { stockFreshness: fuelFreshness, legFreshness },
+            { stockFreshness: fuelFreshness, legFreshness, cargoConfidence: optCargoConfidence },
             optBand,
           );
           opt.requiresVerify = ver.requiresVerify.length > 0 ? ver.requiresVerify : undefined;
@@ -238,6 +336,10 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
           dimensionTrace.push({ rule: "R09", text: opt.trace });
           dimensionTrace.push({ rule: "R10", text: opt.rankingTrace });
           dimensionTrace.push({ rule: "R13", text: `[R13] Option ${opt.id}: ${optBand.trace}` });
+          dimensionTrace.push({ rule: "R16", text: `[R16] Option ${opt.id}: ${optSlip.trace}` });
+          if (optCargoConfidence) {
+            dimensionTrace.push({ rule: "R17", text: `[R17] Option ${opt.id}: ${optCargoConfidence.trace}` });
+          }
           if (ver.needsVerification) {
             dimensionTrace.push({ rule: "R14", text: ver.trace });
           }
@@ -257,6 +359,8 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
       ratio: avail.ratio,
       freshness: fuelFreshness.freshness,
       confidence: fuelConfidence,
+      slipTolerance: slipTol,
+      cargoConfidence,
       trace: dimensionTrace,
     };
 

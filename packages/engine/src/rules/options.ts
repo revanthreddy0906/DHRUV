@@ -1,6 +1,8 @@
 import { config } from "@dhruv/shared";
 import type { CataloguedLever } from "./levers.js";
 import type { ConfidenceBand } from "./confidence.js";
+import type { SlipToleranceResult } from "./slip.js";
+import type { CargoFeasibilityConfidence } from "./cargo.js";
 
 export interface GeneratedOption {
   id: string;
@@ -20,6 +22,8 @@ export interface GeneratedOption {
   reachesTarget: boolean;
   confidenceBand?: ConfidenceBand;
   requiresVerify?: string[];
+  slipTolerance?: SlipToleranceResult;
+  cargoConfidence?: CargoFeasibilityConfidence;
   trace: string;
 }
 

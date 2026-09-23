@@ -3,6 +3,7 @@ import type { Seed } from "@dhruv/shared";
 export interface LeverEffect {
   addAvailableKl?: number;
   saveRawKl?: number;
+  burnRateUplift?: number;
   newDeparture?: string;
   newLoadCutoff?: string;
   newLegEta?: string;
