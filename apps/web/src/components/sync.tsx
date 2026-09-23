@@ -17,7 +17,7 @@ export function ByteBudgetBar({ used, budget, label }: { used: number; budget: n
   );
 }
 
-export function TierQueue({ items, leaving, stalled }: { items: OpEventRow[]; leaving?: Set<string>; stalled?: string }) {
+export function TierQueue({ items, leaving, stalled, leaveDelayMs }: { items: OpEventRow[]; leaving?: Set<string>; stalled?: string; leaveDelayMs?: Map<string, number> }) {
   return (
     <div className="space-y-2">
       {TIERS.map((t) => {
@@ -32,7 +32,8 @@ export function TierQueue({ items, leaving, stalled }: { items: OpEventRow[]; le
             {rows.length > 0 && (
               <ul className="border-t border-line">
                 {rows.map((r) => (
-                  <li key={r.deviceSeq} className={cx("flex items-center gap-2 px-3 py-1.5 font-mono text-[11px]", leaving?.has(r.deviceSeq) && "dh-drain-out", stalled === r.deviceSeq && "bg-bad-tint")}>
+                  <li key={r.deviceSeq} className={cx("flex items-center gap-2 px-3 py-1.5 font-mono text-[11px]", leaving?.has(r.deviceSeq) && "dh-drain-out", stalled === r.deviceSeq && "bg-bad-tint")}
+                    style={leaveDelayMs?.has(r.deviceSeq) ? { animationDelay: `${leaveDelayMs.get(r.deviceSeq)}ms` } : undefined}>
                     <span className="text-fg">{r.type}</span>
                     <span className="truncate text-fg-2">{r.summary}</span>
                     <span className="ml-auto shrink-0 text-fg-2">{r.bytes} B</span>
@@ -48,24 +49,45 @@ export function TierQueue({ items, leaving, stalled }: { items: OpEventRow[]; le
   );
 }
 
+/** The real outbox, when the drawer is driven by a signed-in device instead of the design's simulation. */
+export interface LiveSyncProps {
+  /** Bytes the last cycle sent. */
+  sentBytes: number;
+  /** Bytes one cycle may send: null = unlimited (Online), 0 = nothing leaves (Offline). */
+  budget: number | null;
+  budgetLabel: string;
+  /** Rows that just left the outbox, still shown while they animate out. */
+  leaving: Set<string>;
+  /** Animation delay per leaving row, so a batch visibly leaves in drain order. */
+  leaveDelayMs?: Map<string, number>;
+  refused: { row: OpEventRow; reason: string }[];
+  onDrain: () => void;
+  onRetry: () => void;
+}
+
 /** Pending queue by tier; drain leaves in (priority, seq) order within the link's byte budget. */
-export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange, stalled, autoDrain }: {
+export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange, stalled, autoDrain, live }: {
   link: LinkStatus; device: string; queue: OpEventRow[]; oldest?: string; onClose?: () => void; onLinkChange?: (l: LinkStatus) => void; stalled?: string; autoDrain?: boolean;
+  live?: LiveSyncProps;
 }) {
-  const [leaving, setLeaving] = React.useState<Set<string>>(new Set());
+  const [simLeaving, setLeaving] = React.useState<Set<string>>(new Set());
   const [gone, setGone] = React.useState<Set<string>>(new Set());
-  const budget = link === "DEGRADED" ? 2500 : link === "ONLINE" ? Infinity : 0;
-  const remaining = queue.filter((q) => !gone.has(q.deviceSeq));
-  const sentBytes = queue.filter((q) => gone.has(q.deviceSeq)).reduce((a, b) => a + (b.bytes ?? 0), 0);
+  const simBudget = link === "DEGRADED" ? 2500 : link === "ONLINE" ? Infinity : 0;
+  const budget = live ? (live.budget === null ? Infinity : live.budget) : simBudget;
+  const remaining = live ? queue : queue.filter((q) => !gone.has(q.deviceSeq));
+  const pendingCount = live ? remaining.filter((r) => !live.leaving.has(r.deviceSeq)).length : remaining.length;
+  const leaving = live ? live.leaving : simLeaving;
+  const sentBytes = live ? live.sentBytes : queue.filter((q) => gone.has(q.deviceSeq)).reduce((a, b) => a + (b.bytes ?? 0), 0);
 
   const drain = React.useCallback(() => {
+    if (live) return live.onDrain();
     if (link === "OFFLINE") return;
     const order = [...remaining].filter((r) => r.deviceSeq !== stalled).sort((a, b) => (a.tier ?? 9) - (b.tier ?? 9) || a.seq - b.seq);
     order.forEach((r, i) => {
       setTimeout(() => setLeaving((s) => new Set(s).add(r.deviceSeq)), i * 400);
       setTimeout(() => setGone((s) => new Set(s).add(r.deviceSeq)), i * 400 + 250);
     });
-  }, [remaining, link, stalled]);
+  }, [remaining, link, stalled, live]);
 
   React.useEffect(() => { if (!autoDrain) return; const t = setTimeout(drain, 1200); return () => clearTimeout(t); /* eslint-disable-next-line */ }, [autoDrain]);
 
@@ -80,21 +102,34 @@ export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange,
         <div className="flex items-start justify-between gap-3">
           <LinkSwitch value={link} onChange={onLinkChange} />
           <div className="text-right font-mono text-[12px]">
-            <div className="font-semibold text-fg" aria-live="polite">{remaining.length} pending</div>
-            {oldest && remaining.length > 0 && <div className="text-fg-2">oldest {oldest}</div>}
+            <div className="font-semibold text-fg" aria-live="polite">{pendingCount} pending</div>
+            {oldest && pendingCount > 0 && <div className="text-fg-2">oldest {oldest}</div>}
           </div>
         </div>
         <ByteBudgetBar used={Math.min(sentBytes, budget === Infinity ? sentBytes : budget)} budget={budget === Infinity ? Math.max(sentBytes, 1) : budget || 1}
-          label={link === "DEGRADED" ? "Budget · 2.5 KB per demo second (Degraded); P5 waits" : link === "ONLINE" ? "Budget · unlimited (Online)" : "Budget · 0 (Offline): nothing leaves"} />
+          label={live ? live.budgetLabel : link === "DEGRADED" ? "Budget · 2.5 KB per demo second (Degraded); P5 waits" : link === "ONLINE" ? "Budget · unlimited (Online)" : "Budget · 0 (Offline): nothing leaves"} />
         <SectionHeader title="Pending queue by priority tier" />
         {remaining.length === 0 ? (
           <p className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-tint p-3 text-sm"><CheckCircle2 size={15} className="text-ok" aria-hidden />Queue drained. All events acknowledged by the server.</p>
-        ) : <TierQueue items={remaining} leaving={leaving} stalled={stalled} />}
+        ) : <TierQueue items={remaining} leaving={leaving} stalled={stalled} leaveDelayMs={live?.leaveDelayMs} />}
+        {live && live.refused.length > 0 && (
+          <div>
+            <SectionHeader title="Refused by the server" meta={<span className="font-mono text-[11px] text-bad">{live.refused.length}</span>} />
+            <ul className="space-y-1">
+              {live.refused.map(({ row, reason }) => (
+                <li key={row.deviceSeq} className="rounded-lg border border-bad/40 bg-bad-tint/50 px-3 py-1.5 font-mono text-[11px]">
+                  <span className="text-fg">{row.type}</span> <span className="text-fg-2">{row.summary}</span>
+                  <div className="text-fg">{reason}. Not a fact; kept here for the audit trail.</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="text-[11px] text-fg-2">Retry backoff 2 / 4 / 8 / 16 / 30 s. An item is marked stalled after 5 failures. LINK_STATE_SET and CLOCK_ADVANCED are never synced.</p>
       </div>
       <footer className="flex gap-2 border-t border-line px-5 py-3">
         <Button variant="primary" icon={<Play size={14} />} onClick={drain} disabledReason={link === "OFFLINE" ? "Link is Offline: local operations continue, nothing leaves" : undefined}>Drain now</Button>
-        <Button icon={<RefreshCw size={14} />} disabled={!stalled}>Retry stalled</Button>
+        <Button icon={<RefreshCw size={14} />} disabled={!stalled} onClick={live?.onRetry}>Retry stalled</Button>
       </footer>
     </aside>
   );
@@ -112,8 +147,8 @@ export function ConflictCard({ c, onReview }: { c: Conflict; onReview?: () => vo
       </header>
       <table className="mt-3 w-full font-mono text-[12px]">
         <tbody>
-          {c.contenders.map((x) => (
-            <tr key={x.device} className="border-t border-line">
+          {c.contenders.map((x, i) => (
+            <tr key={`${x.device}-${i}`} className="border-t border-line">
               <td className="py-1.5 pr-3 text-fg-2">{x.device}</td>
               <td className={cx("pr-2 font-bold", x.value === c.kept ? "text-bad" : "text-fg")}>{x.value}</td>
               <td className="pr-3 text-fg-2">{x.note}</td>
@@ -132,16 +167,17 @@ export function ConflictCard({ c, onReview }: { c: Conflict; onReview?: () => vo
   );
 }
 
-export function ConflictResolver({ c, onResolve, role = "HQ_OPS" }: { c: Conflict; onResolve?: (value: string) => void; role?: string }) {
+export function ConflictResolver({ c, onResolve, role = "HQ_OPS", disabledReason }: { c: Conflict; onResolve?: (value: string) => void; role?: string; disabledReason?: string }) {
   const [v, setV] = React.useState<string | null>(null);
   const canResolve = role !== "FIELD_LEAD";
+  const blocked = disabledReason ?? (!canResolve ? "Field Leads cannot resolve conflicts" : undefined);
   return (
     <div className="rounded-xl border border-line bg-surface p-4">
       <SectionHeader title={`Resolve ${c.entity} ${c.field}`} />
       <p className="mb-3 text-xs text-fg-2">Choose the value confirmed on the ground. Resolving emits CONFLICT_RESOLVED and is recorded in the audit log.</p>
       <div role="radiogroup" className="grid grid-cols-2 gap-2">
-        {c.contenders.map((x) => (
-          <button key={x.device} role="radio" aria-checked={v === x.value} type="button" onClick={() => setV(x.value)}
+        {c.contenders.map((x, i) => (
+          <button key={`${x.device}-${i}`} role="radio" aria-checked={v === x.value} type="button" onClick={() => setV(x.value)}
             className={cx("rounded-lg border p-3 text-left", v === x.value ? "border-accent ring-1 ring-accent/50" : "border-line hover:border-line-strong")}>
             <div className="font-mono text-sm font-bold text-fg">{x.value}</div>
             <div className="text-[11px] text-fg-2">{x.note} · {x.device} · {x.at}</div>
@@ -150,7 +186,7 @@ export function ConflictResolver({ c, onResolve, role = "HQ_OPS" }: { c: Conflic
       </div>
       <div className="mt-3">
         <Button variant="primary" disabled={!v} onClick={() => v && onResolve?.(v)}
-          disabledReason={!canResolve ? "Field Leads cannot resolve conflicts" : undefined}>Resolve as {v ?? "…"}</Button>
+          disabledReason={blocked}>Resolve as {v ?? "…"}</Button>
       </div>
     </div>
   );

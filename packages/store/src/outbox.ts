@@ -12,6 +12,8 @@ export interface DrainResult {
   rejected: number;
   remaining: number;
   skipped: "offline" | null;
+  /** Serialised bytes sent this cycle (the Sync drawer's byte-budget bar). */
+  bytes: number;
 }
 
 export interface DrainOptions {
@@ -44,12 +46,12 @@ export async function drainOutbox(db: DhruvDb, identity: DeviceIdentity, push: P
   const pending = await db.outbox.where("status").equals("pending").toArray();
   const status = await linkStatus(db, identity.node_id);
   if (status === "OFFLINE") {
-    return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: "offline" };
+    return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: "offline", bytes: 0 };
   }
 
   const batch = selectForDrain(pending, status, cycleSeconds);
   if (batch.length === 0) {
-    return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: null };
+    return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: null, bytes: 0 };
   }
 
   const response = await push({ device_id: identity.device_id, events: batch.map((e) => e.event) });
@@ -76,5 +78,6 @@ export async function drainOutbox(db: DhruvDb, identity: DeviceIdentity, push: P
     rejected: response.rejected.length,
     remaining: pending.length - acknowledged - response.rejected.length,
     skipped: null,
+    bytes: batch.reduce((sum, e) => sum + e.bytes, 0),
   };
 }

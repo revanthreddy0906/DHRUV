@@ -1,6 +1,8 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LiveDecisionDetail } from "../screens/DecisionLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
+import { LiveAuditScreen } from "../screens/AuditLive";
+import { LiveDirector } from "../screens/DirectorLive";
 import { useDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
@@ -91,6 +93,7 @@ function IncidentRoute() {
 
 function AuditRoute() {
   const [params] = useSearchParams();
+  if (useDevice()) return <LiveAuditScreen />;
   return <AuditScreen key={params.toString()} emptyFilter={flag(params, "empty")} />;
 }
 
@@ -203,7 +206,9 @@ function Gallery() {
 
 export function App() {
   const [params] = useSearchParams();
-  if (flag(params, "director")) return <DirectorScreen />;
+  const device = useDevice();
+  // Hidden Director (?director=1): live when this tab is signed in, the design mock otherwise.
+  if (flag(params, "director")) return device ? <LiveDirector /> : <DirectorScreen />;
   return (
     <div className="h-screen w-full">
       <Routes>
@@ -222,7 +227,7 @@ export function App() {
         <Route path="/sync" element={<SyncRoute />} />
         <Route path="/what-if" element={<Navigate to="/command?moment=hq-2501620&whatif=1" replace />} />
         <Route path="/field" element={<FieldRoute />} />
-        <Route path="/director" element={<DirectorScreen />} />
+        <Route path="/director" element={device ? <LiveDirector /> : <DirectorScreen />} />
         <Route path="/states" element={<FreshnessStates />} />
         <Route path="*" element={<Navigate to="/command" replace />} />
       </Routes>

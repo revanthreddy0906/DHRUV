@@ -5,6 +5,7 @@ import { DhruvShell, TopBar, Sidebar, OfflineBanner, type NavKey } from "../comp
 import { MOMENTS, type MomentId } from "../data/demo";
 import { useLiveChrome, type LiveChrome } from "../live/chrome";
 import { useLiveOps } from "../live/ops";
+import { LiveSyncDrawer } from "../live/SyncLive";
 
 export const NAV_PATH: Record<NavKey, string> = {
   command: "/command", decisions: "/decisions/DEC-01", cargo: "/cargo", inventory: "/inventory",
@@ -42,6 +43,7 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
   const [link, setLink] = React.useState(m.link);
   const [role, setRole] = React.useState(m.viewer.role);
   const navigate = useNavigate();
+  const [syncOpen, setSyncOpen] = React.useState(false);
   const onNavigate = (k: NavKey) => navigate(live || k === "incident" ? NAV_PATH[k] : `${NAV_PATH[k]}?moment=${moment}`);
 
   const chrome = live
@@ -57,7 +59,7 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
       simulation={simulation}
       top={<TopBar role={chrome.role} link={chrome.link} clock={chrome.clock} phase={chrome.phase} pending={chrome.pending}
         onRoleChange={live ? live.onRoleChange : setRole} onLinkChange={live ? live.onLinkChange : setLink}
-        onJump={live?.onJump} onReset={live?.onReset}
+        onJump={live?.onJump} onReset={live?.onReset} onOpenSync={live ? () => setSyncOpen(true) : undefined}
         status={live ? <LiveStatus live={live} /> : <PreviewTag />} />}
       banner={banner ?? (offline ? offlineBanner : undefined)}
       sidebar={<Sidebar active={nav}
@@ -65,7 +67,7 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
         decisionCount={ops ? ops.openDecisions.length : m.decisions.length} conflictCount={ops ? ops.openConflicts.length : conflictCount}
         role={chrome.role} station={chrome.station} deviceId={chrome.deviceId} link={chrome.link} onNavigate={onNavigate} />}
       strip={strip}
-      drawer={drawer}
+      drawer={<>{drawer}{live && syncOpen && <LiveSyncDrawer onClose={() => setSyncOpen(false)} />}</>}
     >
       {children}
     </DhruvShell>

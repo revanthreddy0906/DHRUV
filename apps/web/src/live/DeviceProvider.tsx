@@ -3,14 +3,14 @@ import { liveQuery } from "dexie";
 import { config, type LinkStatus, type OpEvent, type Seed } from "@dhruv/shared";
 import {
   attachDirectorListener, bootstrap, cachedSeed, createApiCall, createHttpApi, jumpClock, linkStatus, now, openDeviceDb,
-  setLinkStatus, syncOnce, syncStatus, writeEvent, type ApiCall, type DhruvDb, type EventDraft, type SyncOutcome, type SyncStatus,
+  setLinkStatus, setMeta, syncOnce, syncStatus, writeEvent, type ApiCall, type DhruvDb, type EventDraft, type OutboxEntry, type SyncOutcome, type SyncStatus,
 } from "@dhruv/store";
 import { STATION_NODES } from "@dhruv/seed";
 import { addHours } from "./format";
 import { loadSession, saveSession, type Session } from "./session";
 
 /** Section 9: one sync cycle every 3 s; failures back off per syncOnce. */
-const SYNC_INTERVAL_MS = 3000;
+export const SYNC_INTERVAL_MS = 3000;
 
 export interface DeviceSnapshot {
   /** This device's demo clock (local CLOCK_ADVANCED, v2 C5). */
@@ -26,6 +26,8 @@ export interface DeviceSnapshot {
   pendingIds: Set<string>;
   /** Event ids the server refused on sync, with its reason (or code). They are not facts. */
   rejected: Map<string, string>;
+  /** This device's outbox: pending entries in drain order, then refused ones. */
+  outbox: OutboxEntry[];
 }
 
 export interface LastSync {
@@ -44,6 +46,8 @@ export interface LiveDevice {
   write(draft: EventDraft): Promise<OpEvent>;
   /** Runs a sync cycle now instead of waiting for the next tick. */
   syncNow(): void;
+  /** Clears the failure count (stalled) and syncs now. */
+  retry(): Promise<void>;
   jump(hours: number): Promise<void>;
   resetClock(): Promise<void>;
   setLink(status: LinkStatus): Promise<void>;
@@ -84,6 +88,7 @@ async function readSnapshot(db: DhruvDb, session: Session): Promise<DeviceSnapsh
     now: clock, link, sync, events, seed, lastHeard,
     pendingIds: new Set(outbox.filter((o) => o.status === "pending").map((o) => o.event.event_id)),
     rejected: new Map(outbox.filter((o) => o.status === "rejected").map((o) => [o.event.event_id, o.rejected_message ?? o.rejected_code ?? "REJECTED"])),
+    outbox: [...outbox].sort((a, b) => (a.status === b.status ? a.priority - b.priority || a.seq - b.seq : a.status === "pending" ? -1 : 1)),
   };
 }
 
@@ -187,6 +192,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       call: createApiCall("", () => session.token),
       write: (draft) => writeEvent(db, session.identity, draft),
       syncNow: () => kick.current(),
+      retry: async () => {
+        await setMeta(db, "sync_failures", 0);
+        kick.current();
+      },
       jump: async (hours) => {
         await jumpClock(db, session.identity, addHours(await now(db), hours));
       },

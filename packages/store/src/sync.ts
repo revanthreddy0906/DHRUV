@@ -11,15 +11,20 @@ export interface SyncApi {
   pull: PullFn;
 }
 
-/** Section 9 step 3: pull other devices' events after the cursor into the local store. */
+/**
+ * Section 9 step 3: pull other devices' events after the cursor into the local store. If the cursor
+ * changed while the request was out (a Director reset cleared the store), the response belongs to
+ * the old state and is dropped rather than written back into the cleared store.
+ */
 export async function pullOnce(db: DhruvDb, pull: PullFn): Promise<number> {
   const since = await getMeta<number>(db, "cursor", 0);
   const response = await pull(since);
-  await db.transaction("rw", db.events, db.meta, async () => {
+  return db.transaction("rw", db.events, db.meta, async () => {
+    if ((await getMeta<number>(db, "cursor", 0)) !== since) return 0;
     await db.events.bulkPut(response.events);
     await setMeta(db, "cursor", response.cursor);
+    return response.events.length;
   });
-  return response.events.length;
 }
 
 export type SyncOutcome =

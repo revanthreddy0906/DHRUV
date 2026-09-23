@@ -92,8 +92,11 @@ export function currentCursor(db: Database.Database): number {
 /**
  * GET /sync/pull (section 9): events from other devices after `since`, in server_cursor order.
  * When nothing from other devices is left, the cursor still advances past this device's own events.
+ * A cursor ahead of the log can only come from before a Reset to Start (the log restarts at 1), so
+ * the pull starts over; otherwise a client that kept its old cursor would miss every new event.
  */
-export function pullSince(db: Database.Database, since: number, excludeDeviceId: string, limit: number): { events: OpEvent[]; cursor: number } {
+export function pullSince(db: Database.Database, requestedSince: number, excludeDeviceId: string, limit: number): { events: OpEvent[]; cursor: number } {
+  const since = requestedSince > currentCursor(db) ? 0 : requestedSince;
   const rows = db
     .prepare(`SELECT ${COLUMNS} FROM events WHERE server_cursor > ? AND device_id != ? ORDER BY server_cursor LIMIT ?`)
     .all(since, excludeDeviceId, limit) as EventRow[];
