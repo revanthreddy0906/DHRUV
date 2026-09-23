@@ -2,6 +2,9 @@
 // No Date.now(), no Math.random(), no fetch, no runtime deps. Enforced by lint later.
 import type { OpEvent, Seed } from "@dhruv/shared";
 import { reduce } from "./reduce.js";
+import { computeRequirement } from "./rules/requirement.js";
+import { checkFeasibility } from "./rules/feasibility.js";
+import { computeAvailability } from "./rules/availability.js";
 
 export { reduce } from "./reduce.js";
 export type {
@@ -34,10 +37,77 @@ export interface EngineInput {
   events: OpEvent[];
 }
 
-export type Evaluation = unknown;
+export interface TraceStep {
+  rule: string;
+  text: string;
+}
 
-export function evaluate(_input: EngineInput, _now: string): Evaluation {
-  const state = reduce(_input.seed, _input.events);
-  void state;
-  throw new Error("evaluate() not implemented yet — owned by A");
+export interface DimensionEval {
+  key: string;
+  state: "GREEN" | "AMBER" | "RED";
+  ratio: number | null;
+  trace: TraceStep[];
+}
+
+export interface StationEval {
+  nodeId: string;
+  state: "GREEN" | "AMBER" | "RED";
+  dimensions: DimensionEval[];
+}
+
+export interface Evaluation {
+  at: string;
+  stations: StationEval[];
+}
+
+const MAITRI_DIESEL_PHASE_BOUNDARIES = {
+  CLOSING: { start: "2027-01-24T00:00:00.000Z", end: "2027-03-01T00:00:00.000Z" },
+  WINTER: { start: "2027-03-01T00:00:00.000Z", end: "2027-11-16T00:00:00.000Z" },
+  MOBILISATION: { start: "2027-11-16T00:00:00.000Z", end: "2027-11-20T00:00:00.000Z" },
+};
+
+export function evaluate(input: EngineInput, now: string): Evaluation {
+  const state = reduce(input.seed, input.events);
+
+  const dieselId = "INV-DSL"; // TODO(A): hardcoded to Maitri diesel only tonight.
+  // Full multi-item, multi-station, multi-dimension evaluation (R05-R19)
+  // is a separate task. Do not silently expand scope here.
+  const diesel = state.inventory.get(dieselId);
+
+  const stations: StationEval[] = [];
+  if (diesel) {
+    const req = computeRequirement(diesel, input.seed.consumption_profiles, now, MAITRI_DIESEL_PHASE_BOUNDARIES);
+
+    const legId = "L2-C104"; // TODO(A): hardcoded to C-104's feeder leg tonight.
+    const leg = state.legs.get(legId);
+    const vessel = state.vessels.get("V-ICE-STAR");
+    let feasibleQty = 0;
+    const legTrace: TraceStep[] = [];
+    if (leg && vessel) {
+      const feas = checkFeasibility(leg, vessel);
+      legTrace.push({ rule: "R02", text: feas.trace });
+      if (feas.feasible) feasibleQty = 48.0; // TODO(A): cargo qty hardcoded, no cargo_items lookup yet.
+    }
+
+    const avail = computeAvailability(dieselId, diesel.stock, feasibleQty, req.r);
+
+    stations.push({
+      nodeId: diesel.nodeId,
+      state: avail.state,
+      dimensions: [
+        {
+          key: "FUEL",
+          state: avail.state,
+          ratio: avail.ratio,
+          trace: [
+            { rule: "R01", text: req.trace },
+            ...legTrace,
+            { rule: "R03", text: avail.trace },
+          ],
+        },
+      ],
+    });
+  }
+
+  return { at: now, stations };
 }
