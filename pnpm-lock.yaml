@@ -69,6 +69,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@dhruv/seed':
+        specifier: workspace:*
+        version: link:../../packages/seed
+      '@dhruv/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@dhruv/store':
+        specifier: workspace:*
+        version: link:../../packages/store
       dexie:
         specifier: ^4.4.6
         version: 4.4.6

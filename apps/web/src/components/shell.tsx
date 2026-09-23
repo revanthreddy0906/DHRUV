@@ -1,7 +1,7 @@
 import * as React from "react";
 import {
   Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Info, Wifi, WifiOff, Signal, RotateCcw,
-  CloudUpload, FlaskConical, UserCog, TabletSmartphone,
+  CloudUpload, FlaskConical, UserCog, TabletSmartphone, RadioTower,
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
@@ -62,7 +62,17 @@ export function LinkSwitch({ value, onChange }: { value: LinkStatus; onChange?: 
   );
 }
 
-export function LinkChip({ node, status, age }: { node: string; status: LinkStatus; age?: string }) {
+/** A node's link. Without `status` (another node's link, which this device cannot see) it shows only the last-heard age. */
+export function LinkChip({ node, status, age }: { node: string; status?: LinkStatus; age?: string }) {
+  if (!status) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs">
+        <RadioTower size={13} className="text-fg-2" aria-hidden />
+        <span className="font-medium text-fg">{node}</span>
+        <span className="font-mono text-fg-2">last heard {age ?? "at seed"}</span>
+      </span>
+    );
+  }
   const m = LINK_META[status];
   return (
     <span className={cx("inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs", status === "ONLINE" ? "border-line" : status === "DEGRADED" ? "border-warn/50" : "border-bad/50 bg-bad-tint")}>
@@ -105,9 +115,11 @@ export function SyncIndicator({ count, oldest, onOpen }: { count: number; oldest
 
 /* ---------- Top bar ---------- */
 
-export function TopBar({ phase = "CLOSING", role, link, clock, pending, onOpenSync, onLinkChange, onRoleChange, onJump, onReset }: {
+export function TopBar({ phase = "CLOSING", role, link, clock, pending, onOpenSync, onLinkChange, onRoleChange, onJump, onReset, status }: {
   phase?: string; role: Role; link: LinkStatus; clock: string; pending: { count: number; oldest?: string };
   onOpenSync?: () => void; onLinkChange?: (l: LinkStatus) => void; onRoleChange?: (r: Role) => void; onJump?: (h: 1 | 6 | 30) => void; onReset?: () => void;
+  /** Right-hand status: live sync state and sign-out, or a preview tag when not signed in. */
+  status?: React.ReactNode;
 }) {
   return (
     <header className="flex h-14 items-center gap-4 border-b border-line bg-surface px-4">
@@ -119,6 +131,7 @@ export function TopBar({ phase = "CLOSING", role, link, clock, pending, onOpenSy
       <RoleSwitcher role={role} onChange={onRoleChange} />
       <LinkSwitch value={link} onChange={onLinkChange} />
       <div className="ml-auto flex items-center gap-4">
+        {status}
         <DemoClock time={clock} onJump={onJump} onReset={onReset} />
         <SyncIndicator count={pending.count} oldest={pending.oldest} onOpen={onOpenSync} />
       </div>

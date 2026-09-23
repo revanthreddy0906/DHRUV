@@ -17,6 +17,7 @@ import { Button, Card, SectionHeader, Tag, cx, FreshnessChip, StateBadge } from 
 import { FieldHome } from "../components/field";
 import { DirectorPanel } from "../components/director";
 import { CommandCenter } from "./CommandCenter";
+import type { Role } from "../data/types";
 
 const Page = ({ title, sub, actions, children }: { title: string; sub?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) => (
   <div className="space-y-4 p-5">
@@ -211,25 +212,68 @@ export function SyncScreen({ link = "OFFLINE", stalled }: { link?: "DEGRADED" | 
 
 /* ---------- Login ---------- */
 
-export function LoginScreen({ error = false }: { error?: boolean }) {
-  const [sel, setSel] = React.useState(1);
+export interface LoginSubmit { role: Role; node_id: string; device_id: string; pin: string }
+
+const LOGIN_STATIONS: Record<Role, { id: string; label: string; device: string }[]> = {
+  HQ_OPS: [{ id: "HQ", label: "Goa HQ", device: "HQ-WEB-01" }],
+  STATION_LEADER: [{ id: "MAITRI", label: "Maitri", device: "MAITRI-TAB-01" }, { id: "BHARATI", label: "Bharati", device: "BHARATI-TAB-01" }],
+  FIELD_LEAD: [{ id: "MAITRI", label: "Maitri · team FT-3", device: "FT3-TAB-01" }, { id: "BHARATI", label: "Bharati", device: "BHARATI-FT-01" }],
+};
+
+/**
+ * Login (section 4): pick a role, station and device, enter the station PIN. One browser tab is
+ * one device. Without `onSubmit` it renders the static design state (`error` shows wrong-PIN).
+ */
+export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onSubmit }: { error?: boolean; initialRole?: Role; onSubmit?: (req: LoginSubmit) => Promise<void> }) {
   const icons = [Monitor, Tablet, Smartphone];
+  const [role, setRole] = React.useState<Role>(initialRole);
+  const [station, setStation] = React.useState(0);
+  const stations = LOGIN_STATIONS[role];
+  const current = stations[Math.min(station, stations.length - 1)] ?? stations[0]!;
+  const [deviceId, setDeviceId] = React.useState(current.device);
+  const [pin, setPin] = React.useState(error ? "••••••••" : "");
+  const [failure, setFailure] = React.useState<string | null>(error ? `Wrong PIN for ${current.device}. Nothing was changed. Check the PIN for this device and try again.` : null);
+  const [busy, setBusy] = React.useState(false);
+
+  const pick = (r: Role, i = 0) => {
+    setRole(r);
+    setStation(i);
+    setDeviceId(LOGIN_STATIONS[r][i]?.device ?? "");
+    setFailure(null);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onSubmit || busy) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      await onSubmit({ role, node_id: current.id, device_id: deviceId.trim(), pin });
+    } catch (err) {
+      const message = (err as Error).message;
+      setFailure(`${message.charAt(0).toUpperCase()}${message.slice(1)}. Nothing was changed.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg text-fg">
       <div role="note" className="flex h-7 items-center justify-center border-b border-line bg-elevated text-[12px] text-fg-2">{SYNTHETIC_BANNER}</div>
       <div className="flex flex-1 items-center justify-center">
-        <div className="w-[760px]">
+        <form className="w-[760px]" onSubmit={submit}>
           <div className="mb-8">
             <div className="font-mono text-2xl font-bold tracking-[0.25em]">DHRUV</div>
             <p className="mt-2 text-sm text-fg-2">Know what a delay breaks, by when to act, and how far to trust the data.</p>
           </div>
           <div role="radiogroup" aria-label="Role" className="grid grid-cols-3 gap-3">
             {DEVICES.map((d, i) => {
-              const Icon = icons[i];
+              const Icon = icons[i]!;
+              const on = d.role === role;
               return (
-                <button key={d.id} role="radio" aria-checked={sel === i} type="button" onClick={() => setSel(i)}
-                  className={cx("rounded-xl border p-4 text-left", sel === i ? "border-accent bg-accent-tint ring-1 ring-accent/50" : "border-line bg-surface hover:border-line-strong")}>
-                  <Icon size={20} className={sel === i ? "text-accent" : "text-fg-2"} aria-hidden />
+                <button key={d.id} role="radio" aria-checked={on} type="button" onClick={() => pick(d.role)}
+                  className={cx("rounded-xl border p-4 text-left", on ? "border-accent bg-accent-tint ring-1 ring-accent/50" : "border-line bg-surface hover:border-line-strong")}>
+                  <Icon size={20} className={on ? "text-accent" : "text-fg-2"} aria-hidden />
                   <div className="mt-3 text-base font-semibold">{d.roleLabel}</div>
                   <div className="text-xs text-fg-2">{d.node} · {d.device}</div>
                   <div className="mt-2 font-mono text-[11px] text-fg-2">{d.id}</div>
@@ -238,14 +282,25 @@ export function LoginScreen({ error = false }: { error?: boolean }) {
             })}
           </div>
           <div className="mt-5 flex items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs text-fg-2">Device ID<input readOnly value={DEVICES[sel].id} className="h-10 w-48 rounded-lg border border-line-ctrl bg-surface px-3 font-mono text-sm text-fg" /></label>
-            <label className="flex flex-col gap-1 text-xs text-fg-2">Station<input readOnly value={DEVICES[sel].node} className="h-10 w-40 rounded-lg border border-line-ctrl bg-surface px-3 text-sm text-fg" /></label>
-            <label className="flex flex-col gap-1 text-xs text-fg-2">PIN<input type="password" defaultValue={error ? "••••••••" : ""} aria-invalid={error} className={cx("h-10 w-44 rounded-lg border bg-surface px-3 font-mono text-sm text-fg", error ? "border-bad" : "border-line-ctrl")} /></label>
-            <Button variant="primary" size="md" icon={<KeyRound size={15} />} className="h-10">Enter</Button>
+            <label className="flex flex-col gap-1 text-xs text-fg-2">Station
+              <select value={station} onChange={(e) => pick(role, Number(e.target.value))} disabled={stations.length < 2}
+                className="h-10 w-44 rounded-lg border border-line-ctrl bg-surface px-3 text-sm text-fg disabled:opacity-80">
+                {stations.map((st, i) => <option key={st.id} value={i}>{st.label}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-fg-2">Device ID
+              <input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} required autoComplete="off" spellCheck={false}
+                className="h-10 w-44 rounded-lg border border-line-ctrl bg-surface px-3 font-mono text-sm text-fg" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-fg-2">PIN
+              <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} required autoComplete="off" aria-invalid={!!failure}
+                className={cx("h-10 w-40 rounded-lg border bg-surface px-3 font-mono text-sm text-fg", failure ? "border-bad" : "border-line-ctrl")} />
+            </label>
+            <Button type="submit" variant="primary" size="md" icon={<KeyRound size={15} />} className="h-10" disabled={busy || !onSubmit}>{busy ? "Signing in…" : "Enter"}</Button>
           </div>
-          {error && <p role="alert" className="mt-3 flex items-center gap-2 text-sm text-fg"><TriangleAlert size={15} className="text-bad" aria-hidden />Wrong PIN for {DEVICES[sel].id}. Nothing was changed. Check the PIN for this device and try again.</p>}
-          <p className="mt-6 text-[11px] text-fg-2">Demo login: role, device ID and fixed PIN. Production would need real authentication.</p>
-        </div>
+          {failure && <p role="alert" className="mt-3 flex items-center gap-2 text-sm text-fg"><TriangleAlert size={15} className="text-bad" aria-hidden />{failure}</p>}
+          <p className="mt-6 text-[11px] text-fg-2">Demo login: role, device ID and a fixed PIN per station. Each browser tab is one device with its own local store. Production would need real authentication.</p>
+        </form>
       </div>
     </div>
   );

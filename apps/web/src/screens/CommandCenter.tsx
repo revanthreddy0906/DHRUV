@@ -10,6 +10,27 @@ import { TraceDrawer } from "../components/trace";
 import { IncidentPanel } from "../components/incident";
 import { WhatIfDrawer } from "../components/whatif";
 import { Button, cx } from "../components/primitives";
+import { useLiveChrome, type LiveChrome } from "../live/chrome";
+
+const LINK_TEXT = { ONLINE: "text-ok", DEGRADED: "text-warn", OFFLINE: "text-bad" } as const;
+
+/** Comms and sync strip from this tab's device: own link and outbox; other stations by last contact. */
+function LiveBottomStrip({ live }: { live: LiveChrome }) {
+  return (
+    <div className="flex h-9 shrink-0 items-center gap-5 border-t border-line bg-surface px-5 font-mono text-[11px] text-fg-2">
+      <span className="flex items-center gap-1.5"><RadioTower size={12} aria-hidden />COMMS</span>
+      {live.stations.map((s) => s.own ? (
+        <span key={s.node}>{s.label} link <b className={LINK_TEXT[s.status]}>{s.status}</b> <span className="text-fg-2">(simulated)</span></span>
+      ) : (
+        <span key={s.node}>{s.label} last heard <b className="text-fg">{s.age}</b> · {s.freshness}</span>
+      ))}
+      <span className="ml-auto flex items-center gap-1.5">
+        <CloudUpload size={12} aria-hidden />{live.deviceId} · {live.pending.count} pending{live.pending.oldest && ` · oldest ${live.pending.oldest}`}
+        {live.stalled ? <b className="text-bad"> · stalled</b> : live.lastSync && ` · synced ${live.lastSync}`}
+      </span>
+    </div>
+  );
+}
 
 function BottomStrip({ moment }: { moment: MomentId }) {
   const m = MOMENTS[moment];
@@ -36,6 +57,7 @@ export function CommandCenter({ moment = "start", cascade = false, trace = false
   const maitri = m.stations[0];
   const traceSteps = moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : moment === "start" ? START_TRACE : moment === "hq-2501620" ? APPROVED_TRACE : HERO_TRACE;
   const fuelState = maitri.dimensions[0].state;
+  const live = useLiveChrome();
 
   const strip = (
     <>
@@ -49,8 +71,9 @@ export function CommandCenter({ moment = "start", cascade = false, trace = false
           </button>
         </div>
       )}
-      <PnrStrip phase={m.phase} daysToResupply={m.daysToResupply} vessel={moment === "hq-2501620" || moment === "hq-2600900" ? { name: "MV Ice Star", loadCutoff: "7 Feb (held)", departs: "9 Feb", eta: "27 Feb", closing: "28 Feb" } : CALENDAR.vessel} pnr={maitri.pnr}
-        links={[{ node: "Maitri", status: maitri.link.status, age: maitri.link.status !== "ONLINE" ? maitri.link.lastContact : undefined }, { node: "Bharati", status: "ONLINE" }]} />
+      <PnrStrip phase={live?.phase ?? m.phase} daysToResupply={live?.daysToResupply ?? m.daysToResupply} vessel={moment === "hq-2501620" || moment === "hq-2600900" ? { name: "MV Ice Star", loadCutoff: "7 Feb (held)", departs: "9 Feb", eta: "27 Feb", closing: "28 Feb" } : CALENDAR.vessel} pnr={maitri.pnr}
+        links={live ? live.stations.map((s) => (s.own ? { node: s.label, status: s.status } : { node: s.label, age: s.age }))
+          : [{ node: "Maitri", status: maitri.link.status, age: maitri.link.status !== "ONLINE" ? maitri.link.lastContact : undefined }, { node: "Bharati", status: "ONLINE" }]} />
     </>
   );
 
@@ -83,7 +106,7 @@ export function CommandCenter({ moment = "start", cascade = false, trace = false
             <EventTimeline events={TIMELINES[moment]} empty="No events since the seed was loaded at 24 Jan 08:00." />
           </div>
         </div>
-        <BottomStrip moment={moment} />
+        {live ? <LiveBottomStrip live={live} /> : <BottomStrip moment={moment} />}
       </div>
     </Frame>
   );

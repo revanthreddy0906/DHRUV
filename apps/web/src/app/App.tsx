@@ -1,4 +1,7 @@
-import { Link, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
+import { useDevice, useSignIn } from "../live/DeviceProvider";
+import { login } from "../live/session";
+import type { Role } from "../data/types";
 import { MOMENTS, type MomentId } from "../data/demo";
 import { CommandCenter } from "../screens/CommandCenter";
 import {
@@ -7,8 +10,9 @@ import {
 } from "../screens/Screens";
 
 /**
- * Static demo moments from the design import (fixtures standing in for evaluate()). Each screen
- * picks its moment from `?moment=`; F1 replaces this with live state from @dhruv/store.
+ * Screen content is still the design's demo moments (fixtures standing in for evaluate()), picked
+ * with `?moment=`; F2+ replace it with live state. The chrome (top bar, sidebar, offline banner,
+ * comms strip) is live once this tab is signed in.
  */
 
 function useMoment(fallback: MomentId): MomentId {
@@ -88,9 +92,28 @@ function SyncRoute() {
   return <SyncScreen key={params.toString()} link={link === "DEGRADED" || link === "ONLINE" ? link : "OFFLINE"} stalled={flag(params, "stalled")} />;
 }
 
+const ROLES: Role[] = ["HQ_OPS", "STATION_LEADER", "FIELD_LEAD"];
+
+/** Real login against the server. `?error=1` shows the static wrong-PIN design state instead. */
 function LoginRoute() {
   const [params] = useSearchParams();
-  return <LoginScreen error={flag(params, "error")} />;
+  const signIn = useSignIn();
+  const navigate = useNavigate();
+  const role = params.get("role");
+  if (flag(params, "error")) return <LoginScreen error />;
+  return (
+    <LoginScreen
+      initialRole={ROLES.includes(role as Role) ? (role as Role) : "STATION_LEADER"}
+      onSubmit={async (req) => {
+        await signIn(await login(req));
+        navigate(req.role === "FIELD_LEAD" ? "/field" : "/command");
+      }}
+    />
+  );
+}
+
+function Home() {
+  return <Navigate to={useDevice() ? "/command" : "/login"} replace />;
 }
 
 function FieldRoute() {
@@ -176,7 +199,7 @@ export function App() {
   return (
     <div className="h-screen w-full">
       <Routes>
-        <Route path="/" element={<Navigate to="/command" replace />} />
+        <Route path="/" element={<Home />} />
         <Route path="/screens" element={<Gallery />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/command" element={<CommandRoute />} />

@@ -4,6 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Same-origin API calls: the dev server forwards /api to the backend, so no CORS setup is needed.
+  server: {
+    proxy: { '/api': process.env.DHRUV_API_URL ?? 'http://localhost:4000' },
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -82,7 +82,8 @@ export function createApiCall(baseUrl: string, getToken: () => string, fetchImpl
   return async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     const res = await fetchImpl(`${baseUrl}${API_BASE}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, ...init.headers },
+      // Content-Type only with a body: Fastify rejects an empty body declared as JSON (Reset, Director beats).
+      headers: { ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${getToken()}`, ...init.headers },
     });
     const body = await res.json();
     if (!res.ok) throw new Error((body as ApiError).error?.message ?? `HTTP ${res.status}`);

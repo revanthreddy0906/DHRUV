@@ -121,7 +121,7 @@ export function StationCard({ station, onShowMath, onOpenDimension, compact, ani
 
 /** Top strip: phase, days to resupply, vessel window, link chips, PNR. */
 export function PnrStrip({ phase, daysToResupply, links, pnr, vessel }: {
-  phase: string; daysToResupply: number; links: { node: string; status: LinkStatus; age?: string }[]; pnr?: { date: string; daysLeft: number };
+  phase: string; daysToResupply: number; links: { node: string; status?: LinkStatus; age?: string }[]; pnr?: { date: string; daysLeft: number };
   vessel: { name: string; loadCutoff: string; departs: string; eta: string; closing: string };
 }) {
   return (
