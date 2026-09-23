@@ -5,6 +5,10 @@ import { reduce } from "./reduce.js";
 import { computeRequirement } from "./rules/requirement.js";
 import { checkFeasibility } from "./rules/feasibility.js";
 import { computeAvailability } from "./rules/availability.js";
+import { catalogueLevers, type CataloguedLever, type LeverEffect } from "./rules/levers.js";
+import { generateOptions, type GeneratedOption, type GenerateOptionsParams } from "./rules/options.js";
+import { rankOptions, type RankedOption } from "./rules/ranking.js";
+import { computePnr, type PnrResult } from "./rules/pnr.js";
 
 export { reduce } from "./reduce.js";
 export type {
@@ -28,6 +32,10 @@ export { checkFeasibility, type FeasibilityResult } from "./rules/feasibility.js
 export { computeAvailability, worstOf, type AvailabilityResult } from "./rules/availability.js";
 export { computePersonnelCoverage, computeAssetRedundancy, type CoverageResult } from "./rules/coverage.js";
 export { computeMissionImpact, type MissionImpactResult, type MissionNeeds } from "./rules/mission.js";
+export { catalogueLevers, type CataloguedLever, type LeverEffect } from "./rules/levers.js";
+export { generateOptions, type GeneratedOption, type GenerateOptionsParams } from "./rules/options.js";
+export { rankOptions, type RankedOption } from "./rules/ranking.js";
+export { computePnr, type PnrResult } from "./rules/pnr.js";
 
 /**
  * Placeholder for the pure engine (Build Bible section 7, owned by A).
@@ -55,6 +63,9 @@ export interface StationEval {
   nodeId: string;
   state: "GREEN" | "AMBER" | "RED";
   dimensions: DimensionEval[];
+  levers?: CataloguedLever[];
+  options?: RankedOption[];
+  pnr?: PnrResult | null;
 }
 
 export interface Evaluation {
@@ -93,6 +104,48 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
 
     const avail = computeAvailability(dieselId, diesel.stock, feasibleQty, req.r);
 
+    const dimensionTrace: TraceStep[] = [
+      { rule: "R01", text: req.trace },
+      ...legTrace,
+      { rule: "R03", text: avail.trace },
+    ];
+
+    let leversResult: CataloguedLever[] | undefined;
+    let optionsResult: RankedOption[] | undefined;
+    let pnrResult: PnrResult | null | undefined;
+
+    if (input.seed.levers && input.seed.levers.length > 0) {
+      const stationLevers = catalogueLevers(input.seed.levers, now, diesel.nodeId);
+      leversResult = stationLevers;
+
+      if (avail.state !== "GREEN") {
+        for (const l of stationLevers) {
+          dimensionTrace.push({ rule: "R08", text: l.trace });
+        }
+
+        const delayedLegEta = leg?.eta;
+        const allOptions = generateOptions({
+          levers: stationLevers,
+          baseStock: diesel.stock,
+          baseRawRequirement: req.rBase,
+          reservePct: diesel.reservePct,
+          inboundFeasibleQty: feasibleQty,
+          delayedLegEta,
+        });
+
+        const ranked = rankOptions(allOptions);
+        optionsResult = ranked;
+        for (const opt of ranked) {
+          dimensionTrace.push({ rule: "R09", text: opt.trace });
+          dimensionTrace.push({ rule: "R10", text: opt.rankingTrace });
+        }
+
+        const pnr = computePnr(allOptions, now);
+        pnrResult = pnr;
+        dimensionTrace.push({ rule: "R11", text: pnr.trace });
+      }
+    }
+
     stations.push({
       nodeId: diesel.nodeId,
       state: avail.state,
@@ -101,13 +154,12 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
           key: "FUEL",
           state: avail.state,
           ratio: avail.ratio,
-          trace: [
-            { rule: "R01", text: req.trace },
-            ...legTrace,
-            { rule: "R03", text: avail.trace },
-          ],
+          trace: dimensionTrace,
         },
       ],
+      levers: leversResult,
+      options: optionsResult,
+      pnr: pnrResult,
     });
   }
 
