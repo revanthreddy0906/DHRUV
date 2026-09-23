@@ -123,6 +123,19 @@ describe("GET /sync/pull", () => {
     expect(caughtUp.events).toEqual([]);
     expect(caughtUp.cursor).toBe(2);
   });
+
+  it("starts over when the client's cursor is ahead of the log (it predates a Reset to Start)", async () => {
+    const { app } = makeApp();
+    const maitri = await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
+    const hq = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
+    const fromMaitri = makeEvent(maitri, "STOCK_COUNTED", DIESEL, stockCount(92), t(24, "04:00"));
+    await push(app, maitri, [fromMaitri]);
+
+    // HQ still holds cursor 13 from the run before the reset; the log now ends at 1.
+    const view = await pull(app, hq, 13);
+    expect(view.events.map((e) => e.event_id)).toEqual([fromMaitri.event_id]);
+    expect(view.cursor).toBe(1);
+  });
 });
 
 describe("T-SYNC-01 (server log level): arrival order does not change the stored event set", () => {

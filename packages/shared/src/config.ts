@@ -9,6 +9,25 @@ export const config = {
     startAt: "2027-01-24T08:00:00.000Z",
   },
 
+  /** Section 13 (SYNTHETIC, fictional calendar): values the section 14 tables have no column for. */
+  season: {
+    phases: [
+      { phase: "CLOSING", start: "2027-01-24T00:00:00.000Z", end: "2027-03-01T00:00:00.000Z", days: 36 },
+      { phase: "WINTER", start: "2027-03-01T00:00:00.000Z", end: "2027-11-16T00:00:00.000Z", days: 260 },
+      { phase: "MOBILISATION", start: "2027-11-16T00:00:00.000Z", end: "2027-11-20T00:00:00.000Z", days: 4 },
+    ],
+    /** Next resupply, the requirement horizon (300 days from start). */
+    horizonAt: "2027-11-20T00:00:00.000Z",
+    horizonDays: 300,
+    /** Person-days of food per person over the horizon (section 13: 24 people x 300 days). */
+    foodDaysPerPerson: 300,
+    checkInIntervalHours: 4,
+    checkInGraceHours: 3,
+    /** Personnel rule: minimum on station per critical role; GREEN needs at least need + 1. */
+    roleNeed: { DOCTOR: 1, DIESEL_MECHANIC: 1, COMMS_ENGINEER: 1, COOK: 1 } as Record<string, number>,
+    generatorsNeeded: 2,
+  },
+
   sync: {
     /** Section 9 (SYNTHETIC): bytes per second of demo time while DEGRADED (20 kbps link). */
     degradedBytesPerSecond: 2500,
@@ -38,9 +57,19 @@ export const config = {
     driftCapKm: 30,
     /** Section 8: a position is FRESH under 1 h; older positions get the circle. */
     positionFreshHours: 1,
-    /** Section 16: no paid map APIs. Tiles are cached by the PWA; offline falls back to the schematic. */
-    tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    tileAttribution: "&copy; OpenStreetMap contributors",
+    /**
+     * Section 16: no paid map APIs. Tiles are cached by the PWA; offline falls back to the schematic.
+     * Default: NASA GIBS Blue Marble (free, web mercator, native zoom 8), which shows the ice and the
+     * Schirmacher Oasis around Maitri where OpenStreetMap is nearly blank. Note the {y}/{x} order.
+     */
+    tileUrl: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
+    tileAttribution: "NASA GIBS Blue Marble",
+    /** Deeper zooms (the 27 km circle is about z9-10) upscale level-8 tiles instead of requesting tiles that do not exist. */
+    tileMaxNativeZoom: 8,
+    tileMaxZoom: 12,
+    /** Alternative street tiles, for places where they help (ports, cities). */
+    altTileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    altTileAttribution: "&copy; OpenStreetMap contributors",
   },
 
   // TODO(A): freshness class boundaries per source type (section 4 of v2 / section 8)

@@ -19,6 +19,8 @@ export interface OutboxEntry {
   bytes: number;
   status: "pending" | "rejected";
   rejected_code?: ErrorCode;
+  /** The server's reason, shown to the operator (e.g. an approval that predates its proposal). */
+  rejected_message?: string;
   queued_at: string;
 }
 

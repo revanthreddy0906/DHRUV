@@ -12,7 +12,7 @@ export function loadSeed(db: Database.Database): Seed {
 
 /**
  * POST /admin/seed "Reset to Start". Clears the event log and derived views, then reloads the
- * reference tables from `seed`. The frozen season48 data is A's; until it lands the seed is empty.
+ * reference tables from `seed` (season48 in the running server; empty by default, as tests use it).
  */
 export function resetToStart(db: Database.Database, seed: Seed = emptySeed()): void {
   const run = db.transaction(() => {

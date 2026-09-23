@@ -168,8 +168,12 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
   { beat: "6", label: "Jump to 25 Jan 16:00", where: "client", events: [], clockJump: at(25, "16:00") },
   {
     beat: "7",
-    label: "FT-3 check-in",
+    label: "FT-3 check-in (relayed to the station)",
     where: "client",
+    // The team's own tablet records it, and the station records the same check-in relayed by
+    // radio (the Bible's role table lets a Station Leader record check-ins). Maitri's satellite
+    // link is down, so without the relay the offline station would have no position for the
+    // 1:40-1:50 incident beat (circle, nearest assets). Both copies are class A facts and merge.
     events: [
       {
         device_id: DEVICES.FT3_TAB,
@@ -179,6 +183,16 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
         entity_type: "team",
         entity_id: IDS.fieldTeam3,
         payload: { person_or_team_id: IDS.fieldTeam3, lat: -70.62, lon: 12.1 },
+        observed_at: at(25, "07:00"),
+      },
+      {
+        device_id: DEVICES.MAITRI_TAB,
+        actor_role: "STATION_LEADER",
+        node_id: NODES.MAITRI,
+        type: "CHECKIN_RECORDED",
+        entity_type: "team",
+        entity_id: IDS.fieldTeam3,
+        payload: { person_or_team_id: IDS.fieldTeam3, lat: -70.62, lon: 12.1, note: "relayed by radio to the station" },
         observed_at: at(25, "07:00"),
       },
     ],

@@ -19,3 +19,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r typecheck
       - run: pnpm -r test
+      # The web app is typechecked above; this catches bundling and PWA build failures too.
+      - run: pnpm --filter dhruv-frontend build

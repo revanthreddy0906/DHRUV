@@ -5,14 +5,19 @@ import { listAllEvents } from "./events.js";
 /**
  * decisions / conflicts / incidents are read-friendly views derived from events (section 14).
  * They are rebuilt from the full log in reduce order, so arrival order never changes them.
+ * Records are created first (proposal, flag, opening), then changed: an update recorded at the
+ * same demo time by a device that sorts earlier (HQ-WEB-01 before MAITRI-TAB-01) must not be lost.
  */
+const CREATES = new Set<OpEvent["type"]>(["DECISION_PROPOSED", "CONFLICT_FLAGGED", "INCIDENT_OPENED"]);
+
 export function rebuildProjections(db: Database.Database): void {
   const events = listAllEvents(db);
   const run = db.transaction(() => {
     db.prepare(`DELETE FROM decisions`).run();
     db.prepare(`DELETE FROM conflicts`).run();
     db.prepare(`DELETE FROM incidents`).run();
-    for (const event of events) applyProjection(db, event);
+    for (const event of events) if (CREATES.has(event.type)) applyProjection(db, event);
+    for (const event of events) if (!CREATES.has(event.type)) applyProjection(db, event);
   });
   run();
 }
