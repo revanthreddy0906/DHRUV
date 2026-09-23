@@ -73,6 +73,13 @@ export interface RejectRequest {
   observed_at?: string;
 }
 
+/** POST /scenarios/run (section 11): hypothetical events evaluated by the same engine; nothing is stored. */
+export interface ScenarioRequest {
+  overlay: OpEvent[];
+  /** Demo-clock time to evaluate at; the server has no demo clock. */
+  now?: string;
+}
+
 /** Row shapes of the section 14 reference tables, returned as GET /state `seed`. */
 export interface Seed {
   nodes: { id: string; name: string; type: "HQ" | "PORT" | "CITY" | "VESSEL" | "STATION"; lat: number | null; lon: number | null }[];

@@ -32,6 +32,8 @@ export interface DirectorBeat {
   clockJump?: string;
   /** For DECISION_PROPOSED: resolve trigger_event_id to the latest event of this type and entity. */
   resolveTrigger?: { type: EventType; entity_id: string };
+  /** Pause between the beat's events so the audience sees each state (beat 9's degraded drain). */
+  stepDelayMs?: number;
   /** Server-side fallback for the human approval beat. */
   approve?: { decision_id: string; chosen_option_id: string; verify_ack: boolean; observed_at: string };
 }
@@ -208,6 +210,7 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
     beat: "9",
     label: "Link returns at Maitri (Degraded, then Online)",
     where: "client",
+    stepDelayMs: 5000,
     events: [
       {
         device_id: DEVICES.MAITRI_TAB,

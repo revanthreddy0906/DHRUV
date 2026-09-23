@@ -1,4 +1,4 @@
-import { API_BASE, config, type ApiError, type PullResponse, type PushRequest, type PushResponse } from "@dhruv/shared";
+import { API_BASE, config, type ApiError, type PullResponse, type PushRequest, type PushResponse, type ScenarioRequest } from "@dhruv/shared";
 import { getMeta, setMeta, type DhruvDb } from "./db.js";
 import { linkStatus } from "./controls.js";
 import { drainOutbox, type DrainResult, type PushFn } from "./outbox.js";
@@ -75,9 +75,11 @@ export async function syncStatus(db: DhruvDb): Promise<SyncStatus> {
   };
 }
 
-/** fetch-based SyncApi against the section 15 endpoints. */
-export function createHttpApi(baseUrl: string, getToken: () => string, fetchImpl: typeof fetch = fetch): SyncApi {
-  async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+export type ApiCall = <T>(path: string, init?: RequestInit) => Promise<T>;
+
+/** Authenticated JSON call against /api/v1; throws with the section 15 error message on failure. */
+export function createApiCall(baseUrl: string, getToken: () => string, fetchImpl: typeof fetch = fetch): ApiCall {
+  return async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     const res = await fetchImpl(`${baseUrl}${API_BASE}${path}`, {
       ...init,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, ...init.headers },
@@ -85,9 +87,19 @@ export function createHttpApi(baseUrl: string, getToken: () => string, fetchImpl
     const body = await res.json();
     if (!res.ok) throw new Error((body as ApiError).error?.message ?? `HTTP ${res.status}`);
     return body as T;
-  }
+  };
+}
+
+/** fetch-based SyncApi against the section 15 endpoints. */
+export function createHttpApi(baseUrl: string, getToken: () => string, fetchImpl: typeof fetch = fetch): SyncApi {
+  const call = createApiCall(baseUrl, getToken, fetchImpl);
   return {
     push: (request: PushRequest) => call<PushResponse>("/sync/push", { method: "POST", body: JSON.stringify(request) }),
     pull: (since: number) => call<PullResponse>(`/sync/pull?since=${since}&limit=${config.sync.pullLimit}`),
   };
+}
+
+/** What-if drawer (section 11): evaluate hypothetical events server-side with the same engine. */
+export function runScenario<T = unknown>(call: ApiCall, request: ScenarioRequest): Promise<T> {
+  return call<T>("/scenarios/run", { method: "POST", body: JSON.stringify(request) });
 }

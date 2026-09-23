@@ -1,97 +1,122 @@
 import "fake-indexeddb/auto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { EVENT_RULES, type OpEvent, type PullResponse, type PushResponse } from "@dhruv/shared";
-import { findBeat } from "@dhruv/seed";
-import { DhruvDb, jumpClock, setLinkStatus, syncOnce, syncStatus, writeEvent, type DeviceIdentity, type SyncApi } from "@dhruv/store";
+import {
+  attachDirectorListener,
+  createDirector,
+  DhruvDb,
+  syncOnce,
+  syncStatus,
+  writeEvent,
+  type DeviceIdentity,
+  type DirectorAdminApi,
+  type DirectorChannel,
+  type SyncApi,
+} from "@dhruv/store";
 import { listConflicts } from "../db/projections.js";
 import { API, auth, login, makeApp, type Device } from "../test/helpers.js";
 
-interface Node {
+const cleanups: (() => void)[] = [];
+afterEach(() => {
+  while (cleanups.length) cleanups.pop()!();
+});
+
+function openChannel(name: string): DirectorChannel {
+  const c = new BroadcastChannel(name) as unknown as DirectorChannel;
+  cleanups.push(() => c.close());
+  return c;
+}
+
+interface Tab {
   device: Device;
   identity: DeviceIdentity;
   db: DhruvDb;
   api: SyncApi;
-  pushes: PushResponse[];
   pushedTypes: string[][];
 }
 
-function node(app: FastifyInstance, device: Device): Node {
-  const pushes: PushResponse[] = [];
+/** One simulated device tab: its own store, a sync client against the real server, a Director listener. */
+function openTab(app: FastifyInstance, device: Device, channelName: string): Tab {
   const pushedTypes: string[][] = [];
   const api: SyncApi = {
     push: async (req) => {
       pushedTypes.push(req.events.map((e) => e.type));
-      const res = (await app.inject({ method: "POST", url: `${API}/sync/push`, headers: auth(device), payload: req })).json() as PushResponse;
-      pushes.push(res);
-      return res;
+      return (await app.inject({ method: "POST", url: `${API}/sync/push`, headers: auth(device), payload: req })).json() as PushResponse;
     },
     pull: async (since) => (await app.inject({ method: "GET", url: `${API}/sync/pull?since=${since}`, headers: auth(device) })).json() as PullResponse,
   };
-  return { device, identity: device, db: new DhruvDb(`e2e-${device.device_id}-${Math.random()}`), api, pushes, pushedTypes };
+  const db = new DhruvDb(`e2e-${device.device_id}-${Math.random()}`);
+  cleanups.push(attachDirectorListener(db, device, openChannel(channelName)));
+  return { device, identity: device, db, api, pushedTypes };
 }
 
-async function runClientBeat(n: Node, beatId: string) {
-  const beat = findBeat(beatId)!;
-  for (const e of beat.events.filter((ev) => ev.device_id === n.identity.device_id)) {
-    await writeEvent(n.db, n.identity, { type: e.type, entity_type: e.entity_type, entity_id: e.entity_id, node_id: e.node_id, payload: e.payload, observed_at: e.observed_at, actor_role: e.actor_role });
-  }
+function adminApi(app: FastifyInstance, hq: Device): DirectorAdminApi {
+  return {
+    runServerBeat: async (beat) => {
+      const res = await app.inject({ method: "POST", url: `${API}/admin/director/${beat}`, headers: auth(hq) });
+      if (res.statusCode !== 200) throw new Error(res.body);
+      return res.json();
+    },
+    resetServer: async () => {
+      await app.inject({ method: "POST", url: `${API}/admin/seed`, headers: auth(hq) });
+    },
+  };
 }
 
-const director = (app: FastifyInstance, hq: Device, beat: string) => app.inject({ method: "POST", url: `${API}/admin/director/${beat}`, headers: auth(hq) });
-const syncedIds = async (n: Node) => new Set((await n.db.events.toArray()).filter((e: OpEvent) => !EVENT_RULES[e.type].localOnly).map((e) => e.event_id));
+const syncedIds = async (t: Tab) => new Set((await t.db.events.toArray()).filter((e: OpEvent) => !EVENT_RULES[e.type].localOnly).map((e) => e.event_id));
+const sync = (t: Tab, cycleSeconds = 1) => syncOnce(t.db, t.identity, t.api, { cycleSeconds });
 
-describe("offline-to-online round trip: Director beats 1-11 against the real server", () => {
+describe("offline-to-online round trip: the Director drives beats 1-11 against the real server", () => {
   it("station keeps working offline, syncs safety-critical data first, and flags SK-2 for a human", async () => {
     const { app, db } = makeApp();
-    const hq = node(app, await login(app, "HQ-WEB-01", "HQ_OPS", "HQ"));
-    const maitri = node(app, await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI"));
-    const ft3 = node(app, await login(app, "FT3-TAB-01", "FIELD_LEAD", "MAITRI"));
+    const channelName = `e2e-director-${Math.random()}`;
+    const hqDevice = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
+    const hq = openTab(app, hqDevice, channelName);
+    const maitri = openTab(app, await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI"), channelName);
+    const ft3 = openTab(app, await login(app, "FT3-TAB-01", "FIELD_LEAD", "MAITRI"), channelName);
+    const director = createDirector({ channel: openChannel(channelName), admin: adminApi(app, hqDevice), timeoutMs: 150, stepDelayMs: 0 });
 
-    // Beats 1-2: slip and decision, at HQ.
-    expect((await director(app, hq.device, "1")).statusCode).toBe(200);
-    expect((await director(app, hq.device, "2")).statusCode).toBe(200);
-    await syncOnce(maitri.db, maitri.identity, maitri.api);
+    // Beats 1-2: slip and decision, at HQ; Maitri is still online and sees them.
+    await director.runBeat("1");
+    await director.runBeat("2");
+    await sync(maitri);
     expect(await maitri.db.events.where("type").equals("DECISION_PROPOSED").count()).toBe(1);
 
-    // Beat 3: link lost. Beat 4: offline entries at Maitri.
-    await setLinkStatus(maitri.db, maitri.identity, "OFFLINE", "2027-01-24T09:00:00.000Z");
-    await runClientBeat(maitri, "4");
-    expect(await syncOnce(maitri.db, maitri.identity, maitri.api)).toEqual({ ok: false, skipped: "offline" });
+    // Beat 3: link lost. Beat 4: offline entries, written only in Maitri's tab.
+    expect((await director.runBeat("3")).appliedOn).toEqual(["MAITRI-TAB-01"]);
+    await director.runBeat("4");
+    expect(await sync(maitri)).toEqual({ ok: false, skipped: "offline" });
     expect((await syncStatus(maitri.db)).pending).toBe(4);
 
     // Beat 5: HQ edits SK-2 from its stale plan; HQ cannot see Maitri's entries yet.
-    await director(app, hq.device, "5");
-    await syncOnce(hq.db, hq.identity, hq.api);
+    await director.runBeat("5");
+    await sync(hq);
     expect(await hq.db.events.where("entity_id").equals("SK-2").count()).toBe(1);
     expect(await hq.db.events.where("type").equals("STOCK_COUNTED").count()).toBe(0);
 
-    // Beat 6: every tab jumps to 25 Jan 16:00. Beats 7-8: check-in, then incident while offline.
-    for (const n of [hq, maitri, ft3]) await jumpClock(n.db, n.identity, "2027-01-25T16:00:00.000Z");
-    await runClientBeat(ft3, "7");
-    await syncOnce(ft3.db, ft3.identity, ft3.api);
-    await runClientBeat(maitri, "8");
+    // Beat 6: every tab jumps to 25 Jan 16:00. Beats 7-8: check-in, then the incident while offline.
+    expect((await director.runBeat("6")).appliedOn.sort()).toEqual(["FT3-TAB-01", "HQ-WEB-01", "MAITRI-TAB-01"]);
+    await director.runBeat("7");
+    await sync(ft3);
+    await director.runBeat("8");
     expect((await syncStatus(maitri.db)).pending).toBe(5);
 
-    // Beat 9: link returns degraded (one 1-second cycle), then online.
-    await setLinkStatus(maitri.db, maitri.identity, "DEGRADED");
-    await syncOnce(maitri.db, maitri.identity, maitri.api, { cycleSeconds: 1 });
-    expect(maitri.pushedTypes.at(-1)![0]).toBe("INCIDENT_OPENED");
-    expect(maitri.pushedTypes.at(-1)![1]).toBe("ASSET_STATUS_SET");
-
-    await setLinkStatus(maitri.db, maitri.identity, "ONLINE");
-    await syncOnce(maitri.db, maitri.identity, maitri.api);
+    // Beat 9: one degraded cycle drains the incident first, then the link returns fully.
+    await director.setLink("MAITRI", "DEGRADED");
+    await sync(maitri);
+    expect(maitri.pushedTypes.at(-1)!.slice(0, 2)).toEqual(["INCIDENT_OPENED", "ASSET_STATUS_SET"]);
+    await director.runBeat("9");
+    await sync(maitri);
     expect((await syncStatus(maitri.db)).pending).toBe(0);
-    const firstDrainOrder = maitri.pushedTypes.slice(-2).flat();
-    expect(firstDrainOrder.indexOf("INCIDENT_OPENED")).toBeLessThan(firstDrainOrder.indexOf("MISSION_UPDATED"));
 
-    // Beat 10: the conflict is flagged on sync, conservative DOWN kept, and reaches HQ.
+    // Beat 10 (emergent): the conflict is flagged on sync with DOWN kept, and reaches HQ.
     const [conflict] = listConflicts(db, "OPEN");
     expect(conflict).toMatchObject({ entity_id: "SK-2", conservative_value: "DOWN" });
-    await syncOnce(hq.db, hq.identity, hq.api);
+    await sync(hq);
     expect(await hq.db.events.where("type").equals("CONFLICT_FLAGGED").count()).toBe(1);
 
-    // HQ resolves it as a human action; beat 11: HQ approves option 1.
+    // HQ resolves it as a human action; beat 11: the approval.
     await writeEvent(hq.db, hq.identity, {
       type: "CONFLICT_RESOLVED",
       entity_type: "conflict",
@@ -99,22 +124,21 @@ describe("offline-to-online round trip: Director beats 1-11 against the real ser
       node_id: "MAITRI",
       payload: { conflict_id: conflict.id, chosen_value: "DOWN", resolver: "HQ-WEB-01" },
     });
-    await syncOnce(hq.db, hq.identity, hq.api);
+    await sync(hq);
     expect(listConflicts(db, "OPEN")).toHaveLength(0);
-
-    const approve = await app.inject({
-      method: "POST",
-      url: `${API}/decisions/DEC-01/approve`,
-      headers: auth(hq.device),
-      payload: { chosen_option_id: "OPT-1", verify_ack: true, observed_at: "2027-01-25T16:20:00.000Z" },
-    });
-    expect(approve.statusCode).toBe(200);
+    expect(await director.runBeat("11")).toMatchObject({ where: "server", eventsCreated: 3 });
 
     // Convergence: after a final sync every replica holds the same synced event set.
-    for (const n of [maitri, hq, ft3]) await syncOnce(n.db, n.identity, n.api);
+    for (const t of [maitri, hq, ft3]) await sync(t);
     const [m, h, f] = await Promise.all([syncedIds(maitri), syncedIds(hq), syncedIds(ft3)]);
     expect([...m].sort()).toEqual([...h].sort());
     expect([...f].sort()).toEqual([...h].sort());
     expect(await maitri.db.events.where("type").equals("VESSEL_UPDATED").count()).toBe(1);
+
+    // Reset to Start clears the server and every tab.
+    await director.reset();
+    expect(await maitri.db.events.count()).toBe(0);
+    const state = await app.inject({ method: "GET", url: `${API}/state`, headers: auth(hqDevice) });
+    expect(state.json().events).toEqual([]);
   });
 });

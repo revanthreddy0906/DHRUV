@@ -11,6 +11,7 @@
     "lint": "echo \"no lint config yet\" && exit 0"
   },
   "dependencies": {
+    "@dhruv/seed": "workspace:*",
     "@dhruv/shared": "workspace:*",
     "dexie": "^4.0.10"
   },

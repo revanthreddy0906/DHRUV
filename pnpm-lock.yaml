@@ -89,6 +89,9 @@ importers:
 
   packages/store:
     dependencies:
+      '@dhruv/seed':
+        specifier: workspace:*
+        version: link:../seed
       '@dhruv/shared':
         specifier: workspace:*
         version: link:../shared
