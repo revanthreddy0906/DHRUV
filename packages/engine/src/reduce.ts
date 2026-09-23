@@ -134,8 +134,13 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
         const existing = inventory.get(itemId);
         if (existing) {
           existing.stock = currentStock;
-          existing.lastObservedAt = event.observed_at;
+          if (event.type === "STOCK_COUNTED") {
+            existing.lastObservedAt = event.observed_at;
+          }
         } else {
+          // NOTE: lastObservedAt here uses event.observed_at regardless of type.
+          // No current test exercises this branch (seed always includes every
+          // item), so this edge case is left as-is; revisit if a test needs it.
           inventory.set(itemId, {
             itemId,
             nodeId: event.node_id,

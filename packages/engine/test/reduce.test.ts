@@ -375,4 +375,27 @@ describe("reduce", () => {
       expect(state).toEqual(baseState);
     }
   });
+
+  it("6. Stock issue does not reset the freshness clock (only STOCK_COUNTED does)", () => {
+    const issueEvent: OpEvent = {
+      event_id: "6a1f0c2e-3b4d-4e5f-8a6b-7c8d9e0f1a2b",
+      device_id: "device-sl-1",
+      seq: 1,
+      type: "STOCK_ISSUED",
+      entity_type: "inventory_item",
+      entity_id: "item-1",
+      node_id: "node-1",
+      payload: { item_id: "item-1", qty: 10, reason: "generator daily run" },
+      observed_at: "2026-10-05T00:00:00.000Z",
+      created_at_client: "2026-10-05T00:00:00.000Z",
+      priority: 2,
+      actor_role: "STATION_LEADER",
+      schema_version: 1,
+    };
+
+    const state = reduce(fixtureSeed, [issueEvent]);
+
+    expect(state.inventory.get("item-1")?.stock).toBe(90);
+    expect(state.inventory.get("item-1")?.lastObservedAt).toBe("2026-10-01T00:00:00.000Z");
+  });
 });
