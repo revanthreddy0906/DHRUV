@@ -59,8 +59,10 @@ export function BaselineB0Badge({ alerts, engineState, text }: { alerts: number;
   );
 }
 
-export function StationCard({ station, onShowMath, onOpenDimension, compact, animateIndex }: {
+export function StationCard({ station, link, onShowMath, onOpenDimension, compact, animateIndex }: {
   station: StationEval; onShowMath?: () => void; onOpenDimension?: (k: string) => void; compact?: boolean; animateIndex?: number;
+  /** Live link as this device knows it: its own status, or only the last-heard age for another station. */
+  link?: { status?: LinkStatus; age?: string };
 }) {
   const worst = station.dimensions.find((d) => d.state === station.state && d.state !== "GREEN");
   const ctx = station.state === "GREEN" ? "All dimensions within thresholds" : `${worst ? DIM_LABEL[worst.key] : ""} below required threshold`;
@@ -71,7 +73,7 @@ export function StationCard({ station, onShowMath, onOpenDimension, compact, ani
       <header className="mb-3 flex flex-wrap items-center gap-3">
         <h2 id={`st-${station.nodeId}`} className="text-lg font-semibold text-fg">{station.name}</h2>
         <StateBadge state={station.state} context={ctx} size={compact ? "md" : "lg"} className={animateIndex !== undefined ? "dh-cascade-in" : undefined} />
-        <span className="ml-auto"><LinkChip node="Link" status={station.link.status as LinkStatus} age={station.link.status !== "ONLINE" ? `last contact ${station.link.lastContact}` : undefined} /></span>
+        <span className="ml-auto">{link ? <LinkChip node="Link" status={link.status} age={link.age} /> : <LinkChip node="Link" status={station.link.status as LinkStatus} age={station.link.status !== "ONLINE" ? `last contact ${station.link.lastContact}` : undefined} />}</span>
       </header>
 
       {station.gates.length > 0 && <div className="mb-3 space-y-1.5">{station.gates.map((g) => <GateBanner key={g}>{g}</GateBanner>)}</div>}

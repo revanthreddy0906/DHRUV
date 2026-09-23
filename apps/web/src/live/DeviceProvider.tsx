@@ -22,6 +22,8 @@ export interface DeviceSnapshot {
   seed: Seed | null;
   /** Per station: when this device last received an event written at that station, if ever. */
   lastHeard: Record<string, string | null>;
+  /** Event ids still in this device's outbox (not yet accepted by the server). */
+  pendingIds: Set<string>;
 }
 
 export interface LastSync {
@@ -58,7 +60,9 @@ export function useSignIn(): (session: Session) => Promise<void> {
 
 async function readSnapshot(db: DhruvDb, session: Session): Promise<DeviceSnapshot> {
   const { identity } = session;
-  const [clock, link, sync, events, seed] = await Promise.all([now(db), linkStatus(db, identity.node_id), syncStatus(db), db.events.toArray(), cachedSeed(db)]);
+  const [clock, link, sync, events, seed, outbox] = await Promise.all([
+    now(db), linkStatus(db, identity.node_id), syncStatus(db), db.events.toArray(), cachedSeed(db), db.outbox.where("status").equals("pending").toArray(),
+  ]);
 
   const lastHeard: Record<string, string | null> = {};
   for (const node of STATION_NODES) {
@@ -68,7 +72,7 @@ async function readSnapshot(db: DhruvDb, session: Session): Promise<DeviceSnapsh
       .sort();
     lastHeard[node] = heard.at(-1) ?? null;
   }
-  return { now: clock, link, sync, events, seed, lastHeard };
+  return { now: clock, link, sync, events, seed, lastHeard, pendingIds: new Set(outbox.map((o) => o.event.event_id)) };
 }
 
 const isAuthError = (outcome: SyncOutcome) => !outcome.ok && "error" in outcome && /token/i.test(outcome.error);

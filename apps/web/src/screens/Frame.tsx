@@ -4,6 +4,7 @@ import { LogOut, Eye } from "lucide-react";
 import { DhruvShell, TopBar, Sidebar, OfflineBanner, type NavKey } from "../components/shell";
 import { MOMENTS, type MomentId } from "../data/demo";
 import { useLiveChrome, type LiveChrome } from "../live/chrome";
+import { useLiveOps } from "../live/ops";
 
 export const NAV_PATH: Record<NavKey, string> = {
   command: "/command", decisions: "/decisions/DEC-01", cargo: "/cargo", inventory: "/inventory",
@@ -37,6 +38,7 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
 }) {
   const m = MOMENTS[moment];
   const live = useLiveChrome();
+  const ops = useLiveOps();
   const [link, setLink] = React.useState(m.link);
   const [role, setRole] = React.useState(m.viewer.role);
   const navigate = useNavigate();
@@ -58,7 +60,9 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
         onJump={live?.onJump} onReset={live?.onReset}
         status={live ? <LiveStatus live={live} /> : <PreviewTag />} />}
       banner={banner ?? (offline ? offlineBanner : undefined)}
-      sidebar={<Sidebar active={nav} incidentOpen={!!m.incident || moment === "hq-2501620" || moment === "hq-2501610"} decisionCount={m.decisions.length} conflictCount={conflictCount}
+      sidebar={<Sidebar active={nav}
+        incidentOpen={ops ? ops.openIncidents.length > 0 : !!m.incident || moment === "hq-2501620" || moment === "hq-2501610"}
+        decisionCount={ops ? ops.openDecisions.length : m.decisions.length} conflictCount={ops ? ops.openConflicts.length : conflictCount}
         role={chrome.role} station={chrome.station} deviceId={chrome.deviceId} link={chrome.link} onNavigate={onNavigate} />}
       strip={strip}
       drawer={drawer}

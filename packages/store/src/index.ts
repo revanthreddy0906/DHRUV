@@ -6,3 +6,4 @@ export * from "./outbox.js";
 export * from "./sync.js";
 export * from "./director.js";
 export * from "./session.js";
+export * from "./views.js";

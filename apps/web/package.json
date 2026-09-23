@@ -10,6 +10,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@dhruv/map": "workspace:*",
     "@dhruv/seed": "workspace:*",
     "@dhruv/shared": "workspace:*",
     "@dhruv/store": "workspace:*",
