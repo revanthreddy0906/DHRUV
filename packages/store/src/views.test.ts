@@ -46,7 +46,8 @@ describe("conflictsView", () => {
   it("opens on CONFLICT_FLAGGED and closes on CONFLICT_RESOLVED", () => {
     const flag = ev("CONFLICT_FLAGGED", "SERVER", { conflict_id: "CF-1", entity_type: "asset", entity_id: "SK-2", field: "status", contenders: [], conservative_value: "DOWN" }, t(24, "11:00"));
     expect(conflictsView([flag])[0]).toMatchObject({ id: "CF-1", status: "OPEN", conservative_value: "DOWN", node_id: "MAITRI" });
-    const resolved = ev("CONFLICT_RESOLVED", "HQ-WEB-01", { conflict_id: "CF-1", chosen_value: "DOWN", resolver: "HQ-WEB-01" }, t(25, "16:15"));
+    // Resolved at the flag's own demo time by a device that sorts before SERVER.
+    const resolved = ev("CONFLICT_RESOLVED", "HQ-WEB-01", { conflict_id: "CF-1", chosen_value: "DOWN", resolver: "HQ-WEB-01" }, t(24, "11:00"));
     expect(conflictsView([resolved, flag])[0]).toMatchObject({ status: "RESOLVED", resolved_value: "DOWN" });
   });
 });
@@ -60,6 +61,10 @@ describe("incidentsView and lastCheckIn", () => {
     ];
     expect(incidentsView(events)[0]).toMatchObject({ id: "INC-01", open: true, team_id: "FT-3", opened_by: "MAITRI-TAB-01" });
     expect(lastCheckIn(events, "FT-3")).toMatchObject({ lat: -70.62, lon: 12.1, observed_at: t(25, "07:00") });
+
+    // HQ escalates at the same demo time Maitri opened it; HQ-WEB-01 sorts before MAITRI-TAB-01.
+    events.push(ev("INCIDENT_UPDATED", "HQ-WEB-01", { incident_id: "INC-01", status: "ESCALATED" }, t(25, "16:00")));
+    expect(incidentsView(events)[0]).toMatchObject({ open: true, status: "ESCALATED" });
 
     events.push(ev("INCIDENT_UPDATED", "MAITRI-TAB-01", { incident_id: "INC-01", status: "RESOLVED" }, t(25, "18:00")));
     expect(incidentsView(events)[0]).toMatchObject({ open: false, status: "RESOLVED" });

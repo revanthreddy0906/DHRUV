@@ -57,9 +57,19 @@ export const config = {
     driftCapKm: 30,
     /** Section 8: a position is FRESH under 1 h; older positions get the circle. */
     positionFreshHours: 1,
-    /** Section 16: no paid map APIs. Tiles are cached by the PWA; offline falls back to the schematic. */
-    tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    tileAttribution: "&copy; OpenStreetMap contributors",
+    /**
+     * Section 16: no paid map APIs. Tiles are cached by the PWA; offline falls back to the schematic.
+     * Default: NASA GIBS Blue Marble (free, web mercator, native zoom 8), which shows the ice and the
+     * Schirmacher Oasis around Maitri where OpenStreetMap is nearly blank. Note the {y}/{x} order.
+     */
+    tileUrl: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
+    tileAttribution: "NASA GIBS Blue Marble",
+    /** Deeper zooms (the 27 km circle is about z9-10) upscale level-8 tiles instead of requesting tiles that do not exist. */
+    tileMaxNativeZoom: 8,
+    tileMaxZoom: 12,
+    /** Alternative street tiles, for places where they help (ports, cities). */
+    altTileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    altTileAttribution: "&copy; OpenStreetMap contributors",
   },
 
   // TODO(A): freshness class boundaries per source type (section 4 of v2 / section 8)

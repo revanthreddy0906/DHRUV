@@ -13,6 +13,9 @@ import { Button, cx } from "../components/primitives";
 import { useNavigate } from "react-router-dom";
 import { useLiveChrome, type LiveChrome } from "../live/chrome";
 import { useLiveOps } from "../live/ops";
+import { useLiveMapModel } from "../live/incident";
+import { LiveMap } from "../live/LiveMap";
+import { LiveIncidentPanel } from "./IncidentLive";
 
 const LINK_TEXT = { ONLINE: "text-ok", DEGRADED: "text-warn", OFFLINE: "text-bad" } as const;
 
@@ -58,6 +61,7 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
 }) {
   const live = useLiveChrome();
   const ops = useLiveOps();
+  const mapModel = useLiveMapModel();
   const navigate = useNavigate();
   const moment = ops?.mockMoment ?? momentProp;
   const m = MOMENTS[moment];
@@ -117,7 +121,7 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
             <RiskList items={m.risks} />
           </div>
           <div className={cx("min-h-0 space-y-3 overflow-auto pr-1", cascade && "dh-cascade-in")}>
-            {emergency ? <IncidentPanel compact /> : (
+            {emergency ? (ops ? <LiveIncidentPanel compact /> : <IncidentPanel compact />) : (
               <>
                 <StationCard station={maitri} link={maitriView.link} onShowMath={() => setShowTrace(true)} animateIndex={cascade ? 5 : undefined} />
                 <StationCard station={bharatiView.station} link={bharatiView.link} compact onShowMath={() => setShowTrace(true)} />
@@ -125,7 +129,9 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
             )}
           </div>
           <div className="min-h-0 space-y-4 overflow-auto">
-            <MapPanel><SchematicMap width={320} height={250} compact delayedLeg={moment !== "start" && moment !== "hq-2501620"} maitriState={maitri.state === "RED" ? "RED" : "GREEN"} /></MapPanel>
+            {mapModel ? <LiveMap model={mapModel} view="all" height={250} compact /> : (
+              <MapPanel><SchematicMap width={320} height={250} compact delayedLeg={moment !== "start" && moment !== "hq-2501620"} maitriState={maitri.state === "RED" ? "RED" : "GREEN"} /></MapPanel>
+            )}
             {!incidentStrip && moment !== "start" && (
               <Button size="sm" icon={<FlaskConical size={14} />} onClick={() => setSim(true)}>Open what-if</Button>
             )}

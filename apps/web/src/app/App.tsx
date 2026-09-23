@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LiveDecisionDetail } from "../screens/DecisionLive";
+import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { useDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
@@ -76,12 +77,15 @@ function PersonnelRoute() {
 }
 
 function MapRoute() {
+  const device = useDevice();
   const moment = useMoment("maitri-2501600");
+  if (device) return <LiveMapScreen />;
   return <MapScreen key={moment} moment={moment} />;
 }
 
 function IncidentRoute() {
   const [params] = useSearchParams();
+  if (useDevice()) return <LiveIncidentScreen />;
   return <IncidentScreen conflictOpen={flag(params, "conflict")} />;
 }
 

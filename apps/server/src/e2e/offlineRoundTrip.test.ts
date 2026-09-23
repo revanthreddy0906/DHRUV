@@ -7,6 +7,7 @@ import {
   createDirector,
   DhruvDb,
   syncOnce,
+  lastCheckIn,
   syncStatus,
   writeEvent,
   type DeviceIdentity,
@@ -99,10 +100,12 @@ describe("offline-to-online round trip: the Director drives beats 1-11 against t
 
     // Beat 6: every tab jumps to 25 Jan 16:00. Beats 7-8: check-in, then the incident while offline.
     expect((await director.runBeat("6")).appliedOn.sort()).toEqual(["FT3-TAB-01", "HQ-WEB-01", "MAITRI-TAB-01"]);
-    await director.runBeat("7");
+    // Beat 7 records FT-3's check-in on the team tablet and, relayed by radio, on offline Maitri.
+    expect((await director.runBeat("7")).appliedOn.sort()).toEqual(["FT3-TAB-01", "MAITRI-TAB-01"]);
     await sync(ft3);
     await director.runBeat("8");
-    expect((await syncStatus(maitri.db)).pending).toBe(5);
+    expect((await syncStatus(maitri.db)).pending).toBe(6);
+    expect(lastCheckIn(await maitri.db.events.toArray(), "FT-3")).toMatchObject({ lat: -70.62, lon: 12.1 });
 
     // Beat 9: one degraded cycle drains the incident first, then the link returns fully.
     await director.setLink("MAITRI", "DEGRADED");

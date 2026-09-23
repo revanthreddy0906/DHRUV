@@ -95,10 +95,15 @@ export interface ConflictView {
   resolver?: string;
 }
 
-/** Conflicts flagged by the server; a CONFLICT_RESOLVED closes the latest flag with that id. */
+/**
+ * Conflicts flagged by the server; a CONFLICT_RESOLVED closes the latest flag with that id.
+ * Flags are read first: a resolution recorded at the same demo time by a device that sorts
+ * earlier must still find its flag.
+ */
 export function conflictsView(events: OpEvent[]): ConflictView[] {
   const byId = new Map<string, ConflictView>();
-  for (const e of sorted(events)) {
+  const ordered = sorted(events);
+  for (const e of ordered) {
     if (e.type === "CONFLICT_FLAGGED") {
       const p = e.payload as PayloadOf<"CONFLICT_FLAGGED">;
       byId.set(p.conflict_id, {
@@ -112,7 +117,10 @@ export function conflictsView(events: OpEvent[]): ConflictView[] {
         flagged_at: e.observed_at,
         status: "OPEN",
       });
-    } else if (e.type === "CONFLICT_RESOLVED") {
+    }
+  }
+  for (const e of ordered) {
+    if (e.type === "CONFLICT_RESOLVED") {
       const p = e.payload as PayloadOf<"CONFLICT_RESOLVED">;
       const c = byId.get(p.conflict_id);
       if (c) Object.assign(c, { status: "RESOLVED", resolved_value: p.chosen_value, resolver: p.resolver });
@@ -134,10 +142,16 @@ export interface IncidentView {
   last_confirmed_at: string;
 }
 
-/** Incidents with their latest status; open until a status in the closed list (section 6). */
+/**
+ * Incidents with their latest status; open until a status in the closed list (section 6).
+ * Openings are read first, like proposals: an update written at the same demo time as the opening
+ * (HQ escalating at 16:00 an incident Maitri opened at 16:00) sorts before it by device id and
+ * must not be dropped.
+ */
 export function incidentsView(events: OpEvent[]): IncidentView[] {
   const byId = new Map<string, IncidentView>();
-  for (const e of sorted(events)) {
+  const ordered = sorted(events);
+  for (const e of ordered) {
     if (e.type === "INCIDENT_OPENED") {
       const p = e.payload as PayloadOf<"INCIDENT_OPENED">;
       if (byId.has(p.incident_id)) continue;
@@ -153,7 +167,10 @@ export function incidentsView(events: OpEvent[]): IncidentView[] {
         team_id: p.team_id,
         last_confirmed_at: p.last_confirmed_at,
       });
-    } else if (e.type === "INCIDENT_UPDATED") {
+    }
+  }
+  for (const e of ordered) {
+    if (e.type === "INCIDENT_UPDATED") {
       const p = e.payload as PayloadOf<"INCIDENT_UPDATED">;
       const incident = byId.get(p.incident_id);
       if (!incident) continue;

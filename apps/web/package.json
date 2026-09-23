@@ -15,6 +15,7 @@
     "@dhruv/shared": "workspace:*",
     "@dhruv/store": "workspace:*",
     "dexie": "^4.4.6",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.47.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/leaflet": "^1.9.12",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.1",
