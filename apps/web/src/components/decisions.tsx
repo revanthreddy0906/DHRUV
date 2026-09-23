@@ -64,7 +64,7 @@ export function LeverWindow({ levers, today = "24 Jan", pnr = "3 Feb", end = "1 
       <div className="relative">
         <div aria-hidden className="pointer-events-none absolute inset-y-0 left-[152px] right-0">
           <div className="absolute inset-y-0 w-px bg-accent" style={{ left: x(today) }}><span className="absolute -top-1 left-1 font-mono text-[10px] text-accent">now</span></div>
-          <div className="absolute inset-y-0 w-0.5 bg-bad" style={{ left: x(pnr) }}><span className="absolute bottom-0 left-1.5 whitespace-nowrap font-mono text-[10px] font-bold text-bad">PNR {pnr}</span></div>
+          {pnr && <div className="absolute inset-y-0 w-0.5 bg-bad" style={{ left: x(pnr) }}><span className="absolute bottom-0 left-1.5 whitespace-nowrap font-mono text-[10px] font-bold text-bad">PNR {pnr}</span></div>}
         </div>
         <ul className="space-y-1.5 pb-5 pt-1">
           {levers.map((l) => {
@@ -160,17 +160,40 @@ export function VerifyGate({ items, checked, onChange }: { items: string[]; chec
 
 /* ---------- Decision Detail (an approval console, not a modal) ---------- */
 
-export function DecisionDetail({ id, title, station, current, trigger, pnr, trace, levers, options, role, today, approved, onApprove, onReject, onExplain, onPrint }: {
-  id: string; title: string; station: string; current: { state: Health; ratio: number; text: string }; trigger: string; pnr: { date: string; daysLeft: number };
+export interface DecisionStatus { tone: "ok" | "warn" | "bad"; text: string }
+
+const STATUS_STYLE: Record<DecisionStatus["tone"], { box: string; Icon: typeof CircleCheck; icon: string }> = {
+  ok: { box: "border-ok/40 bg-ok-tint", Icon: CircleCheck, icon: "text-ok" },
+  warn: { box: "border-warn/50 bg-warn-tint", Icon: Timer, icon: "text-warn" },
+  bad: { box: "border-bad/50 bg-bad-tint", Icon: Ban, icon: "text-bad" },
+};
+
+export function DecisionDetail({ id, title, station, current, trigger, pnr, trace, levers, options, role, today, approved, onApprove, onReject, onExplain, onPrint,
+  blocked, optionBlocked, status, busy, error, note }: {
+  id: string; title: string; station: string; current: { state: Health; ratio: number; text: string }; trigger: string; pnr: { date: string; daysLeft: number } | null;
   trace: TStep[]; levers: Lever[]; options: OptionEval[]; role: Role; today?: string; approved?: string;
-  onApprove?: (opt: string) => void; onReject?: () => void; onExplain?: () => void; onPrint?: () => void;
+  onApprove?: (opt: string, verifyAck: boolean) => void; onReject?: (reason: string) => void; onExplain?: () => void; onPrint?: () => void;
+  /** Live permission reasons (section 4). Without it the design default applies: HQ Ops only. */
+  blocked?: { approve?: string; reject?: string };
+  /** Why a specific option cannot be approved (expired, not in the recorded proposal). */
+  optionBlocked?: (optionId: string) => string | undefined;
+  /** Outcome shown instead of the approval controls (approved, rejected, waiting to sync). */
+  status?: DecisionStatus;
+  busy?: boolean;
+  error?: string;
+  /** Shown under the controls, e.g. how the approval will be recorded on this link. */
+  note?: string;
 }) {
   const [sel, setSel] = React.useState<string>(options[0]?.id);
   const [ack, setAck] = React.useState(false);
+  const [rejecting, setRejecting] = React.useState(false);
+  const [reason, setReason] = React.useState("");
   const chosen = options.find((o) => o.id === sel)!;
   const needsVerify = chosen.requiresVerify.length > 0;
-  const roleReason = role !== "HQ_OPS" ? "Only HQ Ops can approve decisions touching vessels" : undefined;
-  const gateReason = !roleReason && needsVerify && !ack ? "Tick the verification above to enable Approve" : undefined;
+  const roleReason = blocked ? blocked.approve : role !== "HQ_OPS" ? "Only HQ Ops can approve decisions touching vessels" : undefined;
+  const rejectReason = blocked ? blocked.reject : role !== "HQ_OPS" ? "Only HQ Ops can reject vessel decisions" : undefined;
+  const gateReason = roleReason ?? optionBlocked?.(sel) ?? (needsVerify && !ack ? "Tick the verification above to enable Approve" : undefined);
+  const outcome = status ?? (approved ? { tone: "ok" as const, text: approved } : undefined);
   return (
     <div className="grid h-full grid-cols-[400px_minmax(0,1fr)] gap-5 p-5">
       <div className="flex min-h-0 flex-col gap-4">
@@ -183,7 +206,7 @@ export function DecisionDetail({ id, title, station, current, trigger, pnr, trac
             <span className="text-sm text-fg-2">{current.text}</span>
           </div>
           <p className="mt-3 text-sm text-fg-2"><span className="text-[11px] font-semibold uppercase tracking-wider">Trigger</span> <span className="ml-1 text-fg">{trigger}</span></p>
-          <div className="mt-3 flex items-center gap-2"><CountdownChip date={pnr.date} daysLeft={pnr.daysLeft} label="Point of no return" /></div>
+          <div className="mt-3 flex items-center gap-2">{pnr ? <CountdownChip date={pnr.date} daysLeft={pnr.daysLeft} label="Point of no return" /> : <span className="text-xs text-fg-2">No point of no return in the proposal</span>}</div>
         </Card>
         <Card className="min-h-0 flex-1 overflow-auto">
           <SectionHeader title="Trace · propagation order" />
@@ -198,21 +221,34 @@ export function DecisionDetail({ id, title, station, current, trigger, pnr, trac
             {options.map((o) => <OptionCard key={o.id} o={o} selected={o.id === sel} onSelect={() => { setSel(o.id); setAck(false); }} />)}
           </div>
         </div>
-        <LeverWindow levers={levers} today={today} pnr={pnr.date.replace(" 2027", "")} />
+        <LeverWindow levers={levers} today={today} pnr={pnr ? pnr.date.replace(" 2027", "") : ""} />
         <div className="sticky bottom-0 z-10 -mx-1 bg-bg px-1 pb-1 pt-2">
-        {approved ? (
-          <div role="status" className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-tint p-3 text-sm text-fg"><CircleCheck size={16} className="text-ok" aria-hidden />{approved}</div>
+        {outcome ? (
+          <div role="status" className={cx("flex items-center gap-2 rounded-lg border p-3 text-sm text-fg", STATUS_STYLE[outcome.tone].box)}>
+            {React.createElement(STATUS_STYLE[outcome.tone].Icon, { size: 16, className: STATUS_STYLE[outcome.tone].icon, "aria-hidden": true })}{outcome.text}
+          </div>
         ) : (
           <Card>
             <VerifyGate items={needsVerify ? chosen.requiresVerify : []} checked={ack} onChange={setAck} />
+            {rejecting && (
+              <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-line-strong p-3">
+                <label className="flex min-w-72 flex-1 flex-col gap-1 text-xs text-fg-2">Reason for rejecting (recorded in DECISION_REJECTED)
+                  <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className="h-9 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg" />
+                </label>
+                <Button variant="danger" disabled={busy || !reason.trim()} onClick={() => onReject?.(reason.trim())}>Confirm reject</Button>
+                <Button variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap items-start gap-2">
-              <Button variant="secondary" onClick={onReject} disabledReason={role !== "HQ_OPS" ? "Only HQ Ops can reject vessel decisions" : undefined}>Reject</Button>
-              <Button variant="primary" onClick={() => onApprove?.(sel)} disabledReason={roleReason ?? gateReason}>Approve option ({sel})</Button>
+              <Button variant="secondary" onClick={() => setRejecting(true)} disabled={busy || rejecting} disabledReason={rejectReason}>Reject</Button>
+              <Button variant="primary" onClick={() => onApprove?.(sel, ack)} disabled={busy} disabledReason={gateReason}>{busy ? "Recording…" : `Approve option (${sel})`}</Button>
               <span className="ml-auto flex gap-2">
                 <Button variant="ghost" icon={<MessageSquareText size={15} />} onClick={onExplain}>AI explain</Button>
                 <Button icon={<Printer size={15} />} onClick={onPrint}>Print brief</Button>
               </span>
             </div>
+            {error && <p role="alert" className="mt-2 flex items-center gap-1.5 text-[12px] text-fg"><Ban size={13} className="text-bad" aria-hidden />{error}</p>}
+            {note && <p className="mt-2 text-[11px] text-fg-2">{note}</p>}
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-fg-2"><Timer size={12} aria-hidden />Nothing changes operational state until DECISION_APPROVED is recorded. Approval emits VESSEL_UPDATED and LEG_UPDATED as SYSTEM events.</p>
           </Card>
         )}

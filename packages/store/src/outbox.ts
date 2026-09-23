@@ -64,7 +64,7 @@ export async function drainOutbox(db: DhruvDb, identity: DeviceIdentity, push: P
     }
     for (const r of response.rejected) {
       const entry = byId.get(r.event_id);
-      if (entry) await db.outbox.update([entry.device_id, entry.seq], { status: "rejected", rejected_code: r.code });
+      if (entry) await db.outbox.update([entry.device_id, entry.seq], { status: "rejected", rejected_code: r.code, rejected_message: r.message });
     }
   });
 

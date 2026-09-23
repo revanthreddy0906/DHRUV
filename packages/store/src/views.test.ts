@@ -35,7 +35,8 @@ describe("decisionsView", () => {
     const [open] = decisionsView(events);
     expect(open).toMatchObject({ id: "DEC-01", status: "PROPOSED", pnr: "2027-02-03T00:00:00.000Z", proposed_at: t(24, "08:11") });
 
-    events.push(ev("DECISION_APPROVED", "HQ-WEB-01", { decision_id: "DEC-01", chosen_option_id: "OPT-1", approver: "HQ-WEB-01", verify_ack: true }, t(25, "16:20")));
+    // Online approvals are stored under the server's device; the approver is in the payload.
+    events.push(ev("DECISION_APPROVED", "SERVER", { decision_id: "DEC-01", chosen_option_id: "OPT-1", approver: "HQ-WEB-01", verify_ack: true }, t(25, "16:20")));
     events.push(ev("DECISION_REJECTED", "HQ-WEB-01", { decision_id: "DEC-01", reason: "late" }, t(25, "16:30")));
     expect(decisionsView(events)[0]).toMatchObject({ status: "APPROVED", chosen_option_id: "OPT-1", decided_by: "HQ-WEB-01" });
   });

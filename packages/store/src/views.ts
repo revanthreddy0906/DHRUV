@@ -30,7 +30,10 @@ export interface DecisionView {
   status: "PROPOSED" | "APPROVED" | "REJECTED";
   chosen_option_id?: string;
   decided_at?: string;
+  /** The approving device (payload.approver; online approvals are stored under SERVER), else the writer. */
   decided_by?: string;
+  /** The event that decided it, so a device can tell whether it is still in its outbox. */
+  decided_event_id?: string;
   /** R11 as proposed: the latest option deadline, or null when no option carries one. */
   pnr: string | null;
 }
@@ -68,7 +71,12 @@ export function decisionsView(events: OpEvent[]): DecisionView[] {
     decision.status = e.type === "DECISION_APPROVED" ? "APPROVED" : "REJECTED";
     decision.decided_at = e.observed_at;
     decision.decided_by = e.device_id;
-    if (e.type === "DECISION_APPROVED") decision.chosen_option_id = (e.payload as PayloadOf<"DECISION_APPROVED">).chosen_option_id;
+    decision.decided_event_id = e.event_id;
+    if (e.type === "DECISION_APPROVED") {
+      const p = e.payload as PayloadOf<"DECISION_APPROVED">;
+      decision.chosen_option_id = p.chosen_option_id;
+      decision.decided_by = p.approver;
+    }
   }
   return [...byId.values()];
 }

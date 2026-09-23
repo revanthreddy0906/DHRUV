@@ -111,7 +111,8 @@ describe("priority drain and link simulation (section 9)", () => {
 
   it("marks server-rejected entries and does not resend them", async () => {
     const e = await writeEvent(db, maitri, count(92));
-    await drainOutbox(db, maitri, async () => ({ accepted: [], duplicates: [], rejected: [{ event_id: e.event_id, code: "INVALID_EVENT" }], recorded_at_server: "" }));
+    await drainOutbox(db, maitri, async () => ({ accepted: [], duplicates: [], rejected: [{ event_id: e.event_id, code: "INVALID_EVENT", message: "why" }], recorded_at_server: "" }));
+    expect((await db.outbox.toArray())[0]).toMatchObject({ status: "rejected", rejected_code: "INVALID_EVENT", rejected_message: "why" });
 
     const status = await syncStatus(db);
     expect(status).toMatchObject({ pending: 0, rejected: 1 });

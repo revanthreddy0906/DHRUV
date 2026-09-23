@@ -1,4 +1,5 @@
-import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { LiveDecisionDetail } from "../screens/DecisionLive";
 import { useDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
@@ -41,7 +42,10 @@ const DECISION_MOMENTS = ["slip", "hq-2501600", "hq-2501620", "maitri-2501600"] 
 type DecisionMoment = (typeof DECISION_MOMENTS)[number];
 
 function DecisionRoute() {
+  const device = useDevice();
+  const { decisionId = "DEC-01" } = useParams();
   const moment = useMoment("hq-2501600");
+  if (device) return <LiveDecisionDetail key={decisionId} id={decisionId} />;
   const m: DecisionMoment = (DECISION_MOMENTS as readonly string[]).includes(moment) ? (moment as DecisionMoment) : "hq-2501600";
   return <DecisionDetailScreen key={m} moment={m} />;
 }

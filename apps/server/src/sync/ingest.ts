@@ -11,7 +11,7 @@ import {
   type LoginRole,
   type OpEvent,
 } from "@dhruv/shared";
-import { DEVICES } from "@dhruv/seed";
+import { DEVICES, type FollowUp } from "@dhruv/seed";
 import { getEvent, insertEvent, listAllEvents, nextSeq } from "../db/events.js";
 import { listConflicts, rebuildProjections } from "../db/projections.js";
 import { seedStock } from "../db/seedData.js";
@@ -34,7 +34,7 @@ export interface IngestResult {
   duplicates: string[];
   rejected: Rejection[];
   recorded_at_server: string;
-  /** SYSTEM events the server emitted as a consequence (CONFLICT_FLAGGED). */
+  /** SYSTEM events the server emitted as a consequence (CONFLICT_FLAGGED, approval follow-ups). */
   emitted: OpEvent[];
 }
 
@@ -44,7 +44,13 @@ export interface IngestOptions {
   demoMode: boolean;
 }
 
-function check(db: Database.Database, raw: unknown, identity: Identity | undefined, recordedAt: string, demoMode: boolean): { event: OpEvent } | Rejection {
+interface Checked {
+  event: OpEvent;
+  /** Lever follow-ups to emit once a synced DECISION_APPROVED is stored. */
+  followUps: FollowUp[];
+}
+
+function check(db: Database.Database, raw: unknown, identity: Identity | undefined, recordedAt: string, demoMode: boolean): Checked | Rejection {
   const parsed = opEventSchema.safeParse(raw);
   const eventId = typeof (raw as { event_id?: unknown })?.event_id === "string" ? (raw as { event_id: string }).event_id : "unknown";
   if (!parsed.success) {
@@ -56,6 +62,7 @@ function check(db: Database.Database, raw: unknown, identity: Identity | undefin
     return { event_id: eventId, code: "INVALID_EVENT", message: `${event.type} is local-only and never synced` };
   }
   const valid = validateEvent(event);
+  let followUps: FollowUp[] = [];
   if (!valid.ok) return { event_id: eventId, code: "INVALID_EVENT", message: valid.message };
 
   if (identity) {
@@ -98,6 +105,7 @@ function check(db: Database.Database, raw: unknown, identity: Identity | undefin
       if (event.type === "DECISION_APPROVED" && p.approver !== identity.device_id) {
         return { event_id: eventId, code: "INVALID_EVENT", message: "approver must be the approving device's own id" };
       }
+      if ("followUps" in checked.value) followUps = checked.value.followUps;
     }
 
     if (event.type === "CONFLICT_RESOLVED") {
@@ -120,7 +128,7 @@ function check(db: Database.Database, raw: unknown, identity: Identity | undefin
     }
   }
 
-  return { event };
+  return { event, followUps };
 }
 
 function sameContenders(a: { event_id: string }[], b: { event_id: string }[]): boolean {
@@ -215,13 +223,20 @@ export function ingest(db: Database.Database, rawEvents: unknown[], options: Ing
         continue;
       }
       const outcome = insertEvent(db, checked.event, recordedAt);
-      if (outcome === "accepted") result.accepted.push({ ...checked.event, recorded_at_server: recordedAt });
+      if (outcome === "accepted") {
+        result.accepted.push({ ...checked.event, recorded_at_server: recordedAt });
+        // An approval made offline and synced later has the same effect as POST /decisions/:id/approve.
+        for (const f of checked.followUps) {
+          const decisionId = (checked.event.payload as { decision_id: string }).decision_id;
+          result.emitted.push(emitServerEvent(db, { ...f, observed_at: checked.event.observed_at, payload: { ...f.payload, decision_id: decisionId } }, recordedAt));
+        }
+      }
       else if (outcome === "duplicate") result.duplicates.push(checked.event.event_id);
       else result.rejected.push({ event_id: checked.event.event_id, code: "DUPLICATE_SEQ_CONFLICT", message: "same device and seq with different content" });
     }
 
     if (result.accepted.length > 0) {
-      result.emitted = flagConflicts(db, result.accepted, recordedAt);
+      result.emitted.push(...flagConflicts(db, result.accepted, recordedAt));
       rebuildProjections(db);
     }
     return result;

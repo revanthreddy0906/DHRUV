@@ -34,11 +34,11 @@ export interface LiveOps {
 }
 
 const DAY_MS = 86_400_000;
-const daysLeft = (nowIso: string, deadline: string) => Math.ceil((Date.parse(deadline) - Date.parse(nowIso)) / DAY_MS);
-const fullDate = (iso: string) => `${dayLabel(iso)} ${new Date(iso).getUTCFullYear()}`;
+export const daysLeft = (nowIso: string, deadline: string) => Math.ceil((Date.parse(deadline) - Date.parse(nowIso)) / DAY_MS);
+export const fullDate = (iso: string) => `${dayLabel(iso)} ${new Date(iso).getUTCFullYear()}`;
 
 /** Why this viewer cannot approve, if they cannot (section 4 permission rules, mirrored from the API). */
-function approveReason(decision: DecisionView, role: string, nodeId: string): string | undefined {
+export function approveReason(decision: DecisionView, role: string, nodeId: string): string | undefined {
   if (role === "FIELD_LEAD") return "Field Leads cannot approve decisions";
   if (role === "STATION_LEADER") {
     if (decision.options.some((o) => o.levers.some((l) => LEVER_ACTIONS[l]?.hqOnly))) return "Only HQ Ops can approve decisions touching vessels";
@@ -63,7 +63,9 @@ export function useLiveOps(): LiveOps | null {
   return React.useMemo(() => {
     if (!device || !snap) return null;
     const { identity } = device.session;
-    const { events, now } = snap;
+    const { now } = snap;
+    // Events the server refused on sync are not facts: leave them out of every view.
+    const events = snap.rejected.size ? snap.events.filter((e) => !snap.rejected.has(e.event_id)) : snap.events;
 
     const decisions = decisionsView(events);
     const openDecisions = decisions.filter((d) => d.status === "PROPOSED");

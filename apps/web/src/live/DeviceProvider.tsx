@@ -3,7 +3,7 @@ import { liveQuery } from "dexie";
 import { config, type LinkStatus, type OpEvent, type Seed } from "@dhruv/shared";
 import {
   attachDirectorListener, bootstrap, cachedSeed, createApiCall, createHttpApi, jumpClock, linkStatus, now, openDeviceDb,
-  setLinkStatus, syncOnce, syncStatus, type DhruvDb, type SyncOutcome, type SyncStatus,
+  setLinkStatus, syncOnce, syncStatus, writeEvent, type ApiCall, type DhruvDb, type EventDraft, type SyncOutcome, type SyncStatus,
 } from "@dhruv/store";
 import { STATION_NODES } from "@dhruv/seed";
 import { addHours } from "./format";
@@ -24,6 +24,8 @@ export interface DeviceSnapshot {
   lastHeard: Record<string, string | null>;
   /** Event ids still in this device's outbox (not yet accepted by the server). */
   pendingIds: Set<string>;
+  /** Event ids the server refused on sync, with its reason (or code). They are not facts. */
+  rejected: Map<string, string>;
 }
 
 export interface LastSync {
@@ -36,6 +38,12 @@ export interface LiveDevice {
   db: DhruvDb;
   snapshot: DeviceSnapshot | null;
   lastSync: LastSync | null;
+  /** Authenticated JSON call to /api/v1 (online actions such as approve). */
+  call: ApiCall;
+  /** Writes an event through the only write path; it syncs on the next cycle. */
+  write(draft: EventDraft): Promise<OpEvent>;
+  /** Runs a sync cycle now instead of waiting for the next tick. */
+  syncNow(): void;
   jump(hours: number): Promise<void>;
   resetClock(): Promise<void>;
   setLink(status: LinkStatus): Promise<void>;
@@ -61,7 +69,7 @@ export function useSignIn(): (session: Session) => Promise<void> {
 async function readSnapshot(db: DhruvDb, session: Session): Promise<DeviceSnapshot> {
   const { identity } = session;
   const [clock, link, sync, events, seed, outbox] = await Promise.all([
-    now(db), linkStatus(db, identity.node_id), syncStatus(db), db.events.toArray(), cachedSeed(db), db.outbox.where("status").equals("pending").toArray(),
+    now(db), linkStatus(db, identity.node_id), syncStatus(db), db.events.toArray(), cachedSeed(db), db.outbox.toArray(),
   ]);
 
   const lastHeard: Record<string, string | null> = {};
@@ -72,7 +80,11 @@ async function readSnapshot(db: DhruvDb, session: Session): Promise<DeviceSnapsh
       .sort();
     lastHeard[node] = heard.at(-1) ?? null;
   }
-  return { now: clock, link, sync, events, seed, lastHeard, pendingIds: new Set(outbox.map((o) => o.event.event_id)) };
+  return {
+    now: clock, link, sync, events, seed, lastHeard,
+    pendingIds: new Set(outbox.filter((o) => o.status === "pending").map((o) => o.event.event_id)),
+    rejected: new Map(outbox.filter((o) => o.status === "rejected").map((o) => [o.event.event_id, o.rejected_message ?? o.rejected_code ?? "REJECTED"])),
+  };
 }
 
 const isAuthError = (outcome: SyncOutcome) => !outcome.ok && "error" in outcome && /token/i.test(outcome.error);
@@ -82,6 +94,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const db = React.useMemo(() => (session ? openDeviceDb(session.identity.device_id) : null), [session]);
   const [snapshot, setSnapshot] = React.useState<DeviceSnapshot | null>(null);
   const [lastSync, setLastSync] = React.useState<LastSync | null>(null);
+  const kick = React.useRef<() => void>(() => {});
 
   const signOut = React.useCallback(() => {
     saveSession(null);
@@ -118,8 +131,16 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     const api = createHttpApi("", () => session.token);
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
+    let running = false;
+    let again = false;
 
     const cycle = async () => {
+      // One cycle at a time: a syncNow() during a cycle runs another right after it.
+      if (running) {
+        again = true;
+        return;
+      }
+      running = true;
       let delay = SYNC_INTERVAL_MS;
       try {
         // A Director reset clears the local store, seed included: reload it while the link is up.
@@ -133,8 +154,17 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         if (!outcome.ok && "retryInSeconds" in outcome) delay = outcome.retryInSeconds * 1000;
       } catch (err) {
         console.error(err);
+      } finally {
+        running = false;
       }
-      if (!stopped) timer = setTimeout(cycle, delay);
+      if (stopped) return;
+      clearTimeout(timer);
+      timer = setTimeout(cycle, again ? 0 : delay);
+      again = false;
+    };
+    kick.current = () => {
+      clearTimeout(timer);
+      timer = setTimeout(cycle, 0);
     };
     void cycle();
     return () => {
@@ -154,6 +184,9 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       db,
       snapshot,
       lastSync,
+      call: createApiCall("", () => session.token),
+      write: (draft) => writeEvent(db, session.identity, draft),
+      syncNow: () => kick.current(),
       jump: async (hours) => {
         await jumpClock(db, session.identity, addHours(await now(db), hours));
       },
