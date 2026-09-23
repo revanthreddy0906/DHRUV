@@ -1,11 +1,11 @@
 node_modules/
 dist/
-*.log
+coverage/
 .env
 .env.local
+.DS_Store
+*.log
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
-.DS_Store
-coverage/

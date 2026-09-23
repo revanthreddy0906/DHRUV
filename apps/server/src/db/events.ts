@@ -55,7 +55,8 @@ export function insertEvent(db: Database.Database, event: OpEvent, recordedAtSer
     .all(event.device_id, event.seq, event.event_id) as { event_id: string; device_id: string; seq: number }[];
 
   if (existing.length > 0) {
-    const same = existing.length === 1 && existing[0].event_id === event.event_id && existing[0].device_id === event.device_id && existing[0].seq === event.seq;
+    const [only] = existing;
+    const same = existing.length === 1 && only !== undefined && only.event_id === event.event_id && only.device_id === event.device_id && only.seq === event.seq;
     return same ? "duplicate" : "seq_conflict";
   }
 
@@ -97,7 +98,8 @@ export function pullSince(db: Database.Database, since: number, excludeDeviceId:
     .prepare(`SELECT ${COLUMNS} FROM events WHERE server_cursor > ? AND device_id != ? ORDER BY server_cursor LIMIT ?`)
     .all(since, excludeDeviceId, limit) as EventRow[];
 
-  const cursor = rows.length === limit ? rows[rows.length - 1].server_cursor : Math.max(since, currentCursor(db));
+  const last = rows.at(-1);
+  const cursor = rows.length === limit && last ? last.server_cursor : Math.max(since, currentCursor(db));
   return { events: rows.map(rowToEvent), cursor };
 }
 

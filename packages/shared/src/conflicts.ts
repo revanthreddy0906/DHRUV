@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import { compareEvents, EVENT_RULES, type OpEvent } from "./events.js";
+import { compareEvents, EVENT_RULES, type OpEvent, type PayloadOf } from "./events.js";
 
 export interface Contender {
   event_id: string;
@@ -24,14 +24,19 @@ interface SafetyTarget {
 }
 
 function safetyTarget(event: OpEvent): SafetyTarget | null {
-  const p = event.payload as Record<string, string>;
   switch (event.type) {
-    case "ASSET_STATUS_SET":
+    case "ASSET_STATUS_SET": {
+      const p = event.payload as PayloadOf<"ASSET_STATUS_SET">;
       return { entity_type: "asset", entity_id: p.asset_id, field: "status", value: p.status };
-    case "PERSON_STATUS_SET":
+    }
+    case "PERSON_STATUS_SET": {
+      const p = event.payload as PayloadOf<"PERSON_STATUS_SET">;
       return { entity_type: "person", entity_id: p.person_id, field: "status", value: p.status };
-    case "INCIDENT_UPDATED":
+    }
+    case "INCIDENT_UPDATED": {
+      const p = event.payload as PayloadOf<"INCIDENT_UPDATED">;
       return { entity_type: "incident", entity_id: p.incident_id, field: "status", value: p.status };
+    }
     default:
       return null;
   }
@@ -54,10 +59,10 @@ function resolutionCutoffs(sorted: OpEvent[]): Map<string, OpEvent> {
   const cutoffs = new Map<string, OpEvent>();
   for (const e of sorted) {
     if (e.type === "CONFLICT_FLAGGED") {
-      const p = e.payload as Record<string, string>;
+      const p = e.payload as PayloadOf<"CONFLICT_FLAGGED">;
       flagTargets.set(p.conflict_id, keyOf(p.entity_type, p.entity_id, p.field));
     } else if (e.type === "CONFLICT_RESOLVED") {
-      const target = flagTargets.get((e.payload as Record<string, string>).conflict_id);
+      const target = flagTargets.get((e.payload as PayloadOf<"CONFLICT_RESOLVED">).conflict_id);
       if (target) cutoffs.set(target, e);
     }
   }
@@ -83,9 +88,10 @@ function detectSafety(sorted: OpEvent[], touched: Set<string>, cutoffs: Map<stri
   for (const perDevice of latestPerDevice.values()) {
     const entries = [...perDevice.values()];
     const values = new Set(entries.map((x) => x.target.value));
-    if (values.size < 2) continue;
+    const [first] = entries;
+    if (!first || values.size < 2) continue;
 
-    const { entity_type, entity_id, field } = entries[0].target;
+    const { entity_type, entity_id, field } = first.target;
     if (entity_type === "person" && ![...values].some((v) => config.conflicts.safetyCriticalPersonStatuses.includes(v))) {
       continue;
     }
@@ -114,7 +120,8 @@ function detectNegativeStock(sorted: OpEvent[], touchedItems: Set<string>, seedS
       (e) => (e.type === "STOCK_COUNTED" || e.type === "STOCK_ISSUED" || e.type === "STOCK_RECEIVED") && (e.payload as { item_id: string }).item_id === itemId,
     );
     const lastCountIndex = stockEvents.findLastIndex((e) => e.type === "STOCK_COUNTED");
-    const base = lastCountIndex >= 0 ? (stockEvents[lastCountIndex].payload as { qty: number }).qty : seedStock.get(itemId);
+    const lastCount = stockEvents[lastCountIndex];
+    const base = lastCount ? (lastCount.payload as { qty: number }).qty : seedStock.get(itemId);
     if (base === undefined) continue;
 
     const deltas = stockEvents.slice(lastCountIndex + 1);
@@ -143,17 +150,17 @@ function detectDoubleAssignment(sorted: OpEvent[], touchedPeople: Set<string>): 
   for (const personId of touchedPeople) {
     const assignments = sorted.filter((e) => e.type === "ASSIGNMENT_SET" && (e.payload as { person_id: string }).person_id === personId);
     const overlapping = new Map<string, OpEvent>();
-    for (let i = 0; i < assignments.length; i++) {
-      for (let j = i + 1; j < assignments.length; j++) {
-        const a = assignments[i].payload as { mission_id?: string; task?: string; start: string; end: string };
-        const b = assignments[j].payload as { mission_id?: string; task?: string; start: string; end: string };
+    assignments.forEach((first, i) => {
+      for (const second of assignments.slice(i + 1)) {
+        const a = first.payload as PayloadOf<"ASSIGNMENT_SET">;
+        const b = second.payload as PayloadOf<"ASSIGNMENT_SET">;
         const sameTarget = (a.mission_id ?? a.task) === (b.mission_id ?? b.task);
         if (!sameTarget && a.start < b.end && b.start < a.end) {
-          overlapping.set(assignments[i].event_id, assignments[i]);
-          overlapping.set(assignments[j].event_id, assignments[j]);
+          overlapping.set(first.event_id, first);
+          overlapping.set(second.event_id, second);
         }
       }
-    }
+    });
     if (overlapping.size === 0) continue;
     findings.push({
       kind: "DOUBLE_ASSIGNMENT",

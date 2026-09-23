@@ -126,7 +126,7 @@ describe("Vuln 4: a station may only change records its own station owns", () =>
     const { app, db, maitri, bharati, hq } = await stations();
     await push(app, maitri, [makeEvent(maitri, "ASSET_STATUS_SET", SK2, { asset_id: "SK-2", status: "DOWN" }, t(24, "09:20"))]);
     await push(app, hq, [makeEvent(hq, "ASSET_STATUS_SET", SK2, { asset_id: "SK-2", status: "OK" }, t(24, "11:00"), { node_id: "HQ" })]);
-    const [conflict] = listConflicts(db, "OPEN");
+    const conflict = listConflicts(db, "OPEN")[0]!;
     expect(conflict).toBeDefined();
 
     const resolve = (who: typeof maitri, resolver = who.device_id, at = t(25, "16:15")) =>

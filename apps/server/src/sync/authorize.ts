@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { ErrorCode, OpEvent } from "@dhruv/shared";
+import type { ErrorCode, OpEvent, PayloadOf } from "@dhruv/shared";
 import { LEVER_ACTIONS, type FollowUp } from "@dhruv/seed";
 import { listConflicts } from "../db/projections.js";
 import type { Identity } from "./ingest.js";
@@ -85,20 +85,21 @@ export type Ownership = { owner: string | null } | { unknown: string };
  * node_id is checked. `unknown` means the target must exist and does not.
  */
 export function ownerOf(db: Database.Database, event: OpEvent): Ownership {
-  const p = event.payload as Record<string, string>;
-
   if (event.type === "INCIDENT_UPDATED") {
+    const p = event.payload as PayloadOf<"INCIDENT_UPDATED">;
     const owner = incidentOwner(db, p.incident_id);
     return owner ? { owner } : { unknown: `incident ${p.incident_id} has not been opened` };
   }
   if (event.type === "CONFLICT_RESOLVED") {
+    const p = event.payload as PayloadOf<"CONFLICT_RESOLVED">;
     const flag = conflictFlag(db, p.conflict_id);
     if (!flag) return { unknown: `conflict ${p.conflict_id} does not exist` };
     return { owner: entityOwner(db, flag.entity_type, flag.entity_id) ?? flag.node_id };
   }
 
   const target = SEEDED_TARGET[event.type];
-  return { owner: target ? entityOwner(db, target.entityType, p[target.payloadKey]) : null };
+  const targetId = target ? (event.payload as Record<string, unknown>)[target.payloadKey] : undefined;
+  return { owner: target && typeof targetId === "string" ? entityOwner(db, target.entityType, targetId) : null };
 }
 
 export interface ProposedDecision {

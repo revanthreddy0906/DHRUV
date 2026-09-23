@@ -25,6 +25,8 @@ export function registerEventRoutes(app: FastifyInstance, db: Database.Database)
     if (rejection) return sendError(reply, STATUS_BY_CODE[rejection.code] ?? 400, rejection.code, rejection.message);
 
     const eventId = result.accepted[0]?.event_id ?? result.duplicates[0];
+    // One event in, one outcome out; a rejection has already returned above.
+    if (!eventId) throw new Error("ingest returned no outcome for the event");
     const stored = getEvent(db, eventId);
     return reply.code(result.accepted.length ? 201 : 200).send({ event_id: eventId, recorded_at_server: stored?.recorded_at_server });
   });

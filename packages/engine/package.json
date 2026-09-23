@@ -14,6 +14,7 @@
     "@dhruv/shared": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "6.0.3",
+    "vitest": "^2.1.1"
   }
 }

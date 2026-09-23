@@ -46,7 +46,7 @@ export async function syncOnce(db: DhruvDb, identity: DeviceIdentity, api: SyncA
     return {
       ok: false,
       failures,
-      retryInSeconds: backoff[Math.min(failures, backoff.length) - 1],
+      retryInSeconds: backoff[Math.min(failures, backoff.length) - 1] ?? Math.max(...backoff),
       stalled: failures >= config.sync.stalledAfterFailures,
       error: (err as Error).message,
     };

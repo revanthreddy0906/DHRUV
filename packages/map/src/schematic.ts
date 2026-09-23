@@ -144,7 +144,8 @@ export function renderSchematicSvg(model: MapModel, options: SchematicOptions = 
   const kindOrder = { node: 0, team: 1, asset: 2 } as const;
   for (const { at, members } of clusters.values()) {
     members.sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind] || a.id.localeCompare(b.id));
-    const lead = members[0];
+    const [lead] = members;
+    if (!lead) continue;
     if (lead.kind === "node") {
       parts.push(`<rect class="node" x="${at.x - 5}" y="${at.y - 5}" width="10" height="10"/>`);
     } else if (lead.kind === "team") {
@@ -153,14 +154,15 @@ export function renderSchematicSvg(model: MapModel, options: SchematicOptions = 
       parts.push(`<circle class="asset ${esc(lead.status ?? "")}" cx="${at.x}" cy="${at.y}" r="5"/>`);
     }
 
-    const lines = members.map((f) => (f.ageLabel ? `${f.label} · ${f.ageLabel}` : f.label));
+    const labelOf = (f: MapFeature) => (f.ageLabel ? `${f.label} · ${f.ageLabel}` : f.label);
+    const lines = members.map(labelOf);
     const longest = Math.max(...lines.map((l) => l.length)) * CHAR_PX + 16;
     const leftSide = at.x + 12 + longest > width;
     const tx = leftSide ? at.x - 12 : at.x + 12;
     const top = at.y + 4 - ((lines.length - 1) * LINE_PX) / 2;
     members.forEach((f, i) => {
       const y = fmt(top + i * LINE_PX);
-      const text = esc(lines[i]);
+      const text = esc(labelOf(f));
       if (f.kind === "asset" && (members.length > 1 || f.conflict)) {
         const dx = leftSide ? tx + 6 : tx + 4;
         parts.push(`<circle class="asset ${esc(f.status ?? "")}" cx="${dx}" cy="${y - 4}" r="4"/>`);

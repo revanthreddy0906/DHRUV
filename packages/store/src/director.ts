@@ -233,7 +233,9 @@ export function createDirector({ channel = openDirectorChannel(), admin, timeout
     const appliedOn = new Set<string>();
     for (const [i, events] of steps.entries()) {
       if (i > 0 && delay > 0) await new Promise((r) => setTimeout(r, delay));
-      const deviceId = events[0].device_id;
+      const [firstEvent] = events;
+      if (!firstEvent) continue;
+      const deviceId = firstEvent.device_id;
       for (const d of await command({ kind: "run-events", id: nextId(), device_id: deviceId, events }, [deviceId])) appliedOn.add(d);
     }
     return { ...base, appliedOn: [...appliedOn], eventsCreated: beat.events.length };

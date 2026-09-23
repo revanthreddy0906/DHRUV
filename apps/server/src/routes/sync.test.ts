@@ -53,8 +53,8 @@ describe("POST /sync/push", () => {
     const first = await push(app, maitri, events);
     const again = await push(app, maitri, events);
 
-    expect(first.accepted).toEqual([events[0].event_id]);
-    expect(again).toMatchObject({ accepted: [], duplicates: [events[0].event_id], rejected: [] });
+    expect(first.accepted).toEqual([events[0]!.event_id]);
+    expect(again).toMatchObject({ accepted: [], duplicates: [events[0]!.event_id], rejected: [] });
   });
 
   it("rejects the same device and seq with different content", async () => {
@@ -117,7 +117,7 @@ describe("GET /sync/pull", () => {
 
     const hqView = await pull(app, hq);
     expect(hqView.events.map((e) => e.event_id)).toEqual([fromMaitri.event_id]);
-    expect(hqView.events[0].recorded_at_server).toBeDefined();
+    expect(hqView.events[0]!.recorded_at_server).toBeDefined();
 
     const caughtUp = await pull(app, hq, hqView.cursor);
     expect(caughtUp.events).toEqual([]);
@@ -137,7 +137,7 @@ describe("T-SYNC-01 (server log level): arrival order does not change the stored
 
     const events: OpEvent[] = [];
     for (let i = 0; i < 30; i++) {
-      const d = devices[i % 3];
+      const d = devices[i % 3]!;
       events.push(makeEvent(d, "MISSION_UPDATED", { entity_type: "mission", entity_id: `M-${i % 4}` }, { mission_id: `M-${i % 4}`, fields: { i } }, t(24, `0${i % 10}:${String(i).padStart(2, "0")}`)));
     }
 

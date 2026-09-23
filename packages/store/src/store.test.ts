@@ -80,7 +80,7 @@ describe("priority drain and link simulation (section 9)", () => {
 
     const calls: PushRequest[] = [];
     await drainOutbox(db, maitri, acceptAll(calls));
-    expect(calls[0].events.map((e) => e.type)).toEqual(["INCIDENT_OPENED", "ASSET_STATUS_SET", "STOCK_COUNTED", "MISSION_UPDATED"]);
+    expect(calls[0]!.events.map((e) => e.type)).toEqual(["INCIDENT_OPENED", "ASSET_STATUS_SET", "STOCK_COUNTED", "MISSION_UPDATED"]);
     expect(await db.outbox.count()).toBe(0);
     expect((await db.events.toArray()).every((e) => e.recorded_at_server)).toBe(true);
   });

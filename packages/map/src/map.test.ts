@@ -34,7 +34,7 @@ describe("map model: section 10 emergency scenario at 25 Jan 16:00", () => {
   it("HX-1 is the nearest capable asset at about 11 min; SK-2 is held back by its conflict", () => {
     const { capable, excluded } = model.incident!.nearest;
     expect(capable[0]).toMatchObject({ asset_id: "HX-1" });
-    expect(Math.round(capable[0].etaMinutes)).toBe(11);
+    expect(Math.round(capable[0]!.etaMinutes)).toBe(11);
     expect(capable.map((c) => c.asset_id)).toEqual(["HX-1", "SK-1", "PB-1"]);
     expect(excluded).toEqual(
       expect.arrayContaining([
@@ -54,7 +54,7 @@ describe("map model: section 10 emergency scenario at 25 Jan 16:00", () => {
 
   it("route line Goa to Maitri, with the slipped leg shown as delayed", () => {
     expect(model.routes.map((r) => `${r.from.node_id}->${r.to.node_id}:${r.status}`)).toEqual(["HQ->MUMBAI:DONE", "MUMBAI->CAPE_TOWN:DELAYED", "CAPE_TOWN->MAITRI:PLANNED"]);
-    expect(model.routes[1].eta).toBe("2027-02-07T00:00:00.000Z");
+    expect(model.routes[1]!.eta).toBe("2027-02-07T00:00:00.000Z");
   });
 
   it("once a human resolves SK-2 as OK, it becomes a candidate", () => {

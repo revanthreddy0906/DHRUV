@@ -22,7 +22,7 @@ describe("Leaflet layers", () => {
     const layers = group.getLayers();
     const circles = layers.filter((l) => l instanceof L.Circle) as L.Circle[];
     expect(circles).toHaveLength(1);
-    expect(circles[0].getRadius()).toBe(27_000);
+    expect(circles[0]!.getRadius()).toBe(27_000);
 
     const markers = layers.filter((l) => l instanceof L.CircleMarker && !(l instanceof L.Circle));
     expect(markers).toHaveLength(model.features.length);

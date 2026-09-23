@@ -19,7 +19,7 @@ describe("conflict detection on sync (sections 6 and 9, beat 10)", () => {
     const open = listConflicts(db, "OPEN");
     expect(open).toHaveLength(1);
     expect(open[0]).toMatchObject({ entity_type: "asset", entity_id: "SK-2", field: "status", conservative_value: "DOWN" });
-    expect(open[0].contenders.map((c) => c.value).sort()).toEqual(["DOWN", "OK"]);
+    expect(open[0]!.contenders.map((c) => c.value).sort()).toEqual(["DOWN", "OK"]);
 
     const hqView = await pull(app, hq);
     const flags = hqView.events.filter((e) => e.type === "CONFLICT_FLAGGED");
@@ -34,7 +34,7 @@ describe("conflict detection on sync (sections 6 and 9, beat 10)", () => {
     await push(app, maitri, [makeEvent(maitri, "ASSET_STATUS_SET", SK2, { asset_id: "SK-2", status: "DOWN" }, t(24, "09:20"))]);
     await push(app, hq, [makeEvent(hq, "ASSET_STATUS_SET", SK2, { asset_id: "SK-2", status: "OK" }, t(24, "11:00"), { node_id: "MAITRI" })]);
 
-    const [conflict] = listConflicts(db, "OPEN");
+    const conflict = listConflicts(db, "OPEN")[0]!;
     await push(app, hq, [
       makeEvent(hq, "CONFLICT_RESOLVED", { entity_type: "conflict", entity_id: conflict.id }, { conflict_id: conflict.id, chosen_value: "DOWN", resolver: "HQ-WEB-01" }, t(25, "16:15"), {
         node_id: "MAITRI",

@@ -2,16 +2,19 @@
   "name": "dhruv",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "pnpm@9.12.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.0.0 <21.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @dhruv/backend dev",
+    "dev": "pnpm --filter @dhruv/server dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
-    "seed": "pnpm --filter @dhruv/backend seed"
+    "seed": "pnpm --filter @dhruv/server seed"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
   }
 }

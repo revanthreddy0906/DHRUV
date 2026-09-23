@@ -24,9 +24,11 @@ export interface Device {
 const PINS: Record<string, string> = { HQ: "HQ-2027", MAITRI: "MAITRI-2027", BHARATI: "BHARATI-2027" };
 
 export async function login(app: FastifyInstance, device_id: string, role: LoginRole, node_id: string): Promise<Device> {
-  const res = await app.inject({ method: "POST", url: `${API}/auth/login`, payload: { device_id, pin: PINS[node_id], role, node_id } });
+  const pin = PINS[node_id];
+  if (!pin) throw new Error(`no demo PIN for node ${node_id}`);
+  const res = await app.inject({ method: "POST", url: `${API}/auth/login`, payload: { device_id, pin, role, node_id } });
   if (res.statusCode !== 200) throw new Error(`login failed: ${res.body}`);
-  return { device_id, role, node_id, pin: PINS[node_id], token: res.json().token, seq: 0 };
+  return { device_id, role, node_id, pin, token: res.json().token, seq: 0 };
 }
 
 export function auth(device: Device) {

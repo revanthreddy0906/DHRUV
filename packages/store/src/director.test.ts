@@ -42,9 +42,14 @@ function setup(...tabs: DeviceIdentity[]) {
       admin.resets += 1;
     },
   };
-  const dbs = Object.fromEntries(tabs.map((t) => [t.device_id, openTab(t)]));
+  const opened = new Map(tabs.map((t) => [t.device_id, openTab(t)]));
+  const tab = (id: string): DhruvDb => {
+    const db = opened.get(id);
+    if (!db) throw new Error(`no tab ${id}`);
+    return db;
+  };
   const director: Director = createDirector({ channel: channel(), admin, timeoutMs: 150 });
-  return { director, dbs, admin, serverBeats };
+  return { director, tab, opened, admin, serverBeats };
 }
 
 describe("Scenario Director", () => {
@@ -62,31 +67,31 @@ describe("Scenario Director", () => {
   });
 
   it("beat 4 lands only in Maitri's local store and outbox, not HQ's", async () => {
-    const { director, dbs } = setup(HQ, MAITRI);
+    const { director, tab } = setup(HQ, MAITRI);
     const result = await director.runBeat("4");
 
     expect(result.appliedOn).toEqual(["MAITRI-TAB-01"]);
-    expect(await dbs["MAITRI-TAB-01"].outbox.count()).toBe(4);
-    expect(await dbs["HQ-WEB-01"].events.count()).toBe(0);
-    const types = (await dbs["MAITRI-TAB-01"].events.toArray()).map((e) => e.type).sort();
+    expect(await tab("MAITRI-TAB-01").outbox.count()).toBe(4);
+    expect(await tab("HQ-WEB-01").events.count()).toBe(0);
+    const types = (await tab("MAITRI-TAB-01").events.toArray()).map((e) => e.type).sort();
     expect(types).toEqual(["ASSET_STATUS_SET", "MISSION_UPDATED", "STOCK_COUNTED", "STOCK_ISSUED"]);
   });
 
   it("beat 6 jumps every open tab to 25 Jan 16:00", async () => {
-    const { director, dbs } = setup(HQ, MAITRI, FT3);
+    const { director, opened } = setup(HQ, MAITRI, FT3);
     const result = await director.runBeat("6");
     expect(result.appliedOn.sort()).toEqual(["FT3-TAB-01", "HQ-WEB-01", "MAITRI-TAB-01"]);
-    for (const db of Object.values(dbs)) expect(await now(db)).toBe("2027-01-25T16:00:00.000Z");
+    for (const db of opened.values()) expect(await now(db)).toBe("2027-01-25T16:00:00.000Z");
   });
 
   it("link control only affects devices at that node", async () => {
-    const { director, dbs } = setup(HQ, MAITRI);
+    const { director, tab } = setup(HQ, MAITRI);
     await director.runBeat("3");
-    expect(await linkStatus(dbs["MAITRI-TAB-01"], "MAITRI")).toBe("OFFLINE");
-    expect(await linkStatus(dbs["HQ-WEB-01"], "HQ")).toBe("ONLINE");
+    expect(await linkStatus(tab("MAITRI-TAB-01"), "MAITRI")).toBe("OFFLINE");
+    expect(await linkStatus(tab("HQ-WEB-01"), "HQ")).toBe("ONLINE");
 
     expect(await director.setLink("MAITRI", "DEGRADED")).toEqual(["MAITRI-TAB-01"]);
-    expect(await linkStatus(dbs["MAITRI-TAB-01"], "MAITRI")).toBe("DEGRADED");
+    expect(await linkStatus(tab("MAITRI-TAB-01"), "MAITRI")).toBe("DEGRADED");
   });
 
   it("fails loudly when the device a beat needs is not open", async () => {
@@ -100,13 +105,13 @@ describe("Scenario Director", () => {
   });
 
   it("reset clears the server and every open tab's local store", async () => {
-    const { director, dbs, admin } = setup(HQ, MAITRI);
-    await writeEvent(dbs["MAITRI-TAB-01"], MAITRI, { type: "STOCK_COUNTED", entity_type: "inventory_item", entity_id: "INV-DSL", payload: { item_id: "INV-DSL", qty: 92 } });
+    const { director, tab, admin } = setup(HQ, MAITRI);
+    await writeEvent(tab("MAITRI-TAB-01"), MAITRI, { type: "STOCK_COUNTED", entity_type: "inventory_item", entity_id: "INV-DSL", payload: { item_id: "INV-DSL", qty: 92 } });
 
     expect((await director.reset()).sort()).toEqual(["HQ-WEB-01", "MAITRI-TAB-01"]);
     expect(admin.resets).toBe(1);
-    expect(await dbs["MAITRI-TAB-01"].events.count()).toBe(0);
-    expect(await dbs["MAITRI-TAB-01"].outbox.count()).toBe(0);
+    expect(await tab("MAITRI-TAB-01").events.count()).toBe(0);
+    expect(await tab("MAITRI-TAB-01").outbox.count()).toBe(0);
   });
 
   it("beat 9 pauses between its steps so the degraded state is visible, and ends online", async () => {

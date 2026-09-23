@@ -70,7 +70,8 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database.Database,
     }));
 
     const result = ingest(db, events, { demoMode: env.demoMode });
-    if (result.rejected.length > 0) return sendError(reply, 409, result.rejected[0].code, result.rejected[0].message, result.rejected);
+    const [firstRejection] = result.rejected;
+    if (firstRejection) return sendError(reply, 409, firstRejection.code, firstRejection.message, result.rejected);
     return { events_created: result.accepted.length + result.emitted.length };
   });
 }
