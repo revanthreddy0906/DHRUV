@@ -36,6 +36,11 @@ export const config = {
     /** Section 8 (SYNTHETIC): position uncertainty circle radius = min(age_h x speed, cap). */
     driftKmPerHour: 3,
     driftCapKm: 30,
+    /** Section 8: a position is FRESH under 1 h; older positions get the circle. */
+    positionFreshHours: 1,
+    /** Section 16: no paid map APIs. Tiles are cached by the PWA; offline falls back to the schematic. */
+    tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    tileAttribution: "&copy; OpenStreetMap contributors",
   },
 
   // TODO(A): freshness class boundaries per source type (section 4 of v2 / section 8)

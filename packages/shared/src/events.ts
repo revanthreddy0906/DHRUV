@@ -34,7 +34,15 @@ export const payloadSchemas = {
   MISSION_UPDATED: z.object({ mission_id: z.string(), fields: z.record(z.unknown()) }),
   ASSIGNMENT_SET: z.object({ person_id: z.string(), mission_id: z.string().optional(), task: z.string().optional(), start: iso, end: iso }),
   LINK_STATE_SET: z.object({ node_id: z.string(), status: LINK_STATUS }),
-  INCIDENT_OPENED: z.object({ incident_id: z.string(), type: z.string(), person_ids: z.array(z.string()), last_confirmed_at: iso, note: z.string().optional() }),
+  INCIDENT_OPENED: z.object({
+    incident_id: z.string(),
+    type: z.string(),
+    person_ids: z.array(z.string()),
+    last_confirmed_at: iso,
+    note: z.string().optional(),
+    /** Not in section 6; check-ins are recorded per team (CHECKIN_RECORDED.person_or_team_id), so this links the two. */
+    team_id: z.string().optional(),
+  }),
   INCIDENT_UPDATED: z.object({ incident_id: z.string(), status: z.string(), note: z.string().optional() }),
   DECISION_PROPOSED: z.object({ decision_id: z.string(), trigger_event_id: z.string(), options: z.array(z.record(z.unknown())), trace: z.array(z.unknown()) }),
   DECISION_APPROVED: z.object({ decision_id: z.string(), chosen_option_id: z.string(), approver: z.string(), verify_ack: z.boolean() }),

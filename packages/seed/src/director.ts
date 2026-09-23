@@ -199,6 +199,7 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
           incident_id: IDS.incident1,
           type: "OVERDUE_CHECKIN",
           person_ids: [IDS.personVerma, IDS.personNair],
+          team_id: IDS.fieldTeam3,
           last_confirmed_at: at(25, "07:00"),
           note: "FT-3 overdue",
         },
