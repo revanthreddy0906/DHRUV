@@ -63,9 +63,9 @@ export const config = {
     bandUncertaintyByTier: [0.01, 0.03, 0.06, 0.12],
   },
 
-  // TODO(A): slip tolerance / reserve constants (R16). Not added yet —
-  // R16 reads reservePct from each InventoryState and rate_per_day from
-  // ConsumptionProfile directly; add config here only if R16's actual
-  // implementation needs something beyond those. Do not invent values
-  // preemptively.
+  baseline: {
+    /** Section 24 (R18): default threshold limits for naive stock-level alert. */
+    minDaysOfCover: 30,
+    minStockThreshold: 0,
+  },
 } as const;

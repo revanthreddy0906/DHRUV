@@ -44,6 +44,11 @@ import {
   checkCargoFeasibilityConfidence,
   type CargoFeasibilityConfidence,
 } from "./rules/cargo.js";
+import {
+  computeBaselineB0,
+  type BaselineB0Result,
+  type ComputeBaselineB0Params,
+} from "./rules/baseline.js";
 
 export { reduce } from "./reduce.js";
 export type {
@@ -104,6 +109,11 @@ export {
   checkCargoFeasibilityConfidence,
   type CargoFeasibilityConfidence,
 } from "./rules/cargo.js";
+export {
+  computeBaselineB0,
+  type BaselineB0Result,
+  type ComputeBaselineB0Params,
+} from "./rules/baseline.js";
 
 /**
  * Placeholder for the pure engine (Build Bible section 7, owned by A).
@@ -128,6 +138,7 @@ export interface DimensionEval {
   confidence?: ConfidenceBand;
   slipTolerance?: SlipToleranceResult;
   cargoConfidence?: CargoFeasibilityConfidence;
+  baselineB0?: BaselineB0Result;
   trace: TraceStep[];
 }
 
@@ -255,6 +266,14 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
       dimensionTrace.push({ rule: "R17", text: cargoConfidence.trace });
     }
 
+    // R18: Baseline B0 (comparison only, never drives state)
+    const baselineB0 = computeBaselineB0({
+      stock: diesel.stock,
+      rate: rateNow,
+      unit: diesel.unit,
+    });
+    dimensionTrace.push({ rule: "R18", text: baselineB0.trace });
+
     let leversResult: CataloguedLever[] | undefined;
     let optionsResult: RankedOption[] | undefined;
     let pnrResult: PnrResult | null | undefined;
@@ -361,6 +380,7 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
       confidence: fuelConfidence,
       slipTolerance: slipTol,
       cargoConfidence,
+      baselineB0,
       trace: dimensionTrace,
     };
 
