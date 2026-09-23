@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import { compareEvents, EVENT_RULES, type OpEvent, type PayloadOf } from "./events.js";
+import { computeStockBalance } from "./stock.js";
 
 export interface Contender {
   event_id: string;
@@ -121,16 +122,13 @@ function detectNegativeStock(sorted: OpEvent[], touchedItems: Set<string>, seedS
     );
     const lastCountIndex = stockEvents.findLastIndex((e) => e.type === "STOCK_COUNTED");
     const lastCount = stockEvents[lastCountIndex];
-    const base = lastCount ? (lastCount.payload as { qty: number }).qty : seedStock.get(itemId);
-    if (base === undefined) continue;
+    const initial = seedStock.get(itemId);
+    if (lastCount === undefined && initial === undefined) continue;
 
-    const deltas = stockEvents.slice(lastCountIndex + 1);
-    const balance = deltas.reduce((sum, e) => {
-      const q = (e.payload as { qty: number }).qty;
-      return e.type === "STOCK_RECEIVED" ? sum + q : sum - q;
-    }, base);
+    const balance = computeStockBalance(itemId, sorted, initial);
     if (balance >= 0) continue;
 
+    const deltas = stockEvents.slice(lastCountIndex + 1);
     findings.push({
       kind: "NEGATIVE_STOCK",
       entity_type: "inventory_item",
