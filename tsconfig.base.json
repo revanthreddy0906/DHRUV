@@ -9,7 +9,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "declaration": true
+    "declaration": true,
+    "lib": [
+      "ES2023"
+    ]
   }
 }
-
