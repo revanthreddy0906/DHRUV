@@ -56,10 +56,59 @@ export interface LiveDevice {
 
 interface DeviceContextValue {
   device: LiveDevice | null;
+  /** Another tab already acts as this tab's device: this tab must not sync or answer the Director. */
+  duplicateOf: string | null;
   signIn(session: Session): Promise<void>;
+  signOut(): void;
 }
 
-const DeviceContext = React.createContext<DeviceContextValue>({ device: null, signIn: async () => {} });
+const DeviceContext = React.createContext<DeviceContextValue>({ device: null, duplicateOf: null, signIn: async () => {}, signOut: () => {} });
+
+const lockName = (deviceId: string) => `dhruv-device-${deviceId}`;
+
+/** True when some tab holds this device's lock (one tab is one device). */
+async function deviceOpenElsewhere(deviceId: string): Promise<boolean> {
+  if (!navigator.locks) return false;
+  const state = await navigator.locks.query();
+  return (state.held ?? []).some((l) => l.name === lockName(deviceId));
+}
+
+/**
+ * Holds the device lock while this tab is signed in. Two tabs as the same device would both sync
+ * and both write the Director's beats with clashing seq numbers, so the second one stands down.
+ * Returns null while checking, true when this tab owns the device, false when another tab does.
+ */
+function useDeviceLock(deviceId: string | null): boolean | null {
+  const [owned, setOwned] = React.useState<boolean | null>(null);
+  React.useEffect(() => {
+    if (!deviceId) return;
+    if (!navigator.locks) {
+      setOwned(true);
+      return;
+    }
+    setOwned(null);
+    let release: (() => void) | undefined;
+    let cancelled = false;
+    // A few tries: StrictMode's remount asks again before the first release has landed.
+    const attempt = (tries: number) =>
+      navigator.locks.request(lockName(deviceId), { ifAvailable: true }, (lock) => {
+        if (cancelled) return;
+        if (!lock) {
+          if (tries > 0) setTimeout(() => void attempt(tries - 1), 150);
+          else setOwned(false);
+          return;
+        }
+        setOwned(true);
+        return new Promise<void>((resolve) => (release = resolve));
+      });
+    void attempt(3);
+    return () => {
+      cancelled = true;
+      release?.();
+    };
+  }, [deviceId]);
+  return owned;
+}
 
 /** The signed-in device of this tab, or null (not signed in: screens show their design fixtures). */
 export function useDevice(): LiveDevice | null {
@@ -68,6 +117,12 @@ export function useDevice(): LiveDevice | null {
 
 export function useSignIn(): (session: Session) => Promise<void> {
   return React.useContext(DeviceContext).signIn;
+}
+
+/** The device id when another tab already acts as this tab's device, else null. */
+export function useDuplicateDevice(): { deviceId: string | null; signOut(): void } {
+  const ctx = React.useContext(DeviceContext);
+  return { deviceId: ctx.duplicateOf, signOut: ctx.signOut };
 }
 
 async function readSnapshot(db: DhruvDb, session: Session): Promise<DeviceSnapshot> {
@@ -96,7 +151,9 @@ const isAuthError = (outcome: SyncOutcome) => !outcome.ok && "error" in outcome 
 
 export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(() => loadSession());
-  const db = React.useMemo(() => (session ? openDeviceDb(session.identity.device_id) : null), [session]);
+  const owned = useDeviceLock(session?.identity.device_id ?? null);
+  // No store, sync or Director listener until this tab owns the device.
+  const db = React.useMemo(() => (session && owned ? openDeviceDb(session.identity.device_id) : null), [session, owned]);
   const [snapshot, setSnapshot] = React.useState<DeviceSnapshot | null>(null);
   const [lastSync, setLastSync] = React.useState<LastSync | null>(null);
   const kick = React.useRef<() => void>(() => {});
@@ -109,6 +166,9 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = React.useCallback(async (next: Session) => {
+    if (await deviceOpenElsewhere(next.identity.device_id)) {
+      throw new Error(`${next.identity.device_id} is already open in another tab. One tab is one device: use that tab, or another device id`);
+    }
     const nextDb = openDeviceDb(next.identity.device_id);
     await bootstrap(nextDb, next.identity, createApiCall("", () => next.token));
     nextDb.close();
@@ -209,6 +269,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session, db, snapshot, lastSync, signOut]);
 
-  const value = React.useMemo(() => ({ device, signIn }), [device, signIn]);
+  const duplicateOf = session && owned === false ? session.identity.device_id : null;
+  const value = React.useMemo(() => ({ device, duplicateOf, signIn, signOut }), [device, duplicateOf, signIn, signOut]);
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;
 }

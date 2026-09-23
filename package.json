@@ -7,7 +7,7 @@
     "node": ">=20.0.0 <21.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @dhruv/server dev",
+    "dev": "pnpm --parallel --filter @dhruv/server --filter dhruv-frontend dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",

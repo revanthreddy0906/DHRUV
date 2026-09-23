@@ -3,7 +3,7 @@ import { LiveDecisionDetail } from "../screens/DecisionLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDirector } from "../screens/DirectorLive";
-import { useDevice, useSignIn } from "../live/DeviceProvider";
+import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
 import { MOMENTS, type MomentId } from "../data/demo";
@@ -114,6 +114,8 @@ function LoginRoute() {
   if (flag(params, "error")) return <LoginScreen error />;
   return (
     <LoginScreen
+      // Keyed by role so /login?role=... preselects the role even when already on the login page.
+      key={role ?? "default"}
       initialRole={ROLES.includes(role as Role) ? (role as Role) : "STATION_LEADER"}
       onSubmit={async (req) => {
         await signIn(await login(req));
@@ -204,9 +206,26 @@ function Gallery() {
   );
 }
 
+/** Shown instead of the app when another tab already acts as this tab's device. */
+function DuplicateDevice({ deviceId, onSignOut }: { deviceId: string; onSignOut: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg p-8 text-fg">
+      <div role="alert" className="max-w-lg rounded-xl border border-warn/60 bg-surface p-6">
+        <p className="font-mono text-sm font-bold tracking-wider text-warn">{deviceId} IS OPEN IN ANOTHER TAB</p>
+        <p className="mt-2 text-sm text-fg-2">
+          One tab is one device. This tab is not syncing and does not answer the Director, so nothing is written twice. Use the other tab, or sign out here and sign in as another device.
+        </p>
+        <button type="button" onClick={onSignOut} className="mt-4 rounded-lg border border-line-strong px-3 py-1.5 text-sm hover:border-accent">Sign out of this tab</button>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const [params] = useSearchParams();
   const device = useDevice();
+  const duplicate = useDuplicateDevice();
+  if (duplicate.deviceId) return <DuplicateDevice deviceId={duplicate.deviceId} onSignOut={duplicate.signOut} />;
   // Hidden Director (?director=1): live when this tab is signed in, the design mock otherwise.
   if (flag(params, "director")) return device ? <LiveDirector /> : <DirectorScreen />;
   return (

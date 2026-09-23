@@ -102,6 +102,9 @@ export function LiveDirector() {
     });
 
   const open = new Set(devices.map((d) => d.device_id));
+  // A device answering from two tabs would get each client beat twice: show it, don't hide it.
+  const answers = new Map<string, { node_id: string; count: number }>();
+  for (const d of devices) answers.set(d.device_id, { node_id: d.node_id, count: (answers.get(d.device_id)?.count ?? 0) + 1 });
 
   return (
     <div className="min-h-screen bg-bg p-6">
@@ -136,7 +139,9 @@ export function LiveDirector() {
         <div className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
           <div>
             <div className="mb-1 text-fg-2">Open device tabs</div>
-            {devices.length === 0 ? <div className="text-warn">none answering</div> : devices.map((d) => <div key={d.device_id}>{d.device_id} · {nodeLabel(d.node_id)}</div>)}
+            {answers.size === 0 ? <div className="text-warn">none answering</div> : [...answers].map(([id, a]) => (
+              <div key={id} className={cx(a.count > 1 && "text-bad")}>{id} · {nodeLabel(a.node_id)}{a.count > 1 && ` · answering from ${a.count} tabs, close the extras`}</div>
+            ))}
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-1 text-fg-2"><Radio size={12} aria-hidden />Link per station (the tabs at that station)</div>

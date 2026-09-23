@@ -132,7 +132,8 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
             {mapModel ? <LiveMap model={mapModel} view="all" height={250} compact /> : (
               <MapPanel><SchematicMap width={320} height={250} compact delayedLeg={moment !== "start" && moment !== "hq-2501620"} maitriState={maitri.state === "RED" ? "RED" : "GREEN"} /></MapPanel>
             )}
-            {!incidentStrip && moment !== "start" && (
+            {/* The runbook's what-if beat (2:25) comes after the approval while INC-01 is still open. */}
+            {moment !== "start" && (
               <Button size="sm" icon={<FlaskConical size={14} />} onClick={() => setSim(true)}>Open what-if</Button>
             )}
             <EventTimeline events={ops ? ops.timeline : TIMELINES[moment]} empty="No events since the seed was loaded at 24 Jan 08:00." />
