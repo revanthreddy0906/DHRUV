@@ -26,6 +26,8 @@ export {
 } from "./rules/requirement.js";
 export { checkFeasibility, type FeasibilityResult } from "./rules/feasibility.js";
 export { computeAvailability, worstOf, type AvailabilityResult } from "./rules/availability.js";
+export { computePersonnelCoverage, computeAssetRedundancy, type CoverageResult } from "./rules/coverage.js";
+export { computeMissionImpact, type MissionImpactResult, type MissionNeeds } from "./rules/mission.js";
 
 /**
  * Placeholder for the pure engine (Build Bible section 7, owned by A).

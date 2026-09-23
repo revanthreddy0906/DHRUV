@@ -87,6 +87,7 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
     assets.set(asset.id, {
       assetId: asset.id,
       nodeId: asset.node_id,
+      type: asset.type,
       status: asset.status,
       lat: asset.lat,
       lon: asset.lon,
@@ -273,6 +274,7 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
             assets.set(assetId, {
               assetId,
               nodeId: event.node_id,
+              type: "UNKNOWN",
               status: mostConservative.status,
               lat: mostConservative.lat,
               lon: mostConservative.lon,

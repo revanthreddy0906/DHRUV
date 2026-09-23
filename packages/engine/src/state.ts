@@ -15,7 +15,7 @@ export interface PersonnelState {
   lastObservedAt: string;
 }
 export interface AssetState {
-  assetId: string; nodeId: string; status: string;
+  assetId: string; nodeId: string; type: string; status: string;
   lat: number | null; lon: number | null; lastObservedAt: string;
 }
 export interface MissionState {
