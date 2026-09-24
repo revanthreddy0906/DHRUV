@@ -218,16 +218,19 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
           const mission = missions.get(missionId);
           if (mission) {
             if (p.fields) mission.fields = { ...mission.fields, ...p.fields };
+            if (typeof p.fields?.status === "string") mission.status = p.fields.status;
+          }
+        } else if (event.type === "BURN_RATE_CHANGED") {
+          // Latest change wins (class C). uplift_pct is a percentage (15 = +15 %).
+          const p = event.payload as { item_id?: string; phase?: string; uplift_pct?: number; new_rate?: number };
+          const item = inventory.get(p.item_id ?? event.entity_id);
+          if (item) {
+            if (p.uplift_pct !== undefined) item.burnUplift = p.uplift_pct / 100;
+            if (p.new_rate !== undefined && p.phase) item.rateOverrides = { ...item.rateOverrides, [p.phase]: p.new_rate };
           }
         }
 
-        // KNOWN GAP (tracked, not a bug): ASSIGNMENT_SET and BURN_RATE_CHANGED
-        // are mergeClass "C" but not yet folded into State. ASSIGNMENT_SET has
-        // no home in State yet (no assignments map); BURN_RATE_CHANGED has no
-        // home either (no consumptionProfiles map). Both are needed before R05
-        // (personnel role coverage) and R01 (requirement per item) can be built.
-        // Do not silently add ad-hoc handling here — this needs a State schema
-        // decision first.
+        // ASSIGNMENT_SET is not folded into State: no rule reads assignments yet.
         break;
       }
 
@@ -348,13 +351,15 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
             person.lastObservedAt = event.observed_at;
           }
         } else if (event.type === "DECISION_PROPOSED") {
-          const p = event.payload as { decision_id?: string };
+          const p = event.payload as { decision_id?: string; options?: { id: string; levers?: string[] }[] };
           const decisionId = p.decision_id ?? event.entity_id;
           decisions.set(decisionId, {
             decisionId,
             status: "PROPOSED",
             chosenOptionId: null,
             approver: null,
+            nodeId: event.node_id,
+            options: (p.options ?? []).map((o) => ({ id: o.id, levers: o.levers ?? [] })),
           });
         } else if (event.type === "DECISION_APPROVED") {
           const p = event.payload as {
@@ -368,6 +373,7 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
             decision.status = "APPROVED";
             decision.chosenOptionId = p.chosen_option_id;
             decision.approver = p.approver;
+            decision.appliedLeverIds = decision.options?.find((o) => o.id === p.chosen_option_id)?.levers ?? [];
           } else {
             decisions.set(decisionId, {
               decisionId,

@@ -32,6 +32,8 @@ export interface GenerateOptionsParams {
   baseStock: number;
   baseRawRequirement: number;
   reservePct: number;
+  /** Burn-rate uplift as a fraction, applied to the raw requirement (R01). */
+  burnUplift?: number;
   inboundFeasibleQty?: number;
   delayedLegEta?: string; // e.g. "2027-02-07T00:00:00.000Z" for C-104
   maxCombinationSize?: number; // default 3
@@ -73,6 +75,7 @@ export function generateOptions(params: GenerateOptionsParams): GeneratedOption[
     baseStock,
     baseRawRequirement,
     reservePct,
+    burnUplift = 0,
     inboundFeasibleQty = 0,
     delayedLegEta = "2027-02-07T00:00:00.000Z",
     maxCombinationSize = 3,
@@ -120,7 +123,7 @@ export function generateOptions(params: GenerateOptionsParams): GeneratedOption[
 
     const availability = baseStock + inboundFeasibleQty + addedAvailability;
     const rawRequirement = Math.max(0, baseRawRequirement - savedRaw);
-    const requirement = rawRequirement * (1 + reservePct);
+    const requirement = rawRequirement * (1 + burnUplift) * (1 + reservePct);
     const ratio = requirement > 0 ? availability / requirement : Infinity;
 
     const state: "GREEN" | "AMBER" | "RED" =

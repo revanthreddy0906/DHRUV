@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { rebuildProjections } from "../db/projections.js";
 import { emitServerEvent } from "../sync/ingest.js";
 import { season48 } from "@dhruv/seed";
+import { evaluate } from "@dhruv/engine";
 import { engineProposal } from "../sync/proposals.js";
 import { API, auth, login, makeApp, makeEvent, push, t, type Device } from "../test/helpers.js";
 
@@ -43,11 +44,19 @@ describe("DEC-01 is proposed from the engine (R08-R11)", () => {
     expect(proposal!.payload.trace.map((s) => s.rule)).toContain("R11");
   });
 
-  it("HQ can approve option (b); holding the vessel still emits its follow-ups", async () => {
+  it("HQ approves option (b): the hold's follow-ups, F-27 deferred, and the engine applies all three levers", async () => {
     const { app, hq } = await setup();
     const res = await approve(app, hq, { chosen_option_id: "OPT-2", verify_ack: true, observed_at: t(24, "09:00") });
     expect(res.statusCode).toBe(200);
-    expect(res.json().follow_up_event_ids).toHaveLength(2);
+    expect(res.json().follow_up_event_ids).toHaveLength(3);
+
+    const state = (await app.inject({ method: "GET", url: `${API}/state`, headers: auth(hq) })).json();
+    const maitri = evaluate({ seed: state.seed, events: state.events }, t(24, "09:00")).stations.find((s) => s.nodeId === "MAITRI")!;
+    expect(maitri.appliedLevers).toEqual(["CONSERVE", "DEFER_F27", "HOLD_VESSEL"]);
+    // (140 kL) / ((120 - 8 - 4) x 1.1): what option (b) promised.
+    expect(maitri.dimensions.find((d) => d.key === "FUEL")?.ratio).toBeCloseTo(1.1785, 4);
+    expect(maitri.missions?.find((m) => m.missionId === "F-27")?.status).toBe("DEFERRED");
+    expect(maitri.options).toBeUndefined();
   });
 
   it("proposes nothing for a station that needs no decision", () => {

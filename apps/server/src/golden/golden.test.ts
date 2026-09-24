@@ -98,12 +98,12 @@ describe("T-ENG-01 to 06: seed, slip, options, approval", () => {
     expect(station(e, NODES.MAITRI)?.state).toBe("GREEN");
   });
 
-  known("medical dimension not evaluated")("T-ENG-01 medical 1.1111", () => {
+  it("T-ENG-01 medical 1.1111", () => {
     const e = evaluate({ seed: season48, events: [] }, t(24, "08:00"));
     expect(dim(e, NODES.MAITRI, "MEDICAL")?.ratio).toBeCloseTo(1.1111, 4);
   });
 
-  known("Bharati not evaluated")("T-ENG-01 Bharati fuel 1.1364 GREEN", () => {
+  it("T-ENG-01 Bharati fuel 1.1364 GREEN", () => {
     const e = evaluate({ seed: season48, events: [] }, t(24, "08:00"));
     expect(dim(e, NODES.BHARATI, "FUEL")?.ratio).toBeCloseTo(1.1364, 4);
     expect(station(e, NODES.BHARATI)?.state).toBe("GREEN");
@@ -118,7 +118,7 @@ describe("T-ENG-01 to 06: seed, slip, options, approval", () => {
     expect(fuel?.trace.find((s) => s.rule === "R02")?.text).toMatch(/2027-02-07|7 Feb/);
   });
 
-  known("mission impact not in the evaluation output")("T-ENG-02 F-27 AT_RISK and F-31 OK", () => {
+  it("T-ENG-02 F-27 AT_RISK and F-31 OK", () => {
     const e = evaluate({ seed: season48, events: slip() }, t(24, "08:10"));
     const missions = (station(e, NODES.MAITRI) as StationEval & { missions?: { missionId: string; status: string }[] }).missions ?? [];
     expect(missions.find((m) => m.missionId === "F-27")?.status).toBe("AT_RISK");
@@ -187,20 +187,20 @@ describe("T-ENG-07 (v2), 08 to 12: freshness band, burn, food, people, power", (
     expect(band.text).toBe("GREEN, could be AMBER");
   });
 
-  known("BURN_RATE_CHANGED is not applied to diesel")("T-ENG-08 after the hold, burn +15%: R 151.8, ratio 0.9223 RED", () => {
+  it("T-ENG-08 after the hold, burn +15%: R 151.8, ratio 0.9223 RED", () => {
     const e = evaluate({ seed: season48, events: [...slip(), ...approveHold(t(24, "09:00")), burnUplift(IDS.dieselMaitri, 15, t(24, "10:00"))] }, t(24, "10:00"));
     expect(dim(e, NODES.MAITRI, "FUEL")?.ratio).toBeCloseTo(0.9223, 4);
     expect(dim(e, NODES.MAITRI, "FUEL")?.state).toBe("RED");
   });
 
-  known("BURN_RATE_CHANGED is not applied to diesel")("T-ENG-09 as T-ENG-08 plus CONSERVE and DEFER_F27: 1.0247 AMBER", () => {
+  it("T-ENG-09 as T-ENG-08 plus CONSERVE and DEFER_F27: 1.0247 AMBER", () => {
     const e = evaluate({ seed: season48, events: [...slip(), ...approveHold(t(24, "09:00")), burnUplift(IDS.dieselMaitri, 15, t(24, "10:00"))] }, t(24, "10:00"));
     const both = station(e, NODES.MAITRI)?.options?.find((o) => leverSet(o.leverIds) === leverSet(["CONSERVE", "DEFER_F27"]));
     expect(both?.ratio).toBeCloseTo(1.0247, 4);
     expect(both?.state).toBe("AMBER");
   });
 
-  known("uplift_pct (a percentage) is used as a fraction")("T-ENG-10 food burn +10%: R 9108, ratio 0.9772 AMBER", () => {
+  it("T-ENG-10 food burn +10%: R 9108, ratio 0.9772 AMBER", () => {
     const e = evaluate({ seed: season48, events: [burnUplift(IDS.foodMaitri, 10, t(24, "10:00"))] }, t(24, "10:00"));
     expect(dim(e, NODES.MAITRI, "FOOD")?.ratio).toBeCloseTo(0.9772, 4);
     expect(dim(e, NODES.MAITRI, "FOOD")?.state).toBe("AMBER");
@@ -247,7 +247,7 @@ describe("v2 golden tests: slip tolerance, uncertainty, slack, food by POB, base
     expect(dim(e, NODES.MAITRI, "FUEL")?.slipTolerance?.slipToleranceDays).toBe(22);
   });
 
-  known("Bharati not evaluated")("T-ENG-15 Bharati slip tolerance 40 days", () => {
+  it("T-ENG-15 Bharati slip tolerance 40 days", () => {
     const e = evaluate({ seed: season48, events: [] }, t(24, "08:00"));
     expect(dim(e, NODES.BHARATI, "FUEL")?.slipTolerance?.slipToleranceDays).toBe(40);
   });
@@ -259,7 +259,7 @@ describe("v2 golden tests: slip tolerance, uncertainty, slack, food by POB, base
     expect(slipTol?.daysShortOfWindow).toBe(106);
   });
 
-  known("BURN_RATE_CHANGED is not applied to diesel")("T-ENG-17 after the hold, burn +15%: breach 23 Oct 2027, 28 days short", () => {
+  it("T-ENG-17 after the hold, burn +15%: breach 23 Oct 2027, 28 days short", () => {
     const e = evaluate({ seed: season48, events: [...slip(), ...approveHold(t(24, "09:00")), burnUplift(IDS.dieselMaitri, 15, t(24, "10:00"))] }, t(24, "10:00"));
     const slipTol = dim(e, NODES.MAITRI, "FUEL")?.slipTolerance;
     expect(day(slipTol?.reserveBreachDate)).toBe("2027-10-23");

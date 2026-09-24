@@ -32,18 +32,21 @@ export function computeRequirement(
   for (const phase of Object.keys(phaseBoundaries)) {
     const profile = itemProfiles.find((p) => p.phase === phase);
     if (!profile) continue;
+    const rate = item.rateOverrides?.[phase] ?? profile.rate_per_day;
     const bounds = phaseBoundaries[phase]!;
     const from = nowDate > bounds.start ? nowDate : bounds.start;
     const days = daysBetween(from, bounds.end);
-    const contribution = days * profile.rate_per_day;
+    const contribution = days * rate;
     rBase += contribution;
-    lines.push(`${phase}: ${days.toFixed(1)}d x ${profile.rate_per_day} = ${contribution.toFixed(2)}`);
+    lines.push(`${phase}: ${days.toFixed(1)}d x ${rate} = ${contribution.toFixed(2)}`);
   }
-  const r = rBase * (1 + item.reservePct);
+  const u = item.burnUplift ?? 0;
+  const r = rBase * (1 + u) * (1 + item.reservePct);
+  const upliftText = u !== 0 ? `; burn +${(u * 100).toFixed(0)}% = ${(rBase * (1 + u)).toFixed(2)}` : "";
   return {
     itemId: item.itemId,
     rBase,
     r,
-    trace: `[R01] ${item.itemId} requirement: ${lines.join(" + ")} = ${rBase.toFixed(2)}; with ${(item.reservePct * 100).toFixed(0)}% reserve = ${r.toFixed(2)}`,
+    trace: `[R01] ${item.itemId} requirement: ${lines.join(" + ")} = ${rBase.toFixed(2)}${upliftText}; with ${(item.reservePct * 100).toFixed(0)}% reserve = ${r.toFixed(2)}`,
   };
 }

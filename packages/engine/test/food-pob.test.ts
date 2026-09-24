@@ -202,7 +202,7 @@ describe("R19 Spec Golden Acceptance Tests", () => {
       payload: {
         item_id: "INV-FOOD-MAITRI",
         phase: "WINTER",
-        uplift_pct: 0.10,
+        uplift_pct: 10, // a percentage (BURN_RATE_CHANGED)
       },
       observed_at: "2027-01-24T08:10:00.000Z",
       created_at_client: "2027-01-24T08:10:00.000Z",

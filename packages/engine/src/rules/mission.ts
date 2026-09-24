@@ -1,14 +1,17 @@
+import { config } from "@dhruv/shared";
 import type { MissionState, PersonnelState, AssetState } from "../state.js";
 
 export interface MissionImpactResult {
   missionId: string;
-  status: "OK" | "AT_RISK" | "BLOCKED";
+  status: "OK" | "AT_RISK" | "BLOCKED" | "DEFERRED";
   why: string;
   trace: string;
 }
 
 export interface MissionNeeds {
   fuelItemId: string | null;
+  /** Diesel the mission draws (kL). Draws under config.season.missionFuelMaterialKl are not put at risk. */
+  fuelKl?: number;
   personIds: string[];
   assetIds: string[];
 }
@@ -24,6 +27,12 @@ export function computeMissionImpact(
   personnel: Map<string, PersonnelState>,
   assets: Map<string, AssetState>,
 ): MissionImpactResult {
+  if (mission.status === "DEFERRED") {
+    return {
+      missionId: mission.missionId, status: "DEFERRED", why: "deferred by an approved decision",
+      trace: `[R07] ${mission.missionId}: DEFERRED`,
+    };
+  }
   for (const personId of needs.personIds) {
     const p = personnel.get(personId);
     if (!p || (p.status !== "ON_STATION" && p.status !== "FIELD")) {
@@ -44,7 +53,8 @@ export function computeMissionImpact(
       };
     }
   }
-  if (needs.fuelItemId && fuelState === "RED") {
+  const material = (needs.fuelKl ?? Infinity) >= config.season.missionFuelMaterialKl;
+  if (needs.fuelItemId && fuelState === "RED" && material) {
     return {
       missionId: mission.missionId, status: "AT_RISK",
       why: `depends on ${needs.fuelItemId}, which is RED`,
