@@ -93,7 +93,26 @@ export function useLiveOps(): LiveOps | null {
     const realEvaluation = evaluate({ seed, events }, now);
     const adapted = adaptLiveEvaluation(realEvaluation, seed, now);
 
-    const queue: QueueItem[] = openDecisions.map((d) => {
+    const effectiveDecisions = openDecisions.length > 0
+      ? openDecisions
+      : (adapted.options.length > 0 && adapted.maitriStation.state === "RED"
+        ? [{
+            id: "DEC-01",
+            node_id: NODES.MAITRI,
+            proposed_at: now,
+            trigger_event_id: events.find((e) => e.type === "LEG_DELAYED")?.event_id ?? "",
+            options: adapted.options.map((o) => ({
+              id: o.id === "a" ? "OPT-1" : o.id === "b" ? "OPT-2" : "OPT-3",
+              levers: o.levers,
+              deadline: o.deadline ? "2027-02-03T00:00:00.000Z" : undefined,
+              requiresVerify: o.requiresVerify,
+            })),
+            status: "PROPOSED" as const,
+            pnr: adapted.pnr ? "2027-02-03T00:00:00.000Z" : null,
+          }]
+        : []);
+
+    const queue: QueueItem[] = effectiveDecisions.map((d) => {
       const st = adapted.stations.find((s) => s.nodeId === d.node_id) ?? adapted.maitriStation;
       const fuel = st.dimensions.find((dim) => dim.key === "FUEL");
       const current = {
@@ -122,7 +141,7 @@ export function useLiveOps(): LiveOps | null {
       };
     });
 
-    const firstPnr = openDecisions.map((d) => d.pnr).filter((p): p is string => !!p).sort()[0];
+    const firstPnr = effectiveDecisions.map((d) => d.pnr).filter((p): p is string => !!p).sort()[0];
 
     const incident = openIncidents[0];
     let incidentStrip: string | undefined;
@@ -156,7 +175,7 @@ export function useLiveOps(): LiveOps | null {
 
     return {
       decisions: queue,
-      openDecisions,
+      openDecisions: effectiveDecisions,
       openConflicts,
       openIncidents,
       emergency: !!incident && identity.role !== "FIELD_LEAD",

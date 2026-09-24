@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LiveDecisionDetail } from "../screens/DecisionLive";
+import { LiveCargoScreen } from "../screens/CargoLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDirector } from "../screens/DirectorLive";
@@ -60,7 +61,9 @@ function useOpsState() {
 }
 
 function CargoRoute() {
+  const device = useDevice();
   const state = useOpsState();
+  if (device) return <LiveCargoScreen />;
   return <CargoScreen key={state} state={state} />;
 }
 

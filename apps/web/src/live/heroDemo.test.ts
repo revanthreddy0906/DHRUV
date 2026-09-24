@@ -160,5 +160,56 @@ describe("Maitri Season 48 Hero Demo Vertical Slice", () => {
     expect(fuel?.state).toBe("GREEN");
     expect(fuel?.ratio).toBeCloseTo(1.0606, 3);
   });
+
+  it("4. Cargo screen Edit ETA interaction: writing LEG_DELAYED transitions Cargo to EXCLUDED (-3 d) and Command Center to RED (0.6970) with PNR 3 Feb and HOLD_VESSEL; clearing returns to GREEN", () => {
+    // A. Clean start (0:00): zero events
+    const cleanEvents: OpEvent[] = [];
+    const evalStart = evaluate({ seed: season48, events: cleanEvents }, "2027-01-24T08:00:00.000Z");
+    const liveStart = adaptLiveEvaluation(evalStart, season48, "2027-01-24T08:00:00.000Z");
+    expect(liveStart.maitriStation.state).toBe("GREEN");
+    expect(liveStart.maitriStation.dimensions.find((d) => d.key === "FUEL")?.ratio).toBeCloseTo(1.0606, 3);
+    expect(liveStart.pnr).toBeUndefined();
+
+    // B. Cargo Edit ETA action (0:20): record LEG_DELAYED for L2-C104 with new_eta: 2027-02-07
+    const legDelayed: OpEvent = {
+      event_id: "e-cargo-edit-01",
+      device_id: DEVICES.HQ_WEB,
+      seq: 1,
+      type: "LEG_DELAYED",
+      entity_type: "leg",
+      entity_id: IDS.legC104Feeder,
+      node_id: NODES.HQ,
+      payload: { leg_id: IDS.legC104Feeder, new_eta: "2027-02-07T00:00:00.000Z", reason: "feeder vessel delayed" },
+      observed_at: "2027-01-24T08:10:00.000Z",
+      created_at_client: "2027-01-24T08:10:00.000Z",
+      priority: 3,
+      actor_role: "HQ_OPS",
+      schema_version: 1,
+    };
+
+    // C. Re-evaluation with updated event log (0:30)
+    const evalSlip = evaluate({ seed: season48, events: [legDelayed] }, "2027-01-24T08:10:00.000Z");
+    const liveSlip = adaptLiveEvaluation(evalSlip, season48, "2027-01-24T08:10:00.000Z");
+
+    // Command Center reflects RED 0.6970, PNR 3 Feb, HOLD_VESSEL option
+    expect(liveSlip.maitriStation.state).toBe("RED");
+    const fuelSlip = liveSlip.maitriStation.dimensions.find((d) => d.key === "FUEL");
+    expect(fuelSlip?.state).toBe("RED");
+    expect(fuelSlip?.ratio).toBeCloseTo(0.6970, 3);
+    expect(liveSlip.pnr?.date).toBe("3 Feb");
+    expect(liveSlip.pnr?.daysLeft).toBe(10);
+
+    const holdVesselOption = liveSlip.options.find((o) => o.levers.includes("HOLD_VESSEL"));
+    expect(holdVesselOption).toBeDefined();
+    expect(holdVesselOption?.resultingState).toBe("GREEN");
+    expect(holdVesselOption?.resultingRatio).toBeCloseTo(1.0606, 3);
+
+    // D. Resetting / clearing events returns state to clean GREEN 1.0606
+    const evalReset = evaluate({ seed: season48, events: [] }, "2027-01-24T08:00:00.000Z");
+    const liveReset = adaptLiveEvaluation(evalReset, season48, "2027-01-24T08:00:00.000Z");
+    expect(liveReset.maitriStation.state).toBe("GREEN");
+    expect(liveReset.maitriStation.dimensions.find((d) => d.key === "FUEL")?.ratio).toBeCloseTo(1.0606, 3);
+    expect(liveReset.pnr).toBeUndefined();
+  });
 });
 

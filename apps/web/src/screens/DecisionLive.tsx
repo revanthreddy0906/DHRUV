@@ -48,7 +48,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const moment = ops.mockMoment;
   const { identity } = device.session;
   const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
-  const decision = decisionsView(events).find((d) => d.id === id);
+  const decision = decisionsView(events).find((d) => d.id === id) ?? ops.openDecisions.find((d) => d.id === id);
 
   if (!decision) {
     return (
