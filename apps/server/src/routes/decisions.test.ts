@@ -39,6 +39,25 @@ describe("decision approval flow (section 15)", () => {
     expect(again.json().error.code).toBe("DECISION_NOT_PROPOSED");
   });
 
+  it("an approval made offline and synced later emits the same follow-ups as the online route", async () => {
+    const { app, hq } = await setup();
+    const approval = makeEvent(hq, "DECISION_APPROVED", { entity_type: "decision", entity_id: "DEC-01" },
+      { decision_id: "DEC-01", chosen_option_id: "OPT-1", approver: "HQ-WEB-01", verify_ack: true }, t(25, "16:20"), { node_id: "MAITRI" });
+
+    const result = await push(app, hq, [approval]);
+    expect(result.accepted).toEqual([approval.event_id]);
+
+    const audit = await app.inject({ method: "GET", url: `${API}/events?limit=20`, headers: auth(hq) });
+    const byType = Object.fromEntries(audit.json().events.map((e: { type: string }) => [e.type, e]));
+    expect(byType.VESSEL_UPDATED).toMatchObject({ device_id: "SERVER", observed_at: t(25, "16:20"), payload: { departure: "2027-02-09T00:00:00.000Z", decision_id: "DEC-01" } });
+    expect(byType.LEG_UPDATED).toMatchObject({ device_id: "SERVER", payload: { leg_id: "L3-C104", eta: "2027-02-27T00:00:00.000Z" } });
+
+    // A repeat push is a duplicate and emits nothing more.
+    await push(app, hq, [approval]);
+    const after = await app.inject({ method: "GET", url: `${API}/events?limit=20`, headers: auth(hq) });
+    expect(after.json().events.filter((e: { type: string }) => e.type === "VESSEL_UPDATED")).toHaveLength(1);
+  });
+
   it("a Station Leader cannot approve an option that holds the vessel", async () => {
     const { app, maitri } = await setup();
     const res = await approve(app, maitri, { chosen_option_id: "OPT-1", verify_ack: true, observed_at: t(25, "16:20") });

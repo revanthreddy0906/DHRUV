@@ -48,6 +48,22 @@ describe("conflict detection on sync (sections 6 and 9, beat 10)", () => {
     expect(listConflicts(db, "OPEN")).toHaveLength(0);
   });
 
+  it("a resolution recorded at the flag's own demo time still closes it (HQ-WEB-01 sorts before SERVER)", async () => {
+    const { app, db } = makeApp();
+    const maitri = await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
+    const hq = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
+    await push(app, maitri, [makeEvent(maitri, "ASSET_STATUS_SET", SK2, { asset_id: "SK-2", status: "DOWN" }, t(24, "09:20"))]);
+    await push(app, hq, [makeEvent(hq, "ASSET_STATUS_SET", SK2, { asset_id: "SK-2", status: "OK" }, t(24, "11:00"), { node_id: "MAITRI" })]);
+    const conflict = listConflicts(db, "OPEN")[0]!;
+
+    // The flag carries the latest contender's time, 24 Jan 11:00; HQ resolves with its clock still there.
+    const result = await push(app, hq, [
+      makeEvent(hq, "CONFLICT_RESOLVED", { entity_type: "conflict", entity_id: conflict.id }, { conflict_id: conflict.id, chosen_value: "DOWN", resolver: "HQ-WEB-01" }, t(24, "11:00"), { node_id: "MAITRI" }),
+    ]);
+    expect(result.accepted).toHaveLength(1);
+    expect(listConflicts(db, "OPEN")).toHaveLength(0);
+  });
+
   it("person status only conflicts when INJURED or UNAVAILABLE is involved", async () => {
     const { app, db } = makeApp();
     const maitri = await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");

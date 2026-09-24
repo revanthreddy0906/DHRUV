@@ -69,9 +69,24 @@ importers:
 
   apps/web:
     dependencies:
+      '@dhruv/map':
+        specifier: workspace:*
+        version: link:../../packages/map
+      '@dhruv/seed':
+        specifier: workspace:*
+        version: link:../../packages/seed
+      '@dhruv/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@dhruv/store':
+        specifier: workspace:*
+        version: link:../../packages/store
       dexie:
         specifier: ^4.4.6
         version: 4.4.6
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
       lucide-react:
         specifier: ^1.47.0
         version: 1.47.0(react@18.3.1)
@@ -91,6 +106,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.0(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      '@types/leaflet':
+        specifier: ^1.9.12
+        version: 1.9.22
       '@types/react':
         specifier: ^18.3.31
         version: 18.3.31

@@ -79,8 +79,10 @@ describe("priority drain and link simulation (section 9)", () => {
     });
 
     const calls: PushRequest[] = [];
-    await drainOutbox(db, maitri, acceptAll(calls));
+    const sentBytes = (await db.outbox.toArray()).reduce((sum, e) => sum + e.bytes, 0);
+    const result = await drainOutbox(db, maitri, acceptAll(calls));
     expect(calls[0]!.events.map((e) => e.type)).toEqual(["INCIDENT_OPENED", "ASSET_STATUS_SET", "STOCK_COUNTED", "MISSION_UPDATED"]);
+    expect(result.bytes).toBe(sentBytes);
     expect(await db.outbox.count()).toBe(0);
     expect((await db.events.toArray()).every((e) => e.recorded_at_server)).toBe(true);
   });
@@ -96,7 +98,7 @@ describe("priority drain and link simulation (section 9)", () => {
       throw new Error("should not be called");
     });
     expect(called).toBe(false);
-    expect(result).toMatchObject({ sent: 0, remaining: 1, skipped: "offline" });
+    expect(result).toMatchObject({ sent: 0, remaining: 1, skipped: "offline", bytes: 0 });
   });
 
   it("Degraded: sends in priority order within 2.5 KB per demo second, P5 waits", () => {
@@ -111,7 +113,8 @@ describe("priority drain and link simulation (section 9)", () => {
 
   it("marks server-rejected entries and does not resend them", async () => {
     const e = await writeEvent(db, maitri, count(92));
-    await drainOutbox(db, maitri, async () => ({ accepted: [], duplicates: [], rejected: [{ event_id: e.event_id, code: "INVALID_EVENT" }], recorded_at_server: "" }));
+    await drainOutbox(db, maitri, async () => ({ accepted: [], duplicates: [], rejected: [{ event_id: e.event_id, code: "INVALID_EVENT", message: "why" }], recorded_at_server: "" }));
+    expect((await db.outbox.toArray())[0]).toMatchObject({ status: "rejected", rejected_code: "INVALID_EVENT", rejected_message: "why" });
 
     const status = await syncStatus(db);
     expect(status).toMatchObject({ pending: 0, rejected: 1 });
@@ -129,6 +132,19 @@ describe("pull and sync runner", () => {
     expect(await pullOnce(db, pull)).toBe(1);
     expect(await pullOnce(db, pull)).toBe(0);
     expect(await db.events.get(remote.event_id)).toEqual(remote);
+  });
+
+  it("drops a pull response when the store was reset while the request was out", async () => {
+    const remote = await writeEvent(new DhruvDb(`r-${Math.random()}`), hq, { ...count(10), node_id: "MAITRI" });
+    await db.meta.put({ key: "cursor", value: 13 });
+    const pull = async () => {
+      // A Director reset lands mid-request.
+      await db.meta.clear();
+      return { events: [remote], cursor: 13 };
+    };
+    expect(await pullOnce(db, pull)).toBe(0);
+    expect(await db.events.count()).toBe(0);
+    expect(await db.meta.get("cursor")).toBeUndefined();
   });
 
   it("backs off 2, 4, 8, 16, 30 s and is stalled after 5 failures", async () => {

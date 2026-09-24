@@ -1,6 +1,5 @@
 import { config } from "./config.js";
 import { compareEvents, EVENT_RULES, type OpEvent, type PayloadOf } from "./events.js";
-import { computeStockBalance } from "./stock.js";
 
 export interface Contender {
   event_id: string;
@@ -114,21 +113,45 @@ function detectSafety(sorted: OpEvent[], touched: Set<string>, cutoffs: Map<stri
   return findings;
 }
 
+export interface StockBalance {
+  /** The last STOCK_COUNTED, or the seed stock when there is none. */
+  base: number;
+  /** observed_at of that count; null when the base is the seed. */
+  countedAt: string | null;
+  /** Issues and receipts after the base, in reduce order. */
+  deltas: OpEvent[];
+  balance: number;
+}
+
+/**
+ * Merge class B (section 9): stock is the last count plus the issues and receipts since. The one
+ * rule for on-hand stock, used by conflict detection and by the screens. `sorted` must be in
+ * reduce order. Null when neither a count nor a seed stock is known.
+ */
+export function stockBalance(sorted: OpEvent[], itemId: string, seedStock?: number): StockBalance | null {
+  const stockEvents = sorted.filter(
+    (e) => (e.type === "STOCK_COUNTED" || e.type === "STOCK_ISSUED" || e.type === "STOCK_RECEIVED") && (e.payload as { item_id: string }).item_id === itemId,
+  );
+  const lastCountIndex = stockEvents.findLastIndex((e) => e.type === "STOCK_COUNTED");
+  const lastCount = stockEvents[lastCountIndex];
+  const base = lastCount ? (lastCount.payload as { qty: number }).qty : seedStock;
+  if (base === undefined) return null;
+
+  const deltas = stockEvents.slice(lastCountIndex + 1);
+  const balance = deltas.reduce((sum, e) => {
+    const q = (e.payload as { qty: number }).qty;
+    return e.type === "STOCK_RECEIVED" ? sum + q : sum - q;
+  }, base);
+  return { base, countedAt: lastCount?.observed_at ?? null, deltas, balance };
+}
+
 function detectNegativeStock(sorted: OpEvent[], touchedItems: Set<string>, seedStock: Map<string, number>): ConflictFinding[] {
   const findings: ConflictFinding[] = [];
   for (const itemId of touchedItems) {
-    const stockEvents = sorted.filter(
-      (e) => (e.type === "STOCK_COUNTED" || e.type === "STOCK_ISSUED" || e.type === "STOCK_RECEIVED") && (e.payload as { item_id: string }).item_id === itemId,
-    );
-    const lastCountIndex = stockEvents.findLastIndex((e) => e.type === "STOCK_COUNTED");
-    const lastCount = stockEvents[lastCountIndex];
-    const initial = seedStock.get(itemId);
-    if (lastCount === undefined && initial === undefined) continue;
+    const stock = stockBalance(sorted, itemId, seedStock.get(itemId));
+    if (!stock || stock.balance >= 0) continue;
+    const { deltas, balance } = stock;
 
-    const balance = computeStockBalance(itemId, sorted, initial);
-    if (balance >= 0) continue;
-
-    const deltas = stockEvents.slice(lastCountIndex + 1);
     findings.push({
       kind: "NEGATIVE_STOCK",
       entity_type: "inventory_item",
