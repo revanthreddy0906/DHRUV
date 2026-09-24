@@ -68,4 +68,11 @@ export const config = {
     minDaysOfCover: 30,
     minStockThreshold: 0,
   },
+
+  food: {
+    /** Spec section 7 & 13 (R19): default daily per-person ration in person-days / person / day. */
+    defaultPerPersonRate: 1.0,
+    /** Spec section 7 & 13 (R19): default days to resupply covering the expedition winter period. */
+    defaultDaysToResupply: 300,
+  },
 } as const;

@@ -49,6 +49,12 @@ import {
   type BaselineB0Result,
   type ComputeBaselineB0Params,
 } from "./rules/baseline.js";
+import {
+  computePob,
+  computeFoodRequirement,
+  type FoodRequirementResult,
+  type ComputeFoodRequirementParams,
+} from "./rules/food.js";
 
 export { reduce } from "./reduce.js";
 export type {
@@ -114,6 +120,12 @@ export {
   type BaselineB0Result,
   type ComputeBaselineB0Params,
 } from "./rules/baseline.js";
+export {
+  computePob,
+  computeFoodRequirement,
+  type FoodRequirementResult,
+  type ComputeFoodRequirementParams,
+} from "./rules/food.js";
 
 /**
  * Placeholder for the pure engine (Build Bible section 7, owned by A).
@@ -139,6 +151,7 @@ export interface DimensionEval {
   slipTolerance?: SlipToleranceResult;
   cargoConfidence?: CargoFeasibilityConfidence;
   baselineB0?: BaselineB0Result;
+  foodRequirement?: FoodRequirementResult;
   trace: TraceStep[];
 }
 
@@ -385,6 +398,43 @@ export function evaluate(input: EngineInput, now: string): Evaluation {
     };
 
     const dimensions: DimensionEval[] = [fuelDimension];
+
+    // R19: FOOD dimension (evaluated only when a food inventory item exists for this station)
+    const foodItem = Array.from(state.inventory.values()).find(
+      (item) => item.nodeId === diesel.nodeId && item.dimension === "FOOD",
+    );
+    if (foodItem) {
+      let foodBurnUplift = 0;
+      for (const ev of input.events) {
+        if (ev.type === "BURN_RATE_CHANGED") {
+          const payload = ev.payload as { item_id?: string; uplift_pct?: number; new_rate?: number };
+          if (payload.item_id === foodItem.itemId) {
+            if (payload.uplift_pct !== undefined) {
+              foodBurnUplift = payload.uplift_pct;
+            }
+          }
+        }
+      }
+
+      const foodReq = computeFoodRequirement({
+        foodItem,
+        personnel: state.personnel.values(),
+        nodeId: diesel.nodeId,
+        burnUplift: foodBurnUplift,
+        now,
+      });
+
+      const foodFreshness = classifyFreshness(foodItem.itemId, "stock", foodItem.lastObservedAt, now);
+
+      dimensions.push({
+        key: "FOOD",
+        state: foodReq.state,
+        ratio: foodReq.ratio,
+        freshness: foodFreshness.freshness,
+        foodRequirement: foodReq,
+        trace: [{ rule: "R19", text: foodReq.trace }],
+      });
+    }
 
     // R05: PERSONNEL dimension (if personnel are seeded for this station)
     if (input.seed.personnel && input.seed.personnel.length > 0) {
