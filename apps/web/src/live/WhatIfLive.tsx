@@ -4,6 +4,7 @@ import { evaluate } from "@dhruv/engine";
 import type { OpEvent } from "@dhruv/shared";
 import { BeforeAfter } from "../components/whatif";
 import { Button, SectionHeader, StateBadge, RatioDisplay, cx } from "../components/primitives";
+import { readable } from "./adapter";
 import { dayLabel } from "./describe";
 import { nodeLabel } from "./chrome";
 import type { LiveOps } from "./ops";
@@ -90,7 +91,7 @@ export function LiveWhatIfDrawer({ ops, role, onClose }: { ops: LiveOps; role: s
             <p className="rounded-md border border-line bg-bg px-3 py-2 text-[12px] text-fg"><span className="font-semibold">Changed assumption:</span> {result.assumption}</p>
             <SectionHeader title="Fuel · before and after" />
             <BeforeAfter before={{ state: result.fuelBefore.state, ratio: r4(result.fuelBefore.ratio), sub: sub(result.fuelBefore) }} after={{ state: result.fuelAfter.state, ratio: r4(result.fuelAfter.ratio), sub: sub(result.fuelAfter) }} />
-            <p className="font-mono text-[11px] text-fg-2">{result.fuelAfter.trace.find((t) => t.rule === "R03")?.text}</p>
+            <p className="font-mono text-[11px] text-fg-2">{readable(result.fuelAfter.trace.find((t) => t.rule === "R03")?.text ?? "")}</p>
             <SectionHeader title="Options that still work" />
             {(result.after?.options ?? []).length === 0 ? (
               <p className="text-[12px] text-fg-2">{result.fuelAfter.state === "GREEN" ? "Fuel stays GREEN: no options needed." : "No lever combination is still available."}</p>

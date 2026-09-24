@@ -96,14 +96,10 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
   // Live overrides on the station cards: gates (open incidents and safety conflicts) and link.
   const stationFor = (s: StationEval) => {
     if (!ops || !live) return { station: s, link: undefined };
-    const gates = [
-      ...(s.gates ?? []),
-      ...ops.openIncidents.filter((i) => i.node_id === s.nodeId).map((i) => `Incident ${i.id} open`),
-      ...ops.openConflicts.filter((c) => c.node_id === s.nodeId).map((c) => `Unresolved safety conflict: ${c.entity_id} ${c.field}`),
-    ];
+    // Gates (open incidents, unresolved safety conflicts, blocked missions) are the engine's R15.
     const l = live.stations.find((x) => x.node === s.nodeId);
     const link = l ? (l.own ? { status: l.status } : { age: l.age }) : undefined;
-    return { station: { ...s, gates }, link };
+    return { station: s, link };
   };
   const rawMaitri = ops ? (ops.stations.find((s) => s.nodeId === "MAITRI") ?? ops.maitriStation) : m.stations[0];
   const rawOther = ops ? ops.stations.find((s) => s.nodeId !== rawMaitri.nodeId) : m.stations[1];

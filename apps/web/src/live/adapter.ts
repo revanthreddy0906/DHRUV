@@ -54,10 +54,20 @@ export function adaptOptions(options: RankedOption[] | undefined, _now?: string)
   });
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Engine text for people: "[R13] " prefixes dropped (also nested ones), ISO dates as "7 Feb". */
+export function readable(text: string): string {
+  return text
+    .replace(/\[R\d+\]\s*/g, "")
+    .replace(/(\d{4})-(\d{2})-(\d{2})(T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z)?/g, (_m, y: string, mo: string, d: string, time?: string) =>
+      `${Number(d)} ${MONTHS[Number(mo) - 1]}${y !== "2027" ? ` ${y}` : ""}${time && !time.startsWith("T00:00") ? ` ${time.slice(1, 6)}` : ""}`);
+}
+
 export function adaptTraces(traceSteps: EngineTraceStep[] | undefined): WebTraceStep[] {
   if (!traceSteps || traceSteps.length === 0) return [];
   return traceSteps.map((step) => {
-    const text = step.text.replace(/^\[[A-Z0-9]+\]\s*/, "");
+    const text = readable(step.text);
     return {
       rule: step.rule,
       title:
@@ -162,7 +172,7 @@ export function adaptStation(st: EngineStationEval, seed: Seed, now: string): We
 
   const tol = fuelEval?.slipTolerance;
   const slip: WebStationEval["slip"] = tol?.reserveBreachDate
-    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: tol.trace.replace(/^\[[A-Z0-9]+\]\s*/, "") }
+    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: `Reserve is breached on ${dayLabel(tol.reserveBreachDate)}, ${tol.daysShortOfWindow ?? 0} days before the 20 Nov resupply` }
     : { kind: "tolerance", days: tol?.slipToleranceDays ?? 0, text: `The November ship can be up to ${tol?.slipToleranceDays ?? 0} days late before reserve is touched` };
 
   const b0 = fuelEval?.baselineB0;
@@ -174,7 +184,7 @@ export function adaptStation(st: EngineStationEval, seed: Seed, now: string): We
     name,
     state: st.state as Health,
     dimensions,
-    driver: worst ? (worst.key === "FUEL" && r02 ? r02.text.replace(/^\[[A-Z0-9]+\]\s*/, "") : driversOf(worst, st)[0]) : undefined,
+    driver: worst ? (worst.key === "FUEL" && r02 ? readable(r02.text) : driversOf(worst, st)[0]) : undefined,
     slip,
     b0: b0 ? { alerts: b0.hasAlert ? 1 : 0, text: `B0 stock alert: ${b0.hasAlert ? "1 alert" : "none"} · ${b0.stock.toFixed(1)} ${b0.unit} / ${b0.rate.toFixed(2)}/d = ${b0.daysOfCover} d of cover` } : undefined,
     pnr: st.pnr?.pnrDate ? { date: dayLabel(st.pnr.pnrDate), daysLeft: st.pnr.daysRemaining ?? 0 } : undefined,
@@ -209,7 +219,7 @@ export function inventoryRows(st: EngineStationEval | undefined, seed: Seed, now
         state: i.state,
         cover: rate && d.key === "FUEL" ? `${Math.floor(i.stock / rate)} d at ${rate}` : d.foodRequirement ? `${Math.floor(i.stock / Math.max(1, d.foodRequirement.pob))} d at ${d.foodRequirement.pob} people` : undefined,
         freshness: { cls: fresh ?? "FRESH", age: formatAge(counted, now), counted: formatShort(counted) },
-        breakdown: d.trace.filter((t) => (t.rule === "R01" || t.rule === "R19") && t.text.includes(d.key === "FOOD" ? "Food" : i.id)).map((t) => ({ phase: t.rule, calc: t.text.replace(/^\[[A-Z0-9]+\]\s*/, ""), value: "" })),
+        breakdown: d.trace.filter((t) => (t.rule === "R01" || t.rule === "R19") && t.text.includes(d.key === "FOOD" ? "Food" : i.id)).map((t) => ({ phase: t.rule, calc: readable(t.text), value: "" })),
       });
     }
   }

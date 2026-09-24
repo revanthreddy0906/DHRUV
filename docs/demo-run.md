@@ -46,6 +46,8 @@ The Director lists the open device tabs and says which tab each beat needs. Pres
 
 Beat 7 also records FT-3's check-in on the Maitri tablet (radio relay), so the offline station has the position at 1:40–1:50.
 
+Until the team settles the R01 question (README, Project status), ratios after the 25 Jan 16:00 jump read slightly above the Bible's golden values, because the engine counts requirement days from the viewer's date: 0.7002 instead of 0.697, 1.0655 instead of 1.0606 after the hold, and 0.9265 instead of 0.9223 in the what-if. States, PNR, gates and options are the same.
+
 ## If something is off
 
 - **A beat says "no response from ..."**: that device's tab is not open or not signed in.

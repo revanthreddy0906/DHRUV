@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { season48, IDS, DEVICES, NODES } from "@dhruv/seed";
 import { evaluate } from "@dhruv/engine";
 import type { OpEvent } from "@dhruv/shared";
-import { adaptLiveEvaluation, inventoryRows, roleRows } from "./adapter";
+import { adaptLiveEvaluation, inventoryRows, readable, roleRows } from "./adapter";
 
 describe("Maitri Season 48 Hero Demo Vertical Slice", () => {
   const at = "2027-01-24T08:10:00.000Z";
@@ -258,5 +258,13 @@ describe("I4: screens read the engine, not fixtures", () => {
     const rows = inventoryRows(maitri, season48, at);
     expect(rows.find((r) => r.id === IDS.dieselMaitri)).toMatchObject({ stock: "92.0", requirement: "132.0", ratio: 1.0606 });
     expect(roleRows(maitri, season48).find((r) => r.role === "Doctor")).toMatchObject({ have: 2, need: 1, state: "GREEN" });
+  });
+});
+
+describe("engine text for people", () => {
+  it("drops nested rule prefixes and shows dates as days", () => {
+    expect(readable("[R13] Option X: [R13] band [1.0, 1.1]")).toBe("Option X: band [1.0, 1.1]");
+    expect(readable("leg ETA 2027-02-07T00:00:00.000Z after 2027-02-04")).toBe("leg ETA 7 Feb after 4 Feb");
+    expect(readable("observed 2027-01-24T04:00:00.000Z")).toBe("observed 24 Jan 04:00");
   });
 });
