@@ -72,7 +72,36 @@ export const config = {
     altTileAttribution: "&copy; OpenStreetMap contributors",
   },
 
-  // TODO(A): freshness class boundaries per source type (section 4 of v2 / section 8)
-  // TODO(A): confidence band uncertainty percentages (R13 v2)
-  // TODO(A): slip tolerance / reserve constants (R16 v2)
+  thresholds: {
+    // Ratio state boundaries (spec.md section 7). Never a weighted score.
+    green: 1.05,
+    amber: 0.95,
+    // ratio < amber is RED
+  },
+
+  freshness: {
+    tiers: {
+      stock:    { freshHours: 24, agingHours: 72, staleDays: 7 },
+      cargoEta: { freshHours: 12, agingHours: 48, staleDays: 7 },
+      position: { freshHours: 1,  agingHours: 6,  staleHours: 24 },
+      link:     { freshHours: 1,  agingHours: 6,  staleHours: 24 },
+      asset:    { freshHours: 6,  agingHours: 24, staleHours: 72 },
+    },
+    // Asymmetric band uncertainty by class (spec.md section 8, R13).
+    // Index: 0=FRESH, 1=AGING, 2=STALE, 3=CRITICAL.
+    bandUncertaintyByTier: [0.01, 0.03, 0.06, 0.12],
+  },
+
+  baseline: {
+    /** Section 24 (R18): default threshold limits for naive stock-level alert. */
+    minDaysOfCover: 30,
+    minStockThreshold: 0,
+  },
+
+  food: {
+    /** Spec section 7 & 13 (R19): default daily per-person ration in person-days / person / day. */
+    defaultPerPersonRate: 1.0,
+    /** Spec section 7 & 13 (R19): default days to resupply covering the expedition winter period. */
+    defaultDaysToResupply: 300,
+  },
 } as const;
