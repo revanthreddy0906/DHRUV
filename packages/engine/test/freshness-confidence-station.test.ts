@@ -630,8 +630,8 @@ describe("Integration: Full Evaluation Pipeline (R01-R15)", () => {
     expect(station.options).toBeDefined();
     const optA = station.options![0]!;
     expect(optA.confidenceBand).toBeDefined();
-    expect(optA.confidenceBand!.low).toBeCloseTo(1.0382, 3);
-    expect(optA.confidenceBand!.high).toBeCloseTo(1.0865, 3);
+    expect(optA.confidenceBand!.low).toBeCloseTo(1.0334, 3); // T-ENG-07;
+    expect(optA.confidenceBand!.high).toBeCloseTo(1.0815, 3);
     expect(optA.confidenceBand!.straddles).toBe(true);
     expect(optA.confidenceBand!.text).toBe("GREEN, could be AMBER");
 

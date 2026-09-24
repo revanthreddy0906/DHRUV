@@ -233,7 +233,7 @@ pnpm test
 ```
 
 - **Engine (80 tests)**: every rule R01–R19 in isolation, determinism, food by POB.
-- **Server (97 tests)**: auth and device binding, idempotent push and pull, the log epoch after a reset, role and node enforcement, conflict detection, decisions proposed from the engine and approved with follow-ups (online and synced offline), the OpenAPI drift check, a push performance budget, an end-to-end run of Director beats 1–11 with three simulated devices, and the **golden-number harness** (`src/golden`): the Build Bible's T-ENG, T-FRESH, T-SYNC, T-BASE and T-WHATIF cases on season 48. Cases the engine does not meet yet run as `it.fails` with the reason; `GOLDEN_STRICT=1 pnpm --filter @dhruv/server test` runs them as ordinary tests.
+- **Server (97 tests)**: auth and device binding, idempotent push and pull, the log epoch after a reset, role and node enforcement, conflict detection, decisions proposed from the engine and approved with follow-ups (online and synced offline), the OpenAPI drift check, a push performance budget, an end-to-end run of Director beats 1–11 with three simulated devices, and the **golden-number harness** (`src/golden`): the Build Bible's T-ENG, T-FRESH, T-SYNC, T-BASE and T-WHATIF cases on season 48. All 29 pass. A case marked `known` would run as `it.fails` with its reason, and `GOLDEN_STRICT=1` runs such cases as ordinary tests.
 - **Store (37 tests)**: write path, clock, priority drain and byte budget, backoff and stall, bootstrap and epoch reset, and the read-side views.
 - **Map (19 tests)**: distances, uncertainty circles, nearest capable assets, Leaflet layers, schematic escaping.
 - **Web (8 tests)**: the hero demo through the engine and the screen adapter (options, PNR, Bharati, inventory and roles).
@@ -252,12 +252,12 @@ CI (`.github/workflows/ci.yml`) runs on pushes to `main`, `develop` and `feature
 | Decision Detail: approve and reject, online or queued offline | Live |
 | Incident screen and map: position, circle, nearest assets, conflicts, escalation | Live (NASA Blue Marble tiles, schematic fallback) |
 | Sync drawer, Review queue, Audit, Scenario Director | Live |
-| Engine: every station and dimension, missions, levers and options, PNR, bands, slip tolerance, B0 | Working. 26 of 29 golden cases pass; 3 wait on a spec decision (below) |
+| Engine: every station and dimension, missions, levers and options, PNR, bands, slip tolerance, B0 | Working. All 29 golden cases pass |
 | Readiness, options, traces, Cargo, Inventory, Personnel and Missions, what-if | Live from the engine on each device's events. Signed out, `/screens` shows the design reference states |
 | Manual data entry | HQ can record a leg delay on Cargo (with an engine preview). Stock counts, issues and check-ins come from the Director and the Field screen |
 | AI explain · Print brief | AI explain not wired yet; Print brief prints the Incident screen, and is not wired on Decision Detail |
 
-**Open spec question (R01).** The Bible's requirement formula counts days from *today*, which the engine does (R = 131.4 kL at 25 Jan 16:00), but the golden numbers for T-ENG-07, T-ENG-18 and T-SYNC-08 keep R = 132.0 kL. Those three cases are marked in the golden harness until the team decides.
+**R01 horizon.** The requirement covers a fixed horizon, from the start of the season plan (24 Jan) to the next resupply, because stock changes only through counts, issues and receipts, never through elapsed time. This is what the Bible's golden numbers assume (R = 132.0 kL throughout the demo).
 
 **Values the Bible leaves open** are `FILLED` in `packages/seed/src/season48.ts` and `packages/shared/src/config.ts` (for example the 1 kL threshold below which a mission is not put at risk, and diesel burn per km for ground vehicles).
 

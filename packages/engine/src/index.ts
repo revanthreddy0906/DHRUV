@@ -198,6 +198,15 @@ const PHASE_BOUNDARIES: PhaseBoundaries = Object.fromEntries(
   config.season.phases.map((p) => [p.phase, { start: p.start, end: p.end }]),
 );
 
+/**
+ * R01 horizon anchor. Stock changes only through counts, issues and receipts, never through elapsed
+ * time, so the requirement it is compared with must cover the same fixed horizon: from the start of
+ * the season plan (24 Jan) to the next resupply. Counting from "today" instead would shrink the
+ * requirement every day while the stock stays put, and overstate readiness (131.4 kL at 25 Jan
+ * 16:00 instead of the Bible's 132.0). Slip tolerance projects over the same horizon.
+ */
+const PLAN_FROM = config.season.phases[0]!.start;
+
 const lightOf = (ratio: number): Light =>
   ratio >= config.thresholds.green ? "GREEN" : ratio >= config.thresholds.amber ? "AMBER" : "RED";
 
@@ -262,7 +271,7 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
   const appliedSave = applied.reduce((s, l) => s + (l.effect.saveRawKl ?? 0), 0);
   const appliedAdd = applied.reduce((s, l) => s + (l.effect.newLoadCutoff ? 0 : (l.effect.addAvailableKl ?? 0)), 0);
 
-  const req0 = computeRequirement(diesel, input.seed.consumption_profiles, now, PHASE_BOUNDARIES);
+  const req0 = computeRequirement(diesel, input.seed.consumption_profiles, PLAN_FROM, PHASE_BOUNDARIES);
   const rBase = Math.max(0, req0.rBase - appliedSave);
   const r = rBase * (1 + burnUplift) * (1 + diesel.reservePct);
   const reqTrace = appliedSave > 0
@@ -302,7 +311,7 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
     stock: diesel.stock,
     reservePct: diesel.reservePct,
     burnUplift,
-    now,
+    now: PLAN_FROM,
     phaseBoundaries: PHASE_BOUNDARIES,
     consumptionProfiles: input.seed.consumption_profiles,
     itemId: dieselId,
@@ -370,7 +379,7 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
           stock: diesel.stock,
           reservePct: diesel.reservePct,
           burnUplift: optUplift,
-          now,
+          now: PLAN_FROM,
           phaseBoundaries: PHASE_BOUNDARIES,
           consumptionProfiles: input.seed.consumption_profiles,
           itemId: dieselId,

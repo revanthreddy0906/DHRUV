@@ -393,7 +393,7 @@ describe("Pure Engine evaluate() with R16 & R17 Integration", () => {
 
     expect(fuelDim.slipTolerance).toBeDefined();
     expect(fuelDim.slipTolerance!.hasDeficit).toBe(true);
-    expect(fuelDim.slipTolerance!.daysShortOfWindow).toBe(104);
+    expect(fuelDim.slipTolerance!.daysShortOfWindow).toBe(106); // T-ENG-16: R is anchored at the season start;
 
     const rules = fuelDim.trace.map((t) => t.rule);
     expect(rules).toContain("R16");
@@ -403,7 +403,7 @@ describe("Pure Engine evaluate() with R16 & R17 Integration", () => {
     const opt = station.options![0]!;
     expect(opt.slipTolerance).toBeDefined();
     expect(opt.slipTolerance!.hasDeficit).toBe(false);
-    expect(opt.slipTolerance!.slipToleranceDays).toBe(24);
+    expect(opt.slipTolerance!.slipToleranceDays).toBe(22); // same as the seed (T-ENG-15): the hold restores 140 kL;
     expect(opt.cargoConfidence).toBeDefined();
   });
 

@@ -176,7 +176,7 @@ describe("T-ENG-01 to 06: seed, slip, options, approval", () => {
 });
 
 describe("T-ENG-07 (v2), 08 to 12: freshness band, burn, food, people, power", () => {
-  known("R01 counts days from today, as the Bible's formula says, but the golden numbers keep R = 132 kL (spec conflict, decision needed)")("T-ENG-07 HQ at 25 Jan 16:00: count 36 h AGING, option (a) band 1.0334-1.0815, GREEN could be AMBER", () => {
+  it("T-ENG-07 HQ at 25 Jan 16:00: count 36 h AGING, option (a) band 1.0334-1.0815, GREEN could be AMBER", () => {
     const e = evaluate({ seed: season48, events: hqBeforeSync() }, t(25, "16:00"));
     expect(dim(e, NODES.MAITRI, "FUEL")?.freshness).toBe("AGING");
     const band = option(e, "(a)")!.confidenceBand!;
@@ -266,7 +266,7 @@ describe("v2 golden tests: slip tolerance, uncertainty, slack, food by POB, base
     expect(slipTol?.daysShortOfWindow).toBe(28);
   });
 
-  known("R01 counts days from today, as the Bible's formula says, but the golden numbers keep R = 132 kL (spec conflict, decision needed)")("T-ENG-18 hold approved, 26 Jan 09:00 (ETA report 48 h 50 min old, slack 0 d): C-104 UNCERTAIN, low 0.6970, GREEN could be RED", () => {
+  it("T-ENG-18 hold approved, 26 Jan 09:00 (ETA report 48 h 50 min old, slack 0 d): C-104 UNCERTAIN, low 0.6970, GREEN could be RED", () => {
     const events = [...synced(), ...approveHold(t(25, "16:20"))];
     const e = evaluate({ seed: season48, events }, t(26, "09:00"));
     const fuel = dim(e, NODES.MAITRI, "FUEL")!;
@@ -306,7 +306,7 @@ describe("Viewer-relative freshness and sync (T-FRESH-04, T-SYNC-08, T-WHATIF-01
     expect(dim(evaluate({ seed: season48, events: hqBeforeSync() }, t(25, "16:00")), NODES.MAITRI, "FUEL")?.freshness).toBe("AGING");
   });
 
-  known("R01 counts days from today, as the Bible's formula says, but the golden numbers keep R = 132 kL (spec conflict, decision needed)")("T-SYNC-08 after beat 9 sync, 16:20: HQ count FRESH, option (a) low 1.0524, no straddle; GREEN after approval", () => {
+  it("T-SYNC-08 after beat 9 sync, 16:20: HQ count FRESH, option (a) low 1.0524, no straddle; GREEN after approval", () => {
     const before = evaluate({ seed: season48, events: synced() }, t(25, "16:20"));
     expect(dim(before, NODES.MAITRI, "FUEL")?.freshness).toBe("FRESH");
     const band = option(before, "(a)")!.confidenceBand!;

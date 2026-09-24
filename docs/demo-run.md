@@ -42,11 +42,9 @@ The Director lists the open device tabs and says which tab each beat needs. Pres
 | 2:05 | Beat 9 (open Maitri's SYNC drawer first) | Degraded, then Online. Queue leaves in priority order: INCIDENT_OPENED, ASSET_STATUS_SET, CHECKIN_RECORDED, STOCK_ISSUED, STOCK_COUNTED, MISSION_UPDATED |
 | 2:15 | Beat 10 (happens on sync) | HQ: incident strip, Audit badge 1, SK-2 conflict DOWN vs OK with DOWN kept. Resolve it in the Review queue |
 | 2:25 | HQ approves option (a) in Decision Detail (or beat 11) | Queue and PNR clear; after "Show station cards", Maitri GREEN 1.0606 with the incident gate |
-| after | HQ: Open what-if | SIMULATION overlay, run locally: burn +15% after (a) → 0.9223 RED; CONSERVE + DEFER_F27 still reach 1.0247 AMBER |
+| after | HQ: Open what-if | SIMULATION overlay, run locally: burn +15% after (a) → 0.9223 RED; the options that still work and the new PNR are listed |
 
 Beat 7 also records FT-3's check-in on the Maitri tablet (radio relay), so the offline station has the position at 1:40–1:50.
-
-Until the team settles the R01 question (README, Project status), ratios after the 25 Jan 16:00 jump read slightly above the Bible's golden values, because the engine counts requirement days from the viewer's date: 0.7002 instead of 0.697, 1.0655 instead of 1.0606 after the hold, and 0.9265 instead of 0.9223 in the what-if. States, PNR, gates and options are the same.
 
 ## If something is off
 
