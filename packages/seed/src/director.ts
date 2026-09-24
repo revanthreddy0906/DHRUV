@@ -34,6 +34,11 @@ export interface DirectorBeat {
   resolveTrigger?: { type: EventType; entity_id: string };
   /** Pause between the beat's events so the audience sees each state (beat 9's degraded drain). */
   stepDelayMs?: number;
+  /**
+   * The beat's DECISION_PROPOSED takes its options and trace from the engine (R08-R11) for this
+   * station at the beat's time, instead of from the script.
+   */
+  proposeFromEngine?: { node_id: string };
   /** Server-side fallback for the human approval beat. */
   approve?: { decision_id: string; chosen_option_id: string; verify_ack: boolean; observed_at: string };
 }
@@ -63,6 +68,7 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
     label: "Decision proposed: DEC-01",
     where: "server",
     resolveTrigger: { type: "LEG_DELAYED", entity_id: IDS.legC104Feeder },
+    proposeFromEngine: { node_id: NODES.MAITRI },
     events: [
       {
         device_id: DEVICES.DIRECTOR,
@@ -74,8 +80,8 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
         payload: {
           decision_id: IDS.decision1,
           trigger_event_id: "",
-          // TODO(A): options 2 and 3 (and ratios, slack, traces) come from the engine's R09/R10 output.
-          options: [{ id: "OPT-1", levers: ["HOLD_VESSEL"], deadline: "2027-02-03T00:00:00.000Z", requiresVerify: [] }],
+          // Filled in by the server from evaluate() at the beat's time (proposeFromEngine).
+          options: [],
           trace: [],
         },
         observed_at: at(24, "08:11"),

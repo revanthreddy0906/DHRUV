@@ -1,3 +1,4 @@
+import type { DecisionOptionView } from "@dhruv/store";
 import type { Evaluation, StationEval as EngineStationEval, DimensionEval as EngineDimensionEval, RankedOption, TraceStep as EngineTraceStep } from "@dhruv/engine";
 import type { Seed } from "@dhruv/shared";
 import type { Band, DimensionEval as WebDimensionEval, FreshnessInfo, Health, Lever, MissionEval, OptionEval as WebOptionEval, StationEval as WebStationEval, TraceStep as WebTraceStep } from "../data/types";
@@ -25,20 +26,25 @@ const F31: MissionEval = {
   assets: [],
 };
 
+/** "19.5 lakh" for a synthetic cost (section 13 costs are in lakh INR). */
+export function formatCost(cost: number, costUnit: string): string {
+  if (cost <= 0) return "none";
+  return costUnit.includes("lakh") ? `${cost} lakh` : `${(cost / 100000).toFixed(1)} lakh`;
+}
+
+/** Slack on the inbound the option depends on, or that it has none (v2 C4). */
+export function formatSlack(slackDays: number | null): string {
+  return slackDays !== null ? `${slackDays} d on C-104` : "no inbound dependency";
+}
+
 export function adaptOptions(options: RankedOption[] | undefined, _now?: string): WebOptionEval[] {
   if (!options || options.length === 0) return [];
   return options.map((opt) => {
     const id = opt.label === "(a)" ? "a" : opt.label === "(b)" ? "b" : "c";
     const levers = opt.levers.map((l) => l.id as Lever["id"]);
     const deadlineStr = dayLabel(opt.deadline);
-    const costStr =
-      opt.cost > 0
-        ? opt.costUnit.includes("lakh")
-          ? `${opt.cost} lakh`
-          : `${(opt.cost / 100000).toFixed(1)} lakh`
-        : "none";
-    const slackStr =
-      opt.slackDays !== null ? `${opt.slackDays} d on C-104` : "no inbound dependency";
+    const costStr = formatCost(opt.cost, opt.costUnit);
+    const slackStr = formatSlack(opt.slackDays);
 
     let band: Band | undefined;
     if (opt.confidenceBand) {
@@ -343,3 +349,21 @@ export function adaptLiveEvaluation(
   };
 }
 
+/** A recorded option in the screen's shape, with the live engine's band and verify flags on top. */
+export function adaptRecordedOption(r: DecisionOptionView, index: number, live: WebOptionEval | undefined): WebOptionEval {
+  return {
+    id: (r.label?.replace(/[()]/g, "") || String.fromCharCode(97 + index)) as WebOptionEval["id"],
+    levers: r.levers as WebOptionEval["levers"],
+    resultingRatio: Math.round(r.ratio! * 10000) / 10000,
+    resultingState: r.state!,
+    residualGap: r.gap !== undefined && r.gap > 0 ? Math.round(r.gap * 10) / 10 : undefined,
+    deadline: r.deadline ? dayLabel(r.deadline) : "no deadline",
+    bindingLever: r.bindingLever as WebOptionEval["bindingLever"],
+    slack: formatSlack(r.slackDays ?? null),
+    cost: r.cost !== undefined ? formatCost(r.cost, r.costUnit ?? "") : "unknown",
+    band: live?.band,
+    straddleText: live?.straddleText,
+    requiresVerify: [...new Set([...r.requiresVerify, ...(live?.requiresVerify ?? [])])],
+    reachesTarget: r.reachesTarget ?? r.state === "GREEN",
+  };
+}

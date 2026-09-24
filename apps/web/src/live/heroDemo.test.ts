@@ -213,3 +213,24 @@ describe("Maitri Season 48 Hero Demo Vertical Slice", () => {
   });
 });
 
+
+describe("recorded proposal options (I3)", () => {
+  it("renders a recorded option with its proposal-time ratio and the live band and verify flags on top", async () => {
+    const { adaptRecordedOption } = await import("./adapter");
+    const recorded = {
+      id: "OPT-1", label: "(a)", levers: ["HOLD_VESSEL"], deadline: "2027-02-03T00:00:00.000Z", requiresVerify: [],
+      ratio: 1.0606060606, state: "GREEN" as const, gap: 0, reachesTarget: true, bindingLever: "HOLD_VESSEL", slackDays: 0, cost: 19.5, costUnit: "lakh INR",
+    };
+    const live = { id: "a" as const, levers: ["HOLD_VESSEL" as const], resultingRatio: 1.0606, resultingState: "GREEN" as const, deadline: "3 Feb", slack: "0 d on C-104", cost: "19.5 lakh",
+      band: { low: 1.0334, high: 1.0815, straddles: true, lowState: "AMBER" as const }, straddleText: "GREEN, could be AMBER", requiresVerify: ["Fuel count 36 h old"], reachesTarget: true };
+
+    const o = adaptRecordedOption(recorded, 0, live);
+    expect(o).toMatchObject({ id: "a", resultingRatio: 1.0606, deadline: "3 Feb", slack: "0 d on C-104", cost: "19.5 lakh", straddleText: "GREEN, could be AMBER", reachesTarget: true });
+    expect(o.band?.low).toBe(1.0334);
+    expect(o.requiresVerify).toEqual(["Fuel count 36 h old"]);
+
+    const c = adaptRecordedOption({ ...recorded, id: "OPT-3", label: "(c)", levers: ["AIRLIFT_PARTIAL"], ratio: 0.8754, state: "RED", gap: 14.8, reachesTarget: false, slackDays: null, cost: 48 }, 2, undefined);
+    expect(c).toMatchObject({ id: "c", resultingState: "RED", residualGap: 14.8, slack: "no inbound dependency", reachesTarget: false });
+    expect(c.band).toBeUndefined();
+  });
+});

@@ -9,6 +9,7 @@ import { env } from "../env.js";
 import { sendError } from "../errors.js";
 import { approveDecision } from "../sync/decisions.js";
 import { ingest } from "../sync/ingest.js";
+import { engineProposal } from "../sync/proposals.js";
 
 /**
  * Section 15 demo-only endpoints: POST /admin/seed and POST /admin/director/:beat.
@@ -52,6 +53,14 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database.Database,
       if (!triggerId) return sendError(reply, 409, "NOT_FOUND", `run the beat that creates ${beat.resolveTrigger.type} ${beat.resolveTrigger.entity_id} first`);
     }
 
+    // A proposal's options are the engine's (R08-R11) at the beat's time, not the script's.
+    let proposed: ReturnType<typeof engineProposal> = null;
+    if (beat.proposeFromEngine) {
+      const at = beat.events[0]?.observed_at ?? new Date().toISOString();
+      proposed = engineProposal(db, beat.proposeFromEngine.node_id, at);
+      if (!proposed) return sendError(reply, 409, "INVALID_EVENT", `the engine proposes nothing for ${beat.proposeFromEngine.node_id}: it needs no decision at ${at}`);
+    }
+
     const baseSeq = nextSeq(db, DEVICES.DIRECTOR);
     const events: OpEvent[] = beat.events.map((e, i) => ({
       event_id: randomUUID(),
@@ -61,7 +70,11 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database.Database,
       entity_type: e.entity_type,
       entity_id: e.entity_id,
       node_id: e.node_id,
-      payload: triggerId ? { ...e.payload, trigger_event_id: triggerId } : e.payload,
+      payload: {
+        ...e.payload,
+        ...(triggerId ? { trigger_event_id: triggerId } : {}),
+        ...(proposed && e.type === "DECISION_PROPOSED" ? { options: proposed.options, trace: proposed.trace } : {}),
+      },
       observed_at: e.observed_at,
       created_at_client: new Date().toISOString(),
       priority: e.priority ?? EVENT_RULES[e.type].defaultPriority,

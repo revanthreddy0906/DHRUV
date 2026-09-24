@@ -6,6 +6,7 @@ import { DecisionDetail, type DecisionStatus } from "../components/decisions";
 import { FRESHNESS_TRACE_HQ_2501600, HERO_TRACE, LEVERS, MOMENTS, OPTIONS_AFTER_SLIP, OPTIONS_HQ_2501600, OPTIONS_HQ_2501620 } from "../data/demo";
 import type { OptionEval } from "../data/types";
 import { useDevice, type LiveDevice } from "../live/DeviceProvider";
+import { adaptRecordedOption } from "../live/adapter";
 import { nodeLabel } from "../live/chrome";
 import { dayLabel, describeEvent } from "../live/describe";
 import { formatShort } from "../live/format";
@@ -48,7 +49,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const moment = ops.mockMoment;
   const { identity } = device.session;
   const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
-  const decision = decisionsView(events).find((d) => d.id === id) ?? ops.openDecisions.find((d) => d.id === id);
+  const decision = decisionsView(events).find((d) => d.id === id);
 
   if (!decision) {
     return (
@@ -71,7 +72,14 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   );
 
   const realFor = (o: OptionEval): DecisionOptionView | undefined => decision.options.find((r) => sameLevers(r.levers, o.levers));
-  const rawOptions = ops?.options && ops.options.length > 0 ? ops.options : fixtureOptions(moment);
+  // The recorded proposal is the authority for which options exist (ids, levers, deadlines,
+  // ratios at proposal time). The live engine adds what changes with data age: the band, the
+  // straddle and verify-first. Proposals without engine fields fall back to the live options.
+  const liveFor = (levers: string[]) => ops.options.find((o) => sameLevers(o.levers, levers));
+  const recorded = decision.options.filter((r) => r.ratio !== undefined && r.state !== undefined);
+  const rawOptions = recorded.length > 0
+    ? recorded.map((r, i) => adaptRecordedOption(r, i, liveFor(r.levers)))
+    : ops.options.length > 0 ? ops.options : fixtureOptions(moment);
   const options = rawOptions.map((o): OptionEval => {
     const real = realFor(o);
     const expired = real?.deadline && Date.parse(real.deadline) < Date.parse(now) ? `Deadline ${dayLabel(real.deadline)} has passed` : o.expired;

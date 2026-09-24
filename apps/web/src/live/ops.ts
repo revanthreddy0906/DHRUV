@@ -93,47 +93,29 @@ export function useLiveOps(): LiveOps | null {
     const realEvaluation = evaluate({ seed, events }, now);
     const adapted = adaptLiveEvaluation(realEvaluation, seed, now);
 
-    const effectiveDecisions = openDecisions.length > 0
-      ? openDecisions
-      : (adapted.options.length > 0 && adapted.maitriStation.state === "RED"
-        ? [{
-            id: "DEC-01",
-            node_id: NODES.MAITRI,
-            proposed_at: now,
-            trigger_event_id: events.find((e) => e.type === "LEG_DELAYED")?.event_id ?? "",
-            options: adapted.options.map((o) => ({
-              id: o.id === "a" ? "OPT-1" : o.id === "b" ? "OPT-2" : "OPT-3",
-              levers: o.levers,
-              deadline: o.deadline ? "2027-02-03T00:00:00.000Z" : undefined,
-              requiresVerify: o.requiresVerify,
-            })),
-            status: "PROPOSED" as const,
-            pnr: adapted.pnr ? "2027-02-03T00:00:00.000Z" : null,
-          }]
-        : []);
-
-    const queue: QueueItem[] = effectiveDecisions.map((d) => {
+    // The queue shows decisions that were really proposed (DECISION_PROPOSED events, options from
+    // the engine on the server). Nothing is invented here: an unproposed decision could not be approved.
+    const queue: QueueItem[] = openDecisions.map((d) => {
       const st = adapted.stations.find((s) => s.nodeId === d.node_id) ?? adapted.maitriStation;
       const fuel = st.dimensions.find((dim) => dim.key === "FUEL");
       const current = {
         state: fuel?.state ?? st.state,
         ratio: fuel?.ratio ?? 0,
-        text: fuel?.state === "RED" ? "Fuel below required threshold" : "All dimensions within thresholds",
       };
-      const bestOpt = adapted.options[0];
-      const best = bestOpt
-        ? { state: bestOpt.resultingState, ratio: bestOpt.resultingRatio }
-        : { state: "GREEN" as const, ratio: 1.0606 };
-
-      const deadlineStr = d.pnr ? dayLabel(d.pnr) : (adapted.pnr ? adapted.pnr.date : "no deadline");
-      const dl = d.pnr ? daysLeft(now, d.pnr) : (adapted.pnr ? adapted.pnr.daysLeft : 0);
+      // Best case: the best recorded option that reaches the target, else the live engine's first.
+      const recorded = d.options.filter((o) => o.reachesTarget !== false && o.ratio !== undefined && o.state).sort((a, b) => b.ratio! - a.ratio!)[0];
+      const best = recorded
+        ? { state: recorded.state!, ratio: Math.round(recorded.ratio! * 10000) / 10000 }
+        : adapted.options[0]
+          ? { state: adapted.options[0].resultingState, ratio: adapted.options[0].resultingRatio }
+          : current;
 
       return {
         id: d.id,
-        title: `Decision ${d.id}`,
+        title: `${nodeLabel(d.node_id)} fuel ${current.state === "GREEN" ? "decision" : "below required threshold"}`,
         station: nodeLabel(d.node_id),
-        deadline: deadlineStr,
-        daysLeft: dl,
+        deadline: d.pnr ? dayLabel(d.pnr) : "no deadline",
+        daysLeft: d.pnr ? daysLeft(now, d.pnr) : 0,
         current,
         best,
         straddle: fuel?.straddleText,
@@ -141,7 +123,7 @@ export function useLiveOps(): LiveOps | null {
       };
     });
 
-    const firstPnr = effectiveDecisions.map((d) => d.pnr).filter((p): p is string => !!p).sort()[0];
+    const firstPnr = openDecisions.map((d) => d.pnr).filter((p): p is string => !!p).sort()[0];
 
     const incident = openIncidents[0];
     let incidentStrip: string | undefined;
@@ -175,7 +157,7 @@ export function useLiveOps(): LiveOps | null {
 
     return {
       decisions: queue,
-      openDecisions: effectiveDecisions,
+      openDecisions,
       openConflicts,
       openIncidents,
       emergency: !!incident && identity.role !== "FIELD_LEAD",
