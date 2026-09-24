@@ -112,7 +112,8 @@ export function LiveDirector() {
         <div className="mb-3 flex items-center gap-2 border-b border-line pb-2">
           <Clapperboard size={15} className="text-warn" aria-hidden />
           <span className="font-bold tracking-[0.2em] text-warn">DEMO CONTROL</span>
-          <span className="text-fg-2">?director=1 · not part of the product · as {device.session.identity.device_id}</span>
+          <span className="text-fg-2">not part of the product · as {device.session.identity.device_id}</span>
+          <Link to="/command" className="border border-line-strong px-2 py-1 text-fg-2 hover:text-fg">← Command</Link>
           <button type="button" disabled={busy} onClick={() => void run("Reset to Start", async () => { const on = await director.reset(); setBeats({}); setLinks({ [NODES.MAITRI]: "ONLINE", [NODES.BHARATI]: "ONLINE" }); return `server and ${on.length} tab(s) cleared`; })}
             className="ml-auto flex items-center gap-1 border border-line-strong px-2 py-1 hover:border-warn disabled:opacity-50"><RotateCcw size={12} aria-hidden />Reset to Start</button>
         </div>

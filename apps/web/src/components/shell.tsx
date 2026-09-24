@@ -1,7 +1,7 @@
 import * as React from "react";
 import {
   Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Info, Wifi, WifiOff, Signal, RotateCcw,
-  CloudUpload, FlaskConical, UserCog, TabletSmartphone, RadioTower,
+  CloudUpload, FlaskConical, UserCog, TabletSmartphone, RadioTower, Clapperboard,
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
@@ -153,8 +153,10 @@ const NAV: { key: NavKey; label: string; Icon: typeof Radar }[] = [
   { key: "audit", label: "Audit", Icon: ScrollText },
 ];
 
-export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, role, station, deviceId, link, onNavigate }: {
+export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, role, station, deviceId, link, onNavigate, onDirector }: {
   active: NavKey; incidentOpen?: boolean; decisionCount?: number; conflictCount?: number; role: Role; station: string; deviceId: string; link: LinkStatus; onNavigate?: (k: NavKey) => void;
+  /** Demo only: opens the Scenario Director in this tab. */
+  onDirector?: () => void;
 }) {
   const m = LINK_META[link];
   return (
@@ -178,6 +180,13 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
           );
         })}
       </ul>
+      {onDirector && (
+        <div className="p-2">
+          <button type="button" onClick={onDirector} className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-warn/60 px-2.5 text-left text-[12px] font-medium text-warn hover:bg-warn-tint">
+            <Clapperboard size={15} aria-hidden /><span className="flex-1">Demo Director</span><span className="text-[10px] uppercase tracking-wider">demo</span>
+          </button>
+        </div>
+      )}
       <dl className="space-y-1 border-t border-line p-3 text-[11px]">
         <div className="flex justify-between"><dt className="text-fg-2">Role</dt><dd className="font-medium text-fg">{ROLE_LABEL[role]}</dd></div>
         <div className="flex justify-between"><dt className="text-fg-2">Station</dt><dd className="text-fg">{station}</dd></div>
