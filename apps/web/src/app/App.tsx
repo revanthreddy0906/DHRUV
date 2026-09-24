@@ -1,6 +1,7 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LiveDecisionDetail } from "../screens/DecisionLive";
 import { LiveCargoScreen } from "../screens/CargoLive";
+import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDirector } from "../screens/DirectorLive";
@@ -68,16 +69,20 @@ function CargoRoute() {
 }
 
 function InventoryRoute() {
+  const device = useDevice();
   const [params] = useSearchParams();
   const s = useOpsState();
   const state = flag(params, "empty") ? "empty" : s === "uncertain" ? "start" : s;
+  if (device) return <LiveInventoryScreen />;
   return <InventoryScreen key={state} state={state} role={params.get("role") === "HQ_OPS" ? "HQ_OPS" : "STATION_LEADER"} />;
 }
 
 function PersonnelRoute() {
+  const device = useDevice();
   const [params] = useSearchParams();
   const s = useOpsState();
   const role = params.get("role");
+  if (device) return <LivePersonnelScreen />;
   return <PersonnelScreen state={s === "uncertain" ? "start" : s} role={role === "HQ_OPS" || role === "FIELD_LEAD" ? role : "STATION_LEADER"} />;
 }
 

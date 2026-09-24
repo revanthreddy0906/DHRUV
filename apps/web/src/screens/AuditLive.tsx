@@ -96,7 +96,7 @@ export function LiveAuditScreen() {
     }));
 
   return (
-    <Frame moment={ops.mockMoment} nav="audit">
+    <Frame moment="start" nav="audit">
       <div className="space-y-4 p-5">
         <div>
           <h1 className="text-xl font-semibold text-fg">Audit</h1>

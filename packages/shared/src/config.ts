@@ -33,6 +33,8 @@ export const config = {
      * marks F-31 (0.3 kL) unaffected and F-27 (4.0 kL) at risk; the Bible gives no threshold.
      */
     missionFuelMaterialKl: 1.0,
+    /** Diesel a ground vehicle burns per km (kL/km). FILLED: the seed has no vehicle burn rates. */
+    dieselVehicleKlPerKm: { "Snow tractor": 0.004, Skidoo: 0.0006 } as Record<string, number>,
   },
 
   sync: {

@@ -2,29 +2,9 @@ import type { DecisionOptionView } from "@dhruv/store";
 import type { Evaluation, StationEval as EngineStationEval, DimensionEval as EngineDimensionEval, RankedOption, TraceStep as EngineTraceStep } from "@dhruv/engine";
 import type { Seed } from "@dhruv/shared";
 import type { Band, DimensionEval as WebDimensionEval, FreshnessInfo, Health, Lever, MissionEval, OptionEval as WebOptionEval, StationEval as WebStationEval, TraceStep as WebTraceStep } from "../data/types";
+import type { InventoryView } from "../data/demo";
 import { dayLabel } from "./describe";
-
-const F27 = (status: "OK" | "AT_RISK", why: string): MissionEval => ({
-  id: "F-27",
-  name: "Ice-core traverse support",
-  dates: "3–10 Feb",
-  status,
-  why,
-  fuel: "4.0 kL",
-  people: ["Dr A. Verma", "R. Nair"],
-  assets: ["SK-4"],
-});
-
-const F31: MissionEval = {
-  id: "F-31",
-  name: "Weather mast service",
-  dates: "12–13 Feb",
-  status: "OK",
-  why: "Needs met",
-  fuel: "0.3 kL",
-  people: [],
-  assets: [],
-};
+import { formatAge, formatShort } from "./format";
 
 /** "19.5 lakh" for a synthetic cost (section 13 costs are in lakh INR). */
 export function formatCost(cost: number, costUnit: string): string {
@@ -33,8 +13,8 @@ export function formatCost(cost: number, costUnit: string): string {
 }
 
 /** Slack on the inbound the option depends on, or that it has none (v2 C4). */
-export function formatSlack(slackDays: number | null): string {
-  return slackDays !== null ? `${slackDays} d on C-104` : "no inbound dependency";
+export function formatSlack(slackDays: number | null, leg = "C-104"): string {
+  return slackDays !== null ? `${slackDays} d on ${leg}` : "no inbound dependency";
 }
 
 export function adaptOptions(options: RankedOption[] | undefined, _now?: string): WebOptionEval[] {
@@ -81,9 +61,12 @@ export function adaptTraces(traceSteps: EngineTraceStep[] | undefined): WebTrace
     return {
       rule: step.rule,
       title:
-        step.rule === "R01" ? "Diesel requirement" :
+        step.rule === "R01" ? "Requirement" :
         step.rule === "R02" ? "Feeder feasibility" :
-        step.rule === "R03" ? "Diesel availability" :
+        step.rule === "R03" ? "Availability" :
+        step.rule === "R05" ? "Role coverage" :
+        step.rule === "R06" ? "Redundancy" :
+        step.rule === "R07" ? "Mission impact" :
         step.rule === "R08" ? "Lever deadline" :
         step.rule === "R09" ? "Option generation" :
         step.rule === "R10" ? "Option ranking" :
@@ -91,10 +74,11 @@ export function adaptTraces(traceSteps: EngineTraceStep[] | undefined): WebTrace
         step.rule === "R12" ? "Freshness" :
         step.rule === "R13" ? "Confidence band" :
         step.rule === "R14" ? "Verify-first" :
+        step.rule === "R15" ? "Station state" :
         step.rule === "R16" ? "Slip tolerance" :
         step.rule === "R17" ? "Cargo confidence" :
         step.rule === "R18" ? "Baseline B0" :
-        step.rule === "R19" ? "POB Food requirement" : step.rule,
+        step.rule === "R19" ? "Food requirement (POB)" : step.rule,
       inputs: {},
       formula: "",
       result: text,
@@ -103,174 +87,164 @@ export function adaptTraces(traceSteps: EngineTraceStep[] | undefined): WebTrace
   });
 }
 
-export function adaptStation(
-  st: EngineStationEval,
-  _seed: Seed,
-  _now: string,
-): WebStationEval {
-  const isMaitri = st.nodeId === "MAITRI";
-  const name = isMaitri ? "Maitri" : "Bharati";
+const r4 = (n: number) => Math.round(n * 10000) / 10000;
+const qty = (n: number, unit: string) => (unit === "kL" ? n.toFixed(1) : String(Math.round(n * 100) / 100));
 
-  const fuelEval = st.dimensions.find((d) => d.key === "FUEL");
-  const foodEval = st.dimensions.find((d) => d.key === "FOOD");
-  const personEval = st.dimensions.find((d) => d.key === "PERSONNEL");
-  const powerEval = st.dimensions.find((d) => d.key === "POWER");
+const DIM_KEY: Record<string, WebDimensionEval["key"]> = { FUEL: "FUEL", FOOD: "FOOD", MEDICAL: "MEDICAL", POWER: "SPARES_POWER", PERSONNEL: "PERSONNEL", COMMS: "COMMS" };
+const DIM_NOUN: Record<string, string> = { FUEL: "Fuel count", FOOD: "Food count", MEDICAL: "Medical count", POWER: "Genset kit count", PERSONNEL: "Roster", COMMS: "Comms status" };
+const ROLE_LABEL: Record<string, string> = { DOCTOR: "Doctor", DIESEL_MECHANIC: "Diesel mechanic", COMMS_ENGINEER: "Comms engineer", COOK: "Cook" };
 
-  const dimensions: WebDimensionEval[] = [];
+function bandOf(c: EngineDimensionEval["confidence"]): Band | undefined {
+  return c ? { low: r4(c.low), high: r4(c.high), straddles: c.straddles, lowState: c.lowState } : undefined;
+}
 
-  // FUEL
-  if (fuelEval) {
-    let band: Band | undefined;
-    if (fuelEval.confidence) {
-      band = {
-        low: Math.round(fuelEval.confidence.low * 10000) / 10000,
-        high: Math.round(fuelEval.confidence.high * 10000) / 10000,
-        straddles: fuelEval.confidence.straddles,
-        lowState: fuelEval.confidence.lowState,
-      };
-    }
-    const freshness: FreshnessInfo | undefined = fuelEval.freshness
-      ? {
-          cls: fuelEval.freshness,
-          label: `Fuel count ${fuelEval.freshness.toLowerCase()}`,
-          age: "4 h",
-        }
-      : undefined;
+function freshnessOf(d: EngineDimensionEval, now: string): FreshnessInfo | undefined {
+  if (!d.freshness || !d.observedAt) return undefined;
+  const age = formatAge(d.observedAt, now);
+  return { cls: d.freshness, label: `${DIM_NOUN[d.key] ?? d.key} ${age} old`, age };
+}
 
-    dimensions.push({
-      key: "FUEL",
-      state: fuelEval.state,
-      ratio: fuelEval.ratio !== null ? Math.round(fuelEval.ratio * 10000) / 10000 : undefined,
-      band,
-      straddleText: fuelEval.confidence?.straddles ? fuelEval.confidence.text : undefined,
-      freshness,
-      drivers: fuelEval.state === "RED" ? ["92.0 / 132.0 kL (C-104 missed cutoff)"] : ["140.0 / 132.0 kL"],
-    });
+/** One line per dimension, from the engine's per-item lines: what drives the ratio or state. */
+function driversOf(d: EngineDimensionEval, st: EngineStationEval): string[] {
+  const items = d.items ?? [];
+  if (d.key === "FUEL") {
+    const i = items[0];
+    if (!i) return [];
+    const excluded = d.trace.filter((t) => t.rule === "R02" && /EXCLUDED|infeasible|NOT feasible|misses/i.test(t.text)).length > 0;
+    const inbound = (i.inbound ?? 0) > 0 ? `(${qty(i.stock ?? 0, i.unit)} + ${qty(i.inbound!, i.unit)})` : qty(i.stock ?? i.have, i.unit);
+    const applied = st.appliedLevers?.length ? ` · approved: ${st.appliedLevers.join(", ")}` : "";
+    return [`${inbound} / ${qty(i.need, i.unit)} ${i.unit}${excluded ? " · inbound misses vessel cutoff" : ""}${applied}`];
   }
+  if (d.key === "FOOD") return items.map((i) => `${qty(i.have, i.unit)} / ${qty(i.need, i.unit)} ${i.unit}${d.foodRequirement ? ` · POB ${d.foodRequirement.pob}` : ""}`);
+  if (d.key === "PERSONNEL") return [items.map((i) => `${ROLE_LABEL[i.id] ?? i.id} ${i.have}/${i.need}`).join(" · ")];
+  if (d.key === "COMMS") return items.map((i) => `${i.have} units OK vs need ${i.need}`);
+  // MEDICAL, POWER: every line with its ratio, the lowest drives the dimension.
+  return [items.map((i) => (i.unit === "running" ? `${i.have} generators OK vs need ${i.need}` : `${i.label} ${qty(i.have, i.unit)} / ${qty(i.need, i.unit)}`)).join(" · ")];
+}
 
-  // FOOD
-  if (foodEval) {
-    const freshness: FreshnessInfo | undefined = foodEval.freshness
-      ? {
-          cls: foodEval.freshness,
-          label: "Food count fresh",
-          age: "12 h",
-        }
-      : undefined;
-
-    dimensions.push({
-      key: "FOOD",
-      state: foodEval.state,
-      ratio: foodEval.ratio !== null ? Math.round(foodEval.ratio * 10000) / 10000 : undefined,
-      freshness,
-      drivers: ["8900 / 8280 person-days"],
-    });
-  } else {
-    dimensions.push({
-      key: "FOOD",
-      state: "GREEN",
-      ratio: 1.0749,
-      freshness: { cls: "FRESH", label: "Food count fresh", age: "12 h" },
-      drivers: ["8900 / 8280 person-days"],
-    });
-  }
-
-  // MEDICAL
-  dimensions.push({
-    key: "MEDICAL",
-    state: "GREEN",
-    ratio: 1.1111,
-    freshness: { cls: "FRESH", label: "Medical kits fresh", age: "2 d" },
-    drivers: ["min(kits 1.3333, oxygen 20 / 18 = 1.1111)"],
-  });
-
-  // SPARES_POWER
-  dimensions.push({
-    key: "SPARES_POWER",
-    state: powerEval?.state ?? "GREEN",
-    ratio: 1.6667,
-    freshness: { cls: "FRESH", label: "Spares fresh", age: "4 d" },
-    drivers: ["Genset kits 5 / 3 · 3 generators OK vs need 2"],
-  });
-
-  // PERSONNEL
-  dimensions.push({
-    key: "PERSONNEL",
-    state: personEval?.state ?? "GREEN",
-    ratioText: "need + 1",
-    drivers: ["Doctor, diesel mechanic, comms engineer, cook: 2 each vs need 1"],
-  });
-
-  // COMMS
-  dimensions.push({
-    key: "COMMS",
-    state: "GREEN",
-    ratioText: "VSAT + IRD",
-    drivers: ["VSAT-1 and IRD-1 OK"],
-  });
-
-  // SLIP
-  let slip: WebStationEval["slip"] = {
-    kind: "tolerance",
-    days: 22,
-    text: "The November ship can be up to 22 days late before reserve is touched",
-  };
-  if (fuelEval?.slipTolerance) {
-    if (fuelEval.slipTolerance.reserveBreachDate) {
-      slip = {
-        kind: "breach",
-        date: dayLabel(fuelEval.slipTolerance.reserveBreachDate),
-        daysShort: fuelEval.slipTolerance.daysShortOfWindow ?? 106,
-        text: fuelEval.slipTolerance.trace,
-      };
-    } else {
-      slip = {
-        kind: "tolerance",
-        days: fuelEval.slipTolerance.slipToleranceDays ?? 0,
-        text: `The November ship can be up to ${fuelEval.slipTolerance.slipToleranceDays ?? 0} days late before reserve is touched`,
-      };
-    }
-  }
-
-  // B0
-  const b0: WebStationEval["b0"] = fuelEval?.baselineB0
-    ? {
-        alerts: fuelEval.baselineB0.hasAlert ? 1 : 0,
-        text: `${fuelEval.baselineB0.stock.toFixed(1)} ${fuelEval.baselineB0.unit} / ${fuelEval.baselineB0.rate.toFixed(2)}/d = ${fuelEval.baselineB0.daysOfCover} d`,
-      }
-    : {
-        alerts: 0,
-        text: "92.0 kL / 0.55/d = 167 d",
-      };
-
-  // PNR
-  let pnr: WebStationEval["pnr"] = undefined;
-  if (st.pnr && st.pnr.pnrDate) {
-    pnr = {
-      date: dayLabel(st.pnr.pnrDate),
-      daysLeft: st.pnr.daysRemaining ?? 10,
+function missionsOf(st: EngineStationEval, seed: Seed): MissionEval[] {
+  const names = new Map(seed.personnel.map((p) => [p.id, p.name]));
+  return (st.missions ?? []).map((m) => {
+    const s = seed.missions.find((x) => x.id === m.missionId);
+    let needs: { people?: string[]; assets?: string[] } = {};
+    try { needs = JSON.parse(s?.needs ?? "{}"); } catch { needs = {}; }
+    const dates = s ? `${dayLabel(s.start_date).split(" ")[0]}–${dayLabel(s.end_date)}` : "";
+    const why = m.status === "OK" ? "Needs met" : m.status === "AT_RISK" ? `Draws ${s?.fuel_kl.toFixed(1)} kL diesel while Fuel is RED` : m.why[0]!.toUpperCase() + m.why.slice(1);
+    return {
+      id: m.missionId,
+      name: s?.name ?? m.missionId,
+      dates,
+      status: m.status,
+      why,
+      fuel: s ? `${s.fuel_kl.toFixed(1)} kL` : "",
+      people: (needs.people ?? []).map((p) => names.get(p) ?? p),
+      assets: needs.assets ?? [],
     };
-  }
+  });
+}
 
-  const missions: MissionEval[] = isMaitri
-    ? [F27(st.state === "RED" ? "AT_RISK" : "OK", st.state === "RED" ? "Traverse diesel draw deferred if CONSERVE chosen" : "Needs met"), F31]
-    : [];
+export function adaptStation(st: EngineStationEval, seed: Seed, now: string): WebStationEval {
+  const name = seed.nodes.find((n) => n.id === st.nodeId)?.name ?? st.nodeId;
+  const fuelEval = st.dimensions.find((d) => d.key === "FUEL");
 
-  const gates: string[] = st.gates ? st.gates.map((g) => g.message) : [];
+  const dimensions: WebDimensionEval[] = st.dimensions
+    .filter((d) => DIM_KEY[d.key])
+    .map((d) => ({
+      key: DIM_KEY[d.key]!,
+      state: d.state,
+      ratio: d.ratio !== null && Number.isFinite(d.ratio) ? r4(d.ratio) : undefined,
+      ratioText: d.ratio === null ? (d.key === "COMMS" ? "VSAT + IRD" : "need + 1") : undefined,
+      band: d.key === "FUEL" ? bandOf(d.confidence) : undefined,
+      straddleText: d.key === "FUEL" && d.confidence?.straddles ? d.confidence.text : undefined,
+      freshness: freshnessOf(d, now),
+      drivers: driversOf(d, st),
+    }));
+
+  const tol = fuelEval?.slipTolerance;
+  const slip: WebStationEval["slip"] = tol?.reserveBreachDate
+    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: tol.trace.replace(/^\[[A-Z0-9]+\]\s*/, "") }
+    : { kind: "tolerance", days: tol?.slipToleranceDays ?? 0, text: `The November ship can be up to ${tol?.slipToleranceDays ?? 0} days late before reserve is touched` };
+
+  const b0 = fuelEval?.baselineB0;
+  const worst = st.dimensions.find((d) => d.state === st.state && d.state !== "GREEN");
+  const r02 = fuelEval?.trace.find((t) => t.rule === "R02" && /EXCLUDED|infeasible|NOT feasible|misses/i.test(t.text));
 
   return {
-    nodeId: st.nodeId as "MAITRI" | "BHARATI",
+    nodeId: st.nodeId as WebStationEval["nodeId"],
     name,
     state: st.state as Health,
     dimensions,
-    driver: fuelEval?.state === "RED" ? "C-104 feeder vessel delayed to 7 Feb; load cutoff was 4 Feb" : undefined,
+    driver: worst ? (worst.key === "FUEL" && r02 ? r02.text.replace(/^\[[A-Z0-9]+\]\s*/, "") : driversOf(worst, st)[0]) : undefined,
     slip,
-    b0,
-    pnr,
-    missions,
-    gates,
+    b0: b0 ? { alerts: b0.hasAlert ? 1 : 0, text: `B0 stock alert: ${b0.hasAlert ? "1 alert" : "none"} · ${b0.stock.toFixed(1)} ${b0.unit} / ${b0.rate.toFixed(2)}/d = ${b0.daysOfCover} d of cover` } : undefined,
+    pnr: st.pnr?.pnrDate ? { date: dayLabel(st.pnr.pnrDate), daysLeft: st.pnr.daysRemaining ?? 0 } : undefined,
+    missions: missionsOf(st, seed),
+    gates: st.gates ? st.gates.map((g) => g.message) : [],
     link: { status: "ONLINE", lastContact: "now", freshness: "FRESH" },
   };
+}
+
+/** Inventory rows for a station, from the engine's per-item lines (R01-R03, R19). */
+export function inventoryRows(st: EngineStationEval | undefined, seed: Seed, now: string): InventoryView[] {
+  if (!st) return [];
+  const rows: InventoryView[] = [];
+  for (const d of st.dimensions) {
+    for (const i of d.items ?? []) {
+      if (i.stock === undefined) continue;
+      const seedItem = seed.inventory_items.find((x) => x.id === i.id);
+      const cargo = seed.cargo_items.filter((c) => c.inventory_item_id === i.id).map((c) => c.shipment_id).join(", ");
+      const profile = seed.consumption_profiles.find((p) => p.item_id === i.id && p.phase === "CLOSING");
+      const rate = profile?.rate_per_day;
+      const counted = i.observedAt ?? seedItem?.last_counted ?? now;
+      const fresh = d.key === "FUEL" || d.key === "FOOD" ? d.freshness : (d.freshness ?? "FRESH");
+      rows.push({
+        id: i.id,
+        name: i.label,
+        unit: i.unit,
+        stock: qty(i.stock, i.unit),
+        inbound: (i.inbound ?? 0) > 0 ? `${qty(i.inbound!, i.unit)}${cargo ? ` (${cargo})` : ""}` : cargo ? `0 (${cargo} excluded)` : "—",
+        requirement: qty(i.need, i.unit),
+        reserve: `${Math.round((i.reservePct ?? 0) * 100)} %`,
+        ratio: i.ratio !== null ? r4(i.ratio) : 0,
+        state: i.state,
+        cover: rate && d.key === "FUEL" ? `${Math.floor(i.stock / rate)} d at ${rate}` : d.foodRequirement ? `${Math.floor(i.stock / Math.max(1, d.foodRequirement.pob))} d at ${d.foodRequirement.pob} people` : undefined,
+        freshness: { cls: fresh ?? "FRESH", age: formatAge(counted, now), counted: formatShort(counted) },
+        breakdown: d.trace.filter((t) => (t.rule === "R01" || t.rule === "R19") && t.text.includes(d.key === "FOOD" ? "Food" : i.id)).map((t) => ({ phase: t.rule, calc: t.text.replace(/^\[[A-Z0-9]+\]\s*/, ""), value: "" })),
+      });
+    }
+  }
+  return rows;
+}
+
+/** R05 role coverage with the people behind each role. */
+export function roleRows(st: EngineStationEval | undefined, seed: Seed) {
+  const people = st?.dimensions.find((d) => d.key === "PERSONNEL")?.items ?? [];
+  return people.map((i) => ({
+    role: ROLE_LABEL[i.id] ?? i.id,
+    have: i.have,
+    need: i.need,
+    state: i.state,
+    names: seed.personnel.filter((p) => p.role === i.id && p.node_id === st?.nodeId).map((p) => p.name),
+  }));
+}
+
+/** Levers of a station with their windows (R08), as the Decision screen lists them. */
+export function leverViews(st: EngineStationEval | undefined, now: string): Lever[] {
+  return (st?.levers ?? []).map((l) => {
+    const e = l.effect;
+    const effect = e.addAvailableKl ? `+${e.addAvailableKl} kL available` : e.saveRawKl ? `saves ${e.saveRawKl} kL` : "";
+    return {
+      id: l.id as Lever["id"],
+      label: l.label,
+      effect: effect + (e.newDeparture ? ` · departs ${dayLabel(e.newDeparture)}` : ""),
+      cutoff: dayLabel(l.cutoff),
+      leadDays: l.leadDays,
+      deadline: dayLabel(l.deadline),
+      daysLeft: Math.ceil((Date.parse(l.deadline) - Date.parse(now)) / 86_400_000),
+      cost: l.costAmount ? formatCost(l.costAmount, l.costUnit ?? "") : (l.costUnit ?? "none"),
+      sideEffects: l.costAmount ? [] : l.costUnit ? [l.costUnit] : [],
+    };
+  });
 }
 
 export interface LiveAdaptedEvaluation {
@@ -282,70 +256,18 @@ export interface LiveAdaptedEvaluation {
   pnr?: { date: string; daysLeft: number };
 }
 
-export function adaptLiveEvaluation(
-  evaluation: Evaluation,
-  seed: Seed,
-  now: string,
-): LiveAdaptedEvaluation {
-  const stations: WebStationEval[] = [];
-
-  const maitriEval = evaluation.stations.find((s) => s.nodeId === "MAITRI");
-  let adaptedMaitri: WebStationEval;
-  if (maitriEval) {
-    adaptedMaitri = adaptStation(maitriEval, seed, now);
-    stations.push(adaptedMaitri);
-  } else {
-    adaptedMaitri = {
-      nodeId: "MAITRI",
-      name: "Maitri",
-      state: "GREEN",
-      dimensions: [],
-      slip: { kind: "tolerance", days: 22, text: "normal" },
-      missions: [],
-      gates: [],
-      link: { status: "ONLINE", lastContact: "now", freshness: "FRESH" },
-    };
-    stations.push(adaptedMaitri);
-  }
-
-  const bharatiEval = evaluation.stations.find((s) => s.nodeId === "BHARATI");
-  if (bharatiEval) {
-    stations.push(adaptStation(bharatiEval, seed, now));
-  } else {
-    stations.push({
-      nodeId: "BHARATI",
-      name: "Bharati",
-      state: "GREEN",
-      dimensions: [
-        { key: "FUEL", state: "GREEN", ratio: 1.1364, drivers: ["135.0 / 118.8 kL"] },
-        { key: "FOOD", state: "GREEN", drivers: [] },
-        { key: "MEDICAL", state: "GREEN", drivers: [] },
-        { key: "SPARES_POWER", state: "GREEN", drivers: [] },
-        { key: "PERSONNEL", state: "GREEN", ratioText: "need + 1", drivers: [] },
-        { key: "COMMS", state: "GREEN", drivers: [] },
-      ],
-      slip: { kind: "tolerance", days: 40, text: "The November ship can be up to 40 days late before reserve is touched" },
-      missions: [],
-      gates: [],
-      link: { status: "ONLINE", lastContact: "now", freshness: "FRESH" },
-      footnote: "Other dimensions seeded between 1.09 and 1.30 (synthetic). Per-item values in Inventory.",
-    });
-  }
-
-  const options = adaptOptions(maitriEval?.options, now);
-
-  const fuelEval = maitriEval?.dimensions.find((d) => d.key === "FUEL");
-  const traceSteps = adaptTraces(fuelEval?.trace);
-
-  const pnr = adaptedMaitri.pnr;
-
+/** Every station the engine evaluated; nothing is filled in for a station it did not. */
+export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: string, focus = "MAITRI"): LiveAdaptedEvaluation {
+  const stations = evaluation.stations.map((s) => adaptStation(s, seed, now));
+  const focusEval = evaluation.stations.find((s) => s.nodeId === focus) ?? evaluation.stations[0];
+  const maitriStation = stations.find((s) => s.nodeId === focusEval?.nodeId) ?? stations[0]!;
   return {
     evaluation,
     stations,
-    maitriStation: adaptedMaitri,
-    options,
-    traceSteps,
-    pnr,
+    maitriStation,
+    options: adaptOptions(focusEval?.options, now),
+    traceSteps: adaptTraces(focusEval?.dimensions.find((d) => d.key === "FUEL")?.trace),
+    pnr: maitriStation?.pnr,
   };
 }
 

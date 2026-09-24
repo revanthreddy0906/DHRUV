@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { season48, IDS, DEVICES, NODES } from "@dhruv/seed";
 import { evaluate } from "@dhruv/engine";
 import type { OpEvent } from "@dhruv/shared";
-import { adaptLiveEvaluation } from "./adapter";
+import { adaptLiveEvaluation, inventoryRows, roleRows } from "./adapter";
 
 describe("Maitri Season 48 Hero Demo Vertical Slice", () => {
   const at = "2027-01-24T08:10:00.000Z";
@@ -232,5 +232,31 @@ describe("recorded proposal options (I3)", () => {
     const c = adaptRecordedOption({ ...recorded, id: "OPT-3", label: "(c)", levers: ["AIRLIFT_PARTIAL"], ratio: 0.8754, state: "RED", gap: 14.8, reachesTarget: false, slackDays: null, cost: 48 }, 2, undefined);
     expect(c).toMatchObject({ id: "c", resultingState: "RED", residualGap: 14.8, slack: "no inbound dependency", reachesTarget: false });
     expect(c.band).toBeUndefined();
+  });
+});
+
+describe("I4: screens read the engine, not fixtures", () => {
+  const at = "2027-01-24T08:00:00.000Z";
+  const evaluation = evaluate({ seed: season48, events: [] }, at);
+  const live = adaptLiveEvaluation(evaluation, season48, at);
+
+  it("Bharati's card is the engine's evaluation, with every dimension", () => {
+    const bharati = live.stations.find((s) => s.nodeId === "BHARATI")!;
+    expect(bharati.dimensions.map((d) => d.key)).toEqual(["FUEL", "FOOD", "MEDICAL", "SPARES_POWER", "PERSONNEL", "COMMS"]);
+    expect(bharati.dimensions.find((d) => d.key === "FUEL")?.ratio).toBeCloseTo(1.1364, 4);
+    expect(bharati.slip).toMatchObject({ kind: "tolerance", days: 40 });
+    expect(bharati.footnote).toBeUndefined();
+  });
+
+  it("Maitri medical is min(kits, oxygen) = 1.1111 and missions come from R07", () => {
+    expect(live.maitriStation.dimensions.find((d) => d.key === "MEDICAL")?.ratio).toBeCloseTo(1.1111, 4);
+    expect(live.maitriStation.missions.map((m) => `${m.id} ${m.status}`)).toEqual(["F-27 OK", "F-31 OK"]);
+  });
+
+  it("inventory rows and role coverage come from the engine's per-item lines", () => {
+    const maitri = evaluation.stations.find((s) => s.nodeId === "MAITRI");
+    const rows = inventoryRows(maitri, season48, at);
+    expect(rows.find((r) => r.id === IDS.dieselMaitri)).toMatchObject({ stock: "92.0", requirement: "132.0", ratio: 1.0606 });
+    expect(roleRows(maitri, season48).find((r) => r.role === "Doctor")).toMatchObject({ have: 2, need: 1, state: "GREEN" });
   });
 });

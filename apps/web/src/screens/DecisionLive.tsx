@@ -3,7 +3,6 @@ import { SearchX } from "lucide-react";
 import type { ApproveRequest, ApproveResponse, RejectRequest } from "@dhruv/shared";
 import { decisionsView, type DecisionOptionView } from "@dhruv/store";
 import { DecisionDetail, type DecisionStatus } from "../components/decisions";
-import { FRESHNESS_TRACE_HQ_2501600, HERO_TRACE, LEVERS, MOMENTS, OPTIONS_AFTER_SLIP, OPTIONS_HQ_2501600, OPTIONS_HQ_2501620 } from "../data/demo";
 import type { OptionEval } from "../data/types";
 import { useDevice, type LiveDevice } from "../live/DeviceProvider";
 import { adaptRecordedOption } from "../live/adapter";
@@ -14,13 +13,6 @@ import { approveReason, daysLeft, fullDate, useLiveOps } from "../live/ops";
 import { Frame } from "./Frame";
 
 const sameLevers = (a: string[], b: string[]) => a.length === b.length && a.every((l) => b.includes(l));
-
-/** Options, traces and ratios are engine output (A): the design fixture for the live demo moment. */
-function fixtureOptions(moment: string): OptionEval[] {
-  if (moment === "hq-2501600") return OPTIONS_HQ_2501600;
-  if (moment === "hq-2501620" || moment === "hq-2600900") return OPTIONS_HQ_2501620;
-  return OPTIONS_AFTER_SLIP;
-}
 
 function outcomeText(device: LiveDevice, decision: ReturnType<typeof decisionsView>[number], optionLabel: (id: string) => string): DecisionStatus | undefined {
   if (decision.status === "PROPOSED") return undefined;
@@ -46,14 +38,13 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const [error, setError] = React.useState<string>();
 
   if (!snap || !ops) return null;
-  const moment = ops.mockMoment;
   const { identity } = device.session;
   const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
   const decision = decisionsView(events).find((d) => d.id === id);
 
   if (!decision) {
     return (
-      <Frame moment={moment} nav="decisions">
+      <Frame moment="start" nav="decisions">
         <div className="flex h-full items-center justify-center p-8">
           <div className="max-w-md rounded-xl border border-dashed border-line-strong p-6 text-sm text-fg-2">
             <SearchX size={18} className="mb-2 text-fg-2" aria-hidden />
@@ -79,7 +70,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const recorded = decision.options.filter((r) => r.ratio !== undefined && r.state !== undefined);
   const rawOptions = recorded.length > 0
     ? recorded.map((r, i) => adaptRecordedOption(r, i, liveFor(r.levers)))
-    : ops.options.length > 0 ? ops.options : fixtureOptions(moment);
+    : ops.options;
   const options = rawOptions.map((o): OptionEval => {
     const real = realFor(o);
     const expired = real?.deadline && Date.parse(real.deadline) < Date.parse(now) ? `Deadline ${dayLabel(real.deadline)} has passed` : o.expired;
@@ -93,24 +84,16 @@ export function LiveDecisionDetail({ id }: { id: string }) {
     return undefined;
   };
 
-  // Lever windows: deadline = cutoff - lead (section 13 seed), counted down on this device's clock.
-  const seedLevers = snap.seed?.levers ?? [];
-  const levers = LEVERS.map((l) => {
-    const s = seedLevers.find((x) => x.id === l.id);
-    if (!s) return l;
-    const deadline = new Date(Date.parse(s.cutoff) - s.lead_days * 86_400_000).toISOString();
-    return { ...l, deadline: dayLabel(deadline), daysLeft: daysLeft(now, deadline) };
-  });
+  // Lever windows (R08) from the engine, counted down on this device's clock.
+  const levers = ops.levers;
 
   const trigger = events.find((e) => e.event_id === decision.trigger_event_id);
-  const mock = MOMENTS[moment].decisions.find((d) => d.id === id) ?? MOMENTS.slip.decisions.find((d) => d.id === id);
-  const currentFuel = ops?.maitriStation.dimensions.find((d) => d.key === "FUEL");
+  const station = ops.stations.find((s) => s.nodeId === decision.node_id) ?? ops.maitriStation;
+  const currentFuel = station.dimensions.find((d) => d.key === "FUEL");
   const current = currentFuel
-    ? { state: currentFuel.state, ratio: currentFuel.ratio ?? 0, text: currentFuel.state === "RED" ? "Fuel below required threshold" : "All dimensions within thresholds" }
-    : { ...(mock?.current ?? { state: "AMBER", ratio: 0 }), text: mock ? "Fuel below required threshold" : "Engine evaluation pending" };
-  const trace = ops?.traceSteps && ops.traceSteps.length > 0
-    ? ops.traceSteps
-    : (moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : HERO_TRACE);
+    ? { state: currentFuel.state, ratio: currentFuel.ratio ?? 0, text: currentFuel.state === "GREEN" ? "Fuel within thresholds" : "Fuel below required threshold" }
+    : { state: station.state, ratio: 0, text: "No fuel line for this station" };
+  const trace = ops.traceSteps;
   const online = snap.link === "ONLINE";
 
   const act = async (run: () => Promise<unknown>) => {
@@ -165,15 +148,15 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const refusedText = refused ? `The server refused the ${refused.type === "DECISION_APPROVED" ? "approval" : "rejection"} recorded on this device: ${snap.rejected.get(refused.event_id)}. The decision is still open.` : undefined;
 
   return (
-    <Frame moment={moment} nav="decisions">
+    <Frame moment="start" nav="decisions">
       <DecisionDetail
-        key={`${id}-${moment}`}
+        key={id}
         id={id}
-        title={mock?.title ?? `Decision ${id}`}
+        title={`${nodeLabel(decision.node_id)} fuel ${current.state === "GREEN" ? "decision" : "below required threshold"}`}
         station={nodeLabel(decision.node_id)}
         current={current}
         trigger={trigger ? `${trigger.type} ${describeEvent(trigger)} · ${trigger.device_id} · ${formatShort(trigger.observed_at)}` : `Proposed ${formatShort(decision.proposed_at)}`}
-        pnr={decision.pnr ? { date: fullDate(decision.pnr), daysLeft: daysLeft(now, decision.pnr) } : (ops?.pnr ? { date: ops.pnr.date, daysLeft: ops.pnr.daysLeft } : null)}
+        pnr={decision.pnr ? { date: fullDate(decision.pnr), daysLeft: daysLeft(now, decision.pnr) } : (ops.pnr ? { date: ops.pnr.date, daysLeft: ops.pnr.daysLeft } : null)}
         trace={trace}
         levers={levers}
         options={options}

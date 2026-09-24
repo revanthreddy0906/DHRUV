@@ -30,7 +30,7 @@ export const LEVER_ACTIONS: Record<string, LeverAction> = {
         entity_type: "vessel",
         entity_id: IDS.vessel,
         node_id: NODES.HQ,
-        payload: { vessel_id: IDS.vessel, departure: "2027-02-09T00:00:00.000Z", load_cutoff: "2027-02-07T00:00:00.000Z" },
+        payload: { vessel_id: IDS.vessel, departure: "2027-02-09T00:00:00.000Z", load_cutoff: "2027-02-07T00:00:00.000Z", eta_station: "2027-02-27T00:00:00.000Z" },
       },
       {
         type: "LEG_UPDATED",

@@ -152,6 +152,8 @@ export interface DimensionEval {
   foodRequirement?: FoodRequirementResult;
   /** Per-item or per-role lines behind the dimension (medical items, roles, units). */
   items?: DimensionItem[];
+  /** Oldest count behind the dimension (for "counted 36 h ago"). */
+  observedAt?: string;
   trace: TraceStep[];
 }
 
@@ -163,6 +165,11 @@ export interface DimensionItem {
   have: number;
   need: number;
   unit: string;
+  /** Inventory lines only: on-hand stock, feasible inbound, reserve fraction and last count. */
+  stock?: number;
+  inbound?: number;
+  reservePct?: number;
+  observedAt?: string;
 }
 
 export interface StationEval {
@@ -395,7 +402,8 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
     slipTolerance: slipTol,
     cargoConfidence,
     baselineB0,
-    items: [{ id: dieselId, label: "Diesel", state: avail.state, ratio: avail.ratio, have: avail.availability, need: r, unit: diesel.unit }],
+    items: [{ id: dieselId, label: "Diesel", state: avail.state, ratio: avail.ratio, have: avail.availability, need: r, unit: diesel.unit, stock: diesel.stock, inbound: feasibleQty, reservePct: diesel.reservePct, observedAt: diesel.lastObservedAt }],
+    observedAt: diesel.lastObservedAt,
     trace,
   };
   return { dimension, dieselId, levers, options, pnr };
@@ -415,15 +423,15 @@ function fixedItems(input: EngineInput, state: State, nodeId: string, dimension:
     trace.push({ rule: "R01", text: `[R01] ${item.itemId} fixed requirement ${fixed} ${item.unit}; with ${(item.reservePct * 100).toFixed(0)}% reserve = ${r.toFixed(2)}` });
     trace.push(...inbound.trace.filter((t) => t.rule === "R02"));
     trace.push({ rule: "R03", text: avail.trace });
-    items.push({ id: item.itemId, label: seedItem?.name ?? item.itemId, state: avail.state, ratio: avail.ratio, have: avail.availability, need: r, unit: item.unit });
+    items.push({ id: item.itemId, label: seedItem?.name ?? item.itemId, state: avail.state, ratio: avail.ratio, have: avail.availability, need: r, unit: item.unit, stock: item.stock, inbound: inbound.qty, reservePct: item.reservePct, observedAt: item.lastObservedAt });
     if (!oldest || item.lastObservedAt < oldest) oldest = item.lastObservedAt;
   }
   const freshness = oldest ? classifyFreshness(`${nodeId}-${dimension}`, "stock", oldest, now) : undefined;
-  return { items, trace, freshness };
+  return { items, trace, freshness, oldest };
 }
 
 /** Dimension of a list of lines: worst state, lowest ratio. */
-function rollUp(key: string, items: DimensionItem[], trace: TraceStep[], freshness?: FreshnessResult): DimensionEval {
+function rollUp(key: string, items: DimensionItem[], trace: TraceStep[], freshness?: FreshnessResult, observedAt?: string): DimensionEval {
   const ratios = items.map((i) => i.ratio).filter((r): r is number => r !== null);
   return {
     key,
@@ -431,6 +439,7 @@ function rollUp(key: string, items: DimensionItem[], trace: TraceStep[], freshne
     ratio: ratios.length > 0 ? Math.min(...ratios) : null,
     freshness: freshness?.freshness,
     items,
+    observedAt,
     trace,
   };
 }
@@ -458,14 +467,15 @@ function evaluateStation(input: EngineInput, state: State, nodeId: string, now: 
       ratio: foodReq.ratio,
       freshness: foodFreshness.freshness,
       foodRequirement: foodReq,
-      items: [{ id: foodItem.itemId, label: "Food", state: foodReq.state, ratio: foodReq.ratio, have: foodReq.availability, need: foodReq.r, unit: foodItem.unit }],
+      items: [{ id: foodItem.itemId, label: "Food", state: foodReq.state, ratio: foodReq.ratio, have: foodReq.availability, need: foodReq.r, unit: foodItem.unit, stock: foodItem.stock, inbound: 0, reservePct: foodItem.reservePct, observedAt: foodItem.lastObservedAt }],
+      observedAt: foodItem.lastObservedAt,
       trace: [{ rule: "R19", text: foodReq.trace }],
     });
   }
 
   // Medical: winter medical kits, oxygen cylinders (FIXED).
   const medical = fixedItems(input, state, nodeId, "MEDICAL", now);
-  if (medical.items.length > 0) dimensions.push(rollUp("MEDICAL", medical.items, medical.trace, medical.freshness));
+  if (medical.items.length > 0) dimensions.push(rollUp("MEDICAL", medical.items, medical.trace, medical.freshness, medical.oldest));
 
   // Spares and power: genset kits (FIXED) and R06 generator redundancy.
   const stationAssets = [...state.assets.values()].filter((a) => a.nodeId === nodeId);
@@ -475,7 +485,7 @@ function evaluateStation(input: EngineInput, state: State, nodeId: string, now: 
   if (spares.items.length > 0 || hasGens) {
     const items = [...spares.items, ...(hasGens ? [coverageItem(gens, "running")] : [])];
     const trace = [...spares.trace, ...(hasGens ? [{ rule: "R06", text: gens.trace }] : [])];
-    const dim = rollUp("POWER", items, trace, spares.freshness);
+    const dim = rollUp("POWER", items, trace, spares.freshness, spares.oldest);
     // The dimension ratio is the kits' ratio; generator redundancy is a count, not a ratio.
     dim.ratio = spares.items.length > 0 ? Math.min(...spares.items.map((i) => i.ratio ?? Infinity)) : null;
     dimensions.push(dim);

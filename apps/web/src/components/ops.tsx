@@ -131,8 +131,8 @@ export function RoleCoverage({ roles }: { roles: { role: string; have: number; n
 }
 
 export function MissionRow({ m, doubleAssigned, canEdit = true, reason }: { m: MissionEval; doubleAssigned?: boolean; canEdit?: boolean; reason?: string }) {
-  const tone = m.status === "OK" ? "border-line-strong text-fg-2" : m.status === "AT_RISK" ? "border-warn/50 text-warn bg-warn-tint" : "border-bad/50 text-bad bg-bad-tint";
-  const Icon = m.status === "OK" ? STATE_META.GREEN.Icon : m.status === "AT_RISK" ? STATE_META.AMBER.Icon : STATE_META.RED.Icon;
+  const tone = m.status === "OK" || m.status === "DEFERRED" ? "border-line-strong text-fg-2" : m.status === "AT_RISK" ? "border-warn/50 text-warn bg-warn-tint" : "border-bad/50 text-bad bg-bad-tint";
+  const Icon = m.status === "OK" || m.status === "DEFERRED" ? STATE_META.GREEN.Icon : m.status === "AT_RISK" ? STATE_META.AMBER.Icon : STATE_META.RED.Icon;
   return (
     <tr className="border-t border-line align-top">
       <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-sm font-bold text-fg">{m.id}</td>
