@@ -32,7 +32,7 @@ function CommandRoute() {
   return (
     <CommandCenter
       key={params.toString()}
-      moment={useMoment("slip")}
+      moment={useMoment("start")}
       cascade={flag(params, "cascade")}
       trace={flag(params, "trace")}
       whatIf={flag(params, "whatif")}

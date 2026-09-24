@@ -12,6 +12,7 @@ import { IncidentPanel } from "../components/incident";
 import { WhatIfDrawer } from "../components/whatif";
 import { Button, cx } from "../components/primitives";
 import { useNavigate } from "react-router-dom";
+import { useDevice } from "../live/DeviceProvider";
 import { useLiveChrome, type LiveChrome } from "../live/chrome";
 import { useLiveOps } from "../live/ops";
 import { useLiveMapModel } from "../live/incident";
@@ -60,15 +61,30 @@ function BottomStrip({ moment }: { moment: MomentId }) {
 export function CommandCenter({ moment: momentProp = "start", cascade = false, trace = false, whatIf = false, stationsInEmergency = false }: {
   moment?: MomentId; cascade?: boolean; trace?: boolean; whatIf?: boolean; stationsInEmergency?: boolean;
 }) {
+  const device = useDevice();
   const live = useLiveChrome();
   const ops = useLiveOps();
   const mapModel = useLiveMapModel();
   const navigate = useNavigate();
-  const moment = ops?.mockMoment ?? momentProp;
-  const m = MOMENTS[moment];
   const [showTrace, setShowTrace] = React.useState(trace);
   const [showStations, setShowStations] = React.useState(stationsInEmergency);
   const [sim, setSim] = React.useState(whatIf);
+
+  if (device && !ops) {
+    return (
+      <Frame moment="start" nav="command" strip={<div className="h-9 border-t border-line bg-surface" />}>
+        <div className="flex h-full flex-col items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-3 text-fg-2">
+            <div className="size-6 animate-spin rounded-full border-2 border-line-ctrl border-t-accent" />
+            <span className="font-mono text-xs tracking-wider">HYDRATING EXPEDITION STATE...</span>
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+
+  const moment = ops?.mockMoment ?? momentProp;
+  const m = MOMENTS[moment];
   const incidentStrip = ops ? ops.incidentStrip : m.incident?.strip;
   const emergency = (ops ? ops.emergency : !!m.incident) && !showStations;
   const traceSteps = ops?.traceSteps && ops.traceSteps.length > 0
