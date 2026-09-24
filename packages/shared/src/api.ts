@@ -18,6 +18,8 @@ export const ERROR_CODES = [
   "CONFLICT_OPEN",
   "NOT_IMPLEMENTED",
   "INTERNAL_ERROR",
+  // The server's log was reset to Start since this device last loaded it (see `epoch`).
+  "RESET_TO_START",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -40,6 +42,11 @@ export interface LoginResponse {
 export interface PushRequest {
   device_id: string;
   events: OpEvent[];
+  /**
+   * The server log epoch this device loaded. A push from before a Reset to Start is refused with
+   * RESET_TO_START instead of mixing the previous run's events into the new log.
+   */
+  epoch?: string;
 }
 export interface PushResponse {
   accepted: string[];
@@ -51,6 +58,8 @@ export interface PushResponse {
 export interface PullResponse {
   events: OpEvent[];
   cursor: number;
+  /** Changes on every Reset to Start; a device holding another epoch must reload. */
+  epoch?: string;
 }
 
 export interface PostEventResponse {
@@ -136,6 +145,8 @@ export interface StateResponse {
   seed: Seed;
   events: OpEvent[];
   cursor: number;
+  /** Identifies this run of the log; changes on every Reset to Start. */
+  epoch?: string;
 }
 
 export function emptySeed(): Seed {

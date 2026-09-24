@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import { compareEvents, type OpEvent } from "@dhruv/shared";
 
@@ -160,4 +161,20 @@ export function latestEventOf(db: Database.Database, type: string, entityId: str
 export function latestObservedAt(db: Database.Database): string | null {
   const row = db.prepare(`SELECT MAX(observed_at) AS latest FROM events`).get() as { latest: string | null };
   return row.latest;
+}
+
+/**
+ * The log epoch: an id for this run of the event log, renewed on every Reset to Start. Devices
+ * keep the epoch they loaded; a different one means their local store belongs to an earlier run.
+ */
+export function logEpoch(db: Database.Database): string {
+  const row = db.prepare(`SELECT value FROM server_meta WHERE key = 'epoch'`).get() as { value: string } | undefined;
+  if (row) return row.value;
+  return renewEpoch(db);
+}
+
+export function renewEpoch(db: Database.Database): string {
+  const epoch = randomUUID();
+  db.prepare(`INSERT INTO server_meta (key, value) VALUES ('epoch', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`).run(epoch);
+  return epoch;
 }

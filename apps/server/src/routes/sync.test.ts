@@ -165,3 +165,28 @@ describe("T-SYNC-01 (server log level): arrival order does not change the stored
     expect(listAllEvents(a.db)).toHaveLength(30);
   });
 });
+
+describe("log epoch (Reset to Start)", () => {
+  it("state and pull carry the epoch; Reset renews it and a push from the old run is refused", async () => {
+    const { app, db } = makeApp();
+    const maitri = await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
+    const hq = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
+
+    const state = await app.inject({ method: "GET", url: `${API}/state`, headers: auth(maitri) });
+    const epoch = state.json().epoch as string;
+    expect(epoch).toMatch(/^[0-9a-f-]{36}$/);
+    expect((await pull(app, maitri)).epoch).toBe(epoch);
+
+    const current = await app.inject({ method: "POST", url: `${API}/sync/push`, headers: auth(maitri), payload: { device_id: maitri.device_id, epoch, events: [makeEvent(maitri, "STOCK_COUNTED", DIESEL, stockCount(92), t(24, "09:15"))] } });
+    expect(current.json().accepted).toHaveLength(1);
+
+    await app.inject({ method: "POST", url: `${API}/admin/seed`, headers: auth(hq) });
+    const renewed = (await pull(app, maitri)).epoch;
+    expect(renewed).not.toBe(epoch);
+
+    const stale = await app.inject({ method: "POST", url: `${API}/sync/push`, headers: auth(maitri), payload: { device_id: maitri.device_id, epoch, events: [makeEvent(maitri, "STOCK_COUNTED", DIESEL, stockCount(91), t(24, "09:20"))] } });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().error.code).toBe("RESET_TO_START");
+    expect((db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n).toBe(0);
+  });
+});

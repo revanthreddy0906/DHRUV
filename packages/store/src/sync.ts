@@ -1,5 +1,5 @@
 import { API_BASE, config, type ApiError, type PullResponse, type PushRequest, type PushResponse, type ScenarioRequest } from "@dhruv/shared";
-import { getMeta, setMeta, type DhruvDb } from "./db.js";
+import { clearDeviceStore, getMeta, setMeta, type DhruvDb } from "./db.js";
 import { linkStatus } from "./controls.js";
 import { drainOutbox, type DrainResult, type PushFn } from "./outbox.js";
 import type { DeviceIdentity } from "./write.js";
@@ -19,17 +19,39 @@ export interface SyncApi {
 export async function pullOnce(db: DhruvDb, pull: PullFn): Promise<number> {
   const since = await getMeta<number>(db, "cursor", 0);
   const response = await pull(since);
+  if (response.epoch && (await epochIsStale(db, response.epoch))) throw new ServerResetError();
   return db.transaction("rw", db.events, db.meta, async () => {
     if ((await getMeta<number>(db, "cursor", 0)) !== since) return 0;
+    if (response.epoch) await setMeta(db, "epoch", response.epoch);
     await db.events.bulkPut(response.events);
     await setMeta(db, "cursor", response.cursor);
     return response.events.length;
   });
 }
 
+/** The server's log was reset to Start since this device loaded it. */
+export class ServerResetError extends Error {
+  constructor() {
+    super("the server was reset to Start since this device loaded");
+  }
+}
+
+/**
+ * True when this store belongs to an earlier run of the server log: it recorded another epoch, or
+ * it was loaded before epochs existed (it has a seed but no epoch). A store that never loaded
+ * (no seed) simply adopts the server's epoch.
+ */
+export async function epochIsStale(db: DhruvDb, serverEpoch: string): Promise<boolean> {
+  const mine = await getMeta<string | null>(db, "epoch", null);
+  if (mine) return mine !== serverEpoch;
+  return (await db.cache.get("seed")) !== undefined;
+}
+
 export type SyncOutcome =
   | { ok: true; drain: DrainResult; pulled: number }
   | { ok: false; skipped: "offline" }
+  /** The local store was from an earlier run of the server log and has been cleared: reload it. */
+  | { ok: false; reset: true }
   | { ok: false; failures: number; retryInSeconds: number; stalled: boolean; error: string };
 
 /**
@@ -45,6 +67,11 @@ export async function syncOnce(db: DhruvDb, identity: DeviceIdentity, api: SyncA
     await setMeta(db, "sync_failures", 0);
     return { ok: true, drain, pulled };
   } catch (err) {
+    // A Reset to Start happened since this device loaded: its events belong to the previous run.
+    if (err instanceof ServerResetError || (err as ApiRequestError).code === "RESET_TO_START") {
+      await clearDeviceStore(db);
+      return { ok: false, reset: true };
+    }
     const failures = (await getMeta<number>(db, "sync_failures", 0)) + 1;
     await setMeta(db, "sync_failures", failures);
     const backoff = config.sync.backoffSeconds;
@@ -82,6 +109,13 @@ export async function syncStatus(db: DhruvDb): Promise<SyncStatus> {
 
 export type ApiCall = <T>(path: string, init?: RequestInit) => Promise<T>;
 
+/** A failed API call, with the section 15 error code when the server sent one. */
+export class ApiRequestError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+  }
+}
+
 /** Authenticated JSON call against /api/v1; throws with the section 15 error message on failure. */
 export function createApiCall(baseUrl: string, getToken: () => string, fetchImpl: typeof fetch = fetch): ApiCall {
   return async <T>(path: string, init: RequestInit = {}): Promise<T> => {
@@ -91,7 +125,7 @@ export function createApiCall(baseUrl: string, getToken: () => string, fetchImpl
       headers: { ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${getToken()}`, ...init.headers },
     });
     const body = await res.json();
-    if (!res.ok) throw new Error((body as ApiError).error?.message ?? `HTTP ${res.status}`);
+    if (!res.ok) throw new ApiRequestError((body as ApiError).error?.message ?? `HTTP ${res.status}`, (body as ApiError).error?.code);
     return body as T;
   };
 }

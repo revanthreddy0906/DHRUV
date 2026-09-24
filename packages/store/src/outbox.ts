@@ -1,5 +1,5 @@
 import { config, type LinkStatus, type PushRequest, type PushResponse } from "@dhruv/shared";
-import type { DhruvDb, OutboxEntry } from "./db.js";
+import { getMeta, type DhruvDb, type OutboxEntry } from "./db.js";
 import { linkStatus } from "./controls.js";
 import type { DeviceIdentity } from "./write.js";
 
@@ -54,7 +54,8 @@ export async function drainOutbox(db: DhruvDb, identity: DeviceIdentity, push: P
     return { sent: 0, accepted: 0, duplicates: 0, rejected: 0, remaining: pending.length, skipped: null, bytes: 0 };
   }
 
-  const response = await push({ device_id: identity.device_id, events: batch.map((e) => e.event) });
+  const epoch = await getMeta<string | null>(db, "epoch", null);
+  const response = await push({ device_id: identity.device_id, events: batch.map((e) => e.event), ...(epoch ? { epoch } : {}) });
   const byId = new Map(batch.map((e) => [e.event.event_id, e]));
 
   await db.transaction("rw", db.outbox, db.events, async () => {
