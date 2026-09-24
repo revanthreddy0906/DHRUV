@@ -104,6 +104,7 @@ export interface Seed {
     category: string;
     unit: string;
     stock: number;
+    /** Fraction of the requirement held in reserve: 0.1 = 10 %. */
     reserve_pct: number;
     requirement_mode: "BURN" | "FIXED";
     fixed_requirement: number | null;

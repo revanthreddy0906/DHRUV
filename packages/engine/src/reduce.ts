@@ -42,7 +42,7 @@ export function reduce(seed: Seed, events: OpEvent[]): State {
       nodeId: item.node_id,
       stock: item.stock,
       unit: item.unit,
-      reservePct: item.reserve_pct > 1 ? item.reserve_pct / 100 : item.reserve_pct,
+      reservePct: item.reserve_pct,
       dimension: item.dimension,
       lastObservedAt: item.last_counted,
     });
