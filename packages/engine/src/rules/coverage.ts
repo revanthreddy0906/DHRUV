@@ -38,7 +38,9 @@ export function computeAssetRedundancy(
   need: number,
   label: string,
 ): CoverageResult {
-  const count = assets.filter((a) => a.type === type && a.status === "OK").length;
+  const count = assets.filter(
+    (a) => a.type.toUpperCase() === type.toUpperCase() && a.status === "OK",
+  ).length;
   const state = stateFromCount(count, need);
   return {
     key: label, count, need, state,

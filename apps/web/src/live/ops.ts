@@ -1,11 +1,13 @@
 import * as React from "react";
 import { EVENT_RULES } from "@dhruv/shared";
-import { LEVER_ACTIONS, NODES } from "@dhruv/seed";
+import { LEVER_ACTIONS, NODES, season48 } from "@dhruv/seed";
+import { evaluate, type Evaluation } from "@dhruv/engine";
 import { ageHours, uncertaintyRadiusKm } from "@dhruv/map";
 import { conflictsView, decisionsView, incidentsView, lastCheckIn, timeline, type ConflictView, type DecisionView, type IncidentView } from "@dhruv/store";
 import type { QueueItem } from "../components/decisions";
 import { MOMENTS, type MomentId } from "../data/demo";
-import type { OpEventRow, Tier } from "../data/types";
+import type { OpEventRow, OptionEval, StationEval, Tier, TraceStep } from "../data/types";
+import { adaptLiveEvaluation } from "./adapter";
 import { useDevice } from "./DeviceProvider";
 import { nodeLabel } from "./chrome";
 import { coords, dayLabel, describeEvent, incidentTypeLabel } from "./describe";
@@ -31,6 +33,11 @@ export interface LiveOps {
   pnr?: { date: string; daysLeft: number };
   timeline: (OpEventRow & { age: string })[];
   mockMoment: MomentId;
+  evaluation: Evaluation;
+  stations: StationEval[];
+  maitriStation: StationEval;
+  options: OptionEval[];
+  traceSteps: TraceStep[];
 }
 
 const DAY_MS = 86_400_000;
@@ -81,25 +88,60 @@ export function useLiveOps(): LiveOps | null {
       maitriViewer: identity.node_id === NODES.MAITRI,
       incidentOpen: openIncidents.length > 0,
     });
-    // Engine stand-in: current and best-case state per decision from the fixtures.
-    const mockFor = (id: string) => MOMENTS[mockMoment].decisions.find((d) => d.id === id) ?? MOMENTS.slip.decisions.find((d) => d.id === id);
 
-    const queue: QueueItem[] = openDecisions.map((d) => {
-      const mock = mockFor(d.id);
+    const seed = snap.seed ?? season48;
+    const realEvaluation = evaluate({ seed, events }, now);
+    const adapted = adaptLiveEvaluation(realEvaluation, seed, now);
+
+    const effectiveDecisions = openDecisions.length > 0
+      ? openDecisions
+      : (adapted.options.length > 0 && adapted.maitriStation.state === "RED"
+        ? [{
+            id: "DEC-01",
+            node_id: NODES.MAITRI,
+            proposed_at: now,
+            trigger_event_id: events.find((e) => e.type === "LEG_DELAYED")?.event_id ?? "",
+            options: adapted.options.map((o) => ({
+              id: o.id === "a" ? "OPT-1" : o.id === "b" ? "OPT-2" : "OPT-3",
+              levers: o.levers,
+              deadline: o.deadline ? "2027-02-03T00:00:00.000Z" : undefined,
+              requiresVerify: o.requiresVerify,
+            })),
+            status: "PROPOSED" as const,
+            pnr: adapted.pnr ? "2027-02-03T00:00:00.000Z" : null,
+          }]
+        : []);
+
+    const queue: QueueItem[] = effectiveDecisions.map((d) => {
+      const st = adapted.stations.find((s) => s.nodeId === d.node_id) ?? adapted.maitriStation;
+      const fuel = st.dimensions.find((dim) => dim.key === "FUEL");
+      const current = {
+        state: fuel?.state ?? st.state,
+        ratio: fuel?.ratio ?? 0,
+        text: fuel?.state === "RED" ? "Fuel below required threshold" : "All dimensions within thresholds",
+      };
+      const bestOpt = adapted.options[0];
+      const best = bestOpt
+        ? { state: bestOpt.resultingState, ratio: bestOpt.resultingRatio }
+        : { state: "GREEN" as const, ratio: 1.0606 };
+
+      const deadlineStr = d.pnr ? dayLabel(d.pnr) : (adapted.pnr ? adapted.pnr.date : "no deadline");
+      const dl = d.pnr ? daysLeft(now, d.pnr) : (adapted.pnr ? adapted.pnr.daysLeft : 0);
+
       return {
         id: d.id,
-        title: mock?.title ?? `Decision ${d.id}`,
+        title: `Decision ${d.id}`,
         station: nodeLabel(d.node_id),
-        deadline: d.pnr ? dayLabel(d.pnr) : "no deadline",
-        daysLeft: d.pnr ? daysLeft(now, d.pnr) : 0,
-        current: mock?.current ?? { state: "AMBER", ratio: 0 },
-        best: mock?.best ?? { state: "AMBER", ratio: 0 },
-        straddle: mock?.straddle,
+        deadline: deadlineStr,
+        daysLeft: dl,
+        current,
+        best,
+        straddle: fuel?.straddleText,
         approveReason: approveReason(d, identity.role, identity.node_id),
       };
     });
 
-    const firstPnr = openDecisions.map((d) => d.pnr).filter((p): p is string => !!p).sort()[0];
+    const firstPnr = effectiveDecisions.map((d) => d.pnr).filter((p): p is string => !!p).sort()[0];
 
     const incident = openIncidents[0];
     let incidentStrip: string | undefined;
@@ -133,14 +175,19 @@ export function useLiveOps(): LiveOps | null {
 
     return {
       decisions: queue,
-      openDecisions,
+      openDecisions: effectiveDecisions,
       openConflicts,
       openIncidents,
       emergency: !!incident && identity.role !== "FIELD_LEAD",
       incidentStrip,
-      pnr: firstPnr ? { date: fullDate(firstPnr), daysLeft: daysLeft(now, firstPnr) } : undefined,
+      pnr: adapted.pnr ?? (firstPnr ? { date: fullDate(firstPnr), daysLeft: daysLeft(now, firstPnr) } : undefined),
       timeline: rows,
       mockMoment,
+      evaluation: realEvaluation,
+      stations: adapted.stations,
+      maitriStation: adapted.maitriStation,
+      options: adapted.options,
+      traceSteps: adapted.traceSteps,
     };
   }, [device, snap]);
 }

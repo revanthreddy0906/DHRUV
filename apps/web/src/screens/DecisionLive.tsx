@@ -48,7 +48,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const moment = ops.mockMoment;
   const { identity } = device.session;
   const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
-  const decision = decisionsView(events).find((d) => d.id === id);
+  const decision = decisionsView(events).find((d) => d.id === id) ?? ops.openDecisions.find((d) => d.id === id);
 
   if (!decision) {
     return (
@@ -71,7 +71,8 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   );
 
   const realFor = (o: OptionEval): DecisionOptionView | undefined => decision.options.find((r) => sameLevers(r.levers, o.levers));
-  const options = fixtureOptions(moment).map((o): OptionEval => {
+  const rawOptions = ops?.options && ops.options.length > 0 ? ops.options : fixtureOptions(moment);
+  const options = rawOptions.map((o): OptionEval => {
     const real = realFor(o);
     const expired = real?.deadline && Date.parse(real.deadline) < Date.parse(now) ? `Deadline ${dayLabel(real.deadline)} has passed` : o.expired;
     return { ...o, deadline: real?.deadline ? dayLabel(real.deadline) : o.deadline, requiresVerify: [...new Set([...o.requiresVerify, ...(real?.requiresVerify ?? [])])], expired };
@@ -95,7 +96,13 @@ export function LiveDecisionDetail({ id }: { id: string }) {
 
   const trigger = events.find((e) => e.event_id === decision.trigger_event_id);
   const mock = MOMENTS[moment].decisions.find((d) => d.id === id) ?? MOMENTS.slip.decisions.find((d) => d.id === id);
-  const trace = moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : HERO_TRACE;
+  const currentFuel = ops?.maitriStation.dimensions.find((d) => d.key === "FUEL");
+  const current = currentFuel
+    ? { state: currentFuel.state, ratio: currentFuel.ratio ?? 0, text: currentFuel.state === "RED" ? "Fuel below required threshold" : "All dimensions within thresholds" }
+    : { ...(mock?.current ?? { state: "AMBER", ratio: 0 }), text: mock ? "Fuel below required threshold" : "Engine evaluation pending" };
+  const trace = ops?.traceSteps && ops.traceSteps.length > 0
+    ? ops.traceSteps
+    : (moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : HERO_TRACE);
   const online = snap.link === "ONLINE";
 
   const act = async (run: () => Promise<unknown>) => {
@@ -156,9 +163,9 @@ export function LiveDecisionDetail({ id }: { id: string }) {
         id={id}
         title={mock?.title ?? `Decision ${id}`}
         station={nodeLabel(decision.node_id)}
-        current={{ ...(mock?.current ?? { state: "AMBER", ratio: 0 }), text: mock ? "Fuel below required threshold" : "Engine evaluation pending" }}
+        current={current}
         trigger={trigger ? `${trigger.type} ${describeEvent(trigger)} · ${trigger.device_id} · ${formatShort(trigger.observed_at)}` : `Proposed ${formatShort(decision.proposed_at)}`}
-        pnr={decision.pnr ? { date: fullDate(decision.pnr), daysLeft: daysLeft(now, decision.pnr) } : null}
+        pnr={decision.pnr ? { date: fullDate(decision.pnr), daysLeft: daysLeft(now, decision.pnr) } : (ops?.pnr ? { date: ops.pnr.date, daysLeft: ops.pnr.daysLeft } : null)}
         trace={trace}
         levers={levers}
         options={options}

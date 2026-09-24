@@ -3,6 +3,7 @@ import { Siren, LayoutGrid, FlaskConical, RadioTower, CloudUpload } from "lucide
 import { MOMENTS, TIMELINES, HERO_TRACE, FRESHNESS_TRACE_HQ_2501600, START_TRACE, APPROVED_TRACE, CALENDAR, type MomentId } from "../data/demo";
 import { Frame } from "./Frame";
 import { PnrStrip, StationCard } from "../components/readiness";
+import type { StationEval } from "../data/types";
 import { DecisionQueue } from "../components/decisions";
 import { RiskList, EventTimeline } from "../components/events";
 import { MapPanel, SchematicMap } from "../components/map";
@@ -11,6 +12,7 @@ import { IncidentPanel } from "../components/incident";
 import { WhatIfDrawer } from "../components/whatif";
 import { Button, cx } from "../components/primitives";
 import { useNavigate } from "react-router-dom";
+import { useDevice } from "../live/DeviceProvider";
 import { useLiveChrome, type LiveChrome } from "../live/chrome";
 import { useLiveOps } from "../live/ops";
 import { useLiveMapModel } from "../live/incident";
@@ -59,23 +61,41 @@ function BottomStrip({ moment }: { moment: MomentId }) {
 export function CommandCenter({ moment: momentProp = "start", cascade = false, trace = false, whatIf = false, stationsInEmergency = false }: {
   moment?: MomentId; cascade?: boolean; trace?: boolean; whatIf?: boolean; stationsInEmergency?: boolean;
 }) {
+  const device = useDevice();
   const live = useLiveChrome();
   const ops = useLiveOps();
   const mapModel = useLiveMapModel();
   const navigate = useNavigate();
-  const moment = ops?.mockMoment ?? momentProp;
-  const m = MOMENTS[moment];
   const [showTrace, setShowTrace] = React.useState(trace);
   const [showStations, setShowStations] = React.useState(stationsInEmergency);
   const [sim, setSim] = React.useState(whatIf);
+
+  if (device && !ops) {
+    return (
+      <Frame moment="start" nav="command" strip={<div className="h-9 border-t border-line bg-surface" />}>
+        <div className="flex h-full flex-col items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-3 text-fg-2">
+            <div className="size-6 animate-spin rounded-full border-2 border-line-ctrl border-t-accent" />
+            <span className="font-mono text-xs tracking-wider">HYDRATING EXPEDITION STATE...</span>
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+
+  const moment = ops?.mockMoment ?? momentProp;
+  const m = MOMENTS[moment];
   const incidentStrip = ops ? ops.incidentStrip : m.incident?.strip;
   const emergency = (ops ? ops.emergency : !!m.incident) && !showStations;
-  const traceSteps = moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : moment === "start" ? START_TRACE : moment === "hq-2501620" ? APPROVED_TRACE : HERO_TRACE;
+  const traceSteps = ops?.traceSteps && ops.traceSteps.length > 0
+    ? ops.traceSteps
+    : (moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : moment === "start" ? START_TRACE : moment === "hq-2501620" ? APPROVED_TRACE : HERO_TRACE);
 
-  // Live overrides on the fixture station cards: gates (open incidents and safety conflicts) and link.
-  const stationFor = (s: (typeof m.stations)[number]) => {
+  // Live overrides on the station cards: gates (open incidents and safety conflicts) and link.
+  const stationFor = (s: StationEval) => {
     if (!ops || !live) return { station: s, link: undefined };
     const gates = [
+      ...(s.gates ?? []),
       ...ops.openIncidents.filter((i) => i.node_id === s.nodeId).map((i) => `Incident ${i.id} open`),
       ...ops.openConflicts.filter((c) => c.node_id === s.nodeId).map((c) => `Unresolved safety conflict: ${c.entity_id} ${c.field}`),
     ];
@@ -83,10 +103,13 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
     const link = l ? (l.own ? { status: l.status } : { age: l.age }) : undefined;
     return { station: { ...s, gates }, link };
   };
-  const maitriView = stationFor(m.stations[0]);
-  const bharatiView = stationFor(m.stations[1]);
+  const rawMaitri = ops ? (ops.stations.find((s) => s.nodeId === "MAITRI") ?? ops.maitriStation) : m.stations[0];
+  const rawBharati = ops ? (ops.stations.find((s) => s.nodeId === "BHARATI") ?? m.stations[1]) : m.stations[1];
+  const maitriView = stationFor(rawMaitri);
+  const bharatiView = stationFor(rawBharati);
   const maitri = maitriView.station;
-  const fuelState = maitri.dimensions[0].state;
+  const fuel = maitri.dimensions.find((d) => d.key === "FUEL");
+  const fuelState = fuel?.state ?? maitri.state;
   const pnr = ops ? ops.pnr : maitri.pnr;
 
   const strip = (

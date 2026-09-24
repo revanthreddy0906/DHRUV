@@ -143,7 +143,8 @@ export function generateOptions(params: GenerateOptionsParams): GeneratedOption[
     const bindingLeverId = bindingLever.id;
     const reachesTarget = state === "GREEN";
 
-    const costStr = cost > 0 ? `${(cost / 100000).toFixed(1)} lakh` : "none";
+    const costInLakh = costUnit.includes("lakh") ? cost : cost / 100000;
+    const costStr = cost > 0 ? `${costInLakh.toFixed(1)} lakh` : "none";
     const slackStr = slackDays !== null ? `${slackDays}d slack` : "no inbound dependency";
     const trace = `[R09] {${leverIds.join(", ")}}: avail ${availability.toFixed(1)} / req ${requirement.toFixed(
       1,
