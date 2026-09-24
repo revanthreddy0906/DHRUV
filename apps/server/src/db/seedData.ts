@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { emptySeed, type Seed } from "@dhruv/shared";
 import { DERIVED_TABLES, SEED_TABLES } from "./schema.js";
+import { renewEpoch } from "./events.js";
 
 export function loadSeed(db: Database.Database): Seed {
   const seed = emptySeed();
@@ -25,6 +26,8 @@ export function resetToStart(db: Database.Database, seed: Seed = emptySeed()): v
         db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map((c) => `@${c}`).join(", ")})`).run(row);
       }
     }
+    // A new run of the log: devices still holding the previous one must reload.
+    renewEpoch(db);
   });
   run();
 }

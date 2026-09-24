@@ -27,6 +27,20 @@ const proposal = (id: string, at: string, deadlines: string[]) =>
   ev("DECISION_PROPOSED", "DIRECTOR", { decision_id: id, trigger_event_id: "", options: deadlines.map((d, i) => ({ id: `OPT-${i + 1}`, levers: ["HOLD_VESSEL"], deadline: d })), trace: [] }, at);
 
 describe("decisionsView", () => {
+  it("takes PNR only from options that reach the target, and keeps the engine's option fields", () => {
+    const e = ev("DECISION_PROPOSED", "DIRECTOR", {
+      decision_id: "DEC-01", trigger_event_id: "", trace: [],
+      options: [
+        { id: "OPT-1", label: "(a)", levers: ["HOLD_VESSEL"], deadline: "2027-02-03T00:00:00.000Z", reaches_target: true, ratio: 1.0606, state: "GREEN", slack_days: 0 },
+        { id: "OPT-3", label: "(c)", levers: ["AIRLIFT_PARTIAL"], deadline: "2027-02-09T00:00:00.000Z", reaches_target: false, ratio: 0.8754, state: "RED", slack_days: null },
+      ],
+    }, t(24, "08:11"));
+    const [d] = decisionsView([e]);
+    expect(d!.pnr).toBe("2027-02-03T00:00:00.000Z");
+    expect(d!.options[0]).toMatchObject({ label: "(a)", ratio: 1.0606, state: "GREEN", reachesTarget: true, slackDays: 0 });
+    expect(d!.options[1]).toMatchObject({ reachesTarget: false, slackDays: null });
+  });
+
   it("is PROPOSED with the latest option deadline as PNR, then takes the first outcome", () => {
     const events = [
       proposal("DEC-01", t(24, "08:11"), ["2027-02-02T00:00:00.000Z", "2027-02-03T00:00:00.000Z"]),

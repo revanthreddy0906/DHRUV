@@ -1,6 +1,6 @@
 import type { LinkStatus } from "@dhruv/shared";
 import { findBeat, type BeatEvent } from "@dhruv/seed";
-import type { DhruvDb } from "./db.js";
+import { clearDeviceStore, type DhruvDb } from "./db.js";
 import { jumpClock, setLinkStatus } from "./controls.js";
 import { createApiCall } from "./sync.js";
 import { writeEvent, type DeviceIdentity } from "./write.js";
@@ -66,9 +66,7 @@ async function applyOnDevice(db: DhruvDb, identity: DeviceIdentity, message: Dir
       await setLinkStatus(db, identity, message.status, message.observed_at);
       return true;
     case "reset":
-      await db.transaction("rw", db.events, db.outbox, db.meta, db.cache, async () => {
-        await Promise.all([db.events.clear(), db.outbox.clear(), db.meta.clear(), db.cache.clear()]);
-      });
+      await clearDeviceStore(db);
       return true;
     default:
       return false;

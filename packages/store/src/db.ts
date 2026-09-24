@@ -64,3 +64,10 @@ export async function getMeta<T>(db: DhruvDb, key: string, fallback: T): Promise
 export async function setMeta(db: DhruvDb, key: string, value: unknown): Promise<void> {
   await db.meta.put({ key, value });
 }
+
+/** Empties this device's store (Reset to Start, or the server log was reset since it loaded). */
+export async function clearDeviceStore(db: DhruvDb): Promise<void> {
+  await db.transaction("rw", db.events, db.outbox, db.meta, db.cache, async () => {
+    await Promise.all([db.events.clear(), db.outbox.clear(), db.meta.clear(), db.cache.clear()]);
+  });
+}

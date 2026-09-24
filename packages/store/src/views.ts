@@ -19,6 +19,16 @@ export interface DecisionOptionView {
   levers: string[];
   deadline?: string;
   requiresVerify: string[];
+  /** The engine's evaluation when the option was proposed (absent on hand-written proposals). */
+  label?: string;
+  ratio?: number;
+  state?: "GREEN" | "AMBER" | "RED";
+  gap?: number;
+  reachesTarget?: boolean;
+  bindingLever?: string;
+  slackDays?: number | null;
+  cost?: number;
+  costUnit?: string;
 }
 
 export interface DecisionView {
@@ -34,16 +44,29 @@ export interface DecisionView {
   decided_by?: string;
   /** The event that decided it, so a device can tell whether it is still in its outbox. */
   decided_event_id?: string;
-  /** R11 as proposed: the latest option deadline, or null when no option carries one. */
+  /** R11 as proposed: the latest deadline among options that reach the target, or null. */
   pnr: string | null;
 }
 
+const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+
 function optionView(raw: Record<string, unknown>, index: number): DecisionOptionView {
+  const state = str(raw.state);
   return {
-    id: typeof raw.id === "string" ? raw.id : `OPT-${index + 1}`,
+    id: str(raw.id) ?? `OPT-${index + 1}`,
     levers: Array.isArray(raw.levers) ? raw.levers.filter((l): l is string => typeof l === "string") : [],
-    deadline: typeof raw.deadline === "string" ? raw.deadline : undefined,
+    deadline: str(raw.deadline),
     requiresVerify: Array.isArray(raw.requiresVerify) ? raw.requiresVerify.filter((v): v is string => typeof v === "string") : [],
+    label: str(raw.label),
+    ratio: num(raw.ratio),
+    state: state === "GREEN" || state === "AMBER" || state === "RED" ? state : undefined,
+    gap: num(raw.gap),
+    reachesTarget: typeof raw.reaches_target === "boolean" ? raw.reaches_target : undefined,
+    bindingLever: str(raw.binding_lever),
+    slackDays: raw.slack_days === null ? null : num(raw.slack_days),
+    cost: num(raw.cost),
+    costUnit: str(raw.cost_unit),
   };
 }
 
@@ -53,7 +76,8 @@ export function decisionsView(events: OpEvent[]): DecisionView[] {
   for (const e of ofType(events, "DECISION_PROPOSED")) {
     if (byId.has(e.payload.decision_id)) continue;
     const options = e.payload.options.map(optionView);
-    const deadlines = options.map((o) => o.deadline).filter((d): d is string => !!d).sort();
+    // Section 7: PNR = the latest deadline among options that reach the target.
+    const deadlines = options.filter((o) => o.reachesTarget !== false).map((o) => o.deadline).filter((d): d is string => !!d).sort();
     byId.set(e.payload.decision_id, {
       id: e.payload.decision_id,
       node_id: e.node_id,

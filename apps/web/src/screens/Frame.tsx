@@ -65,7 +65,8 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
       sidebar={<Sidebar active={nav}
         incidentOpen={ops ? ops.openIncidents.length > 0 : !!m.incident || moment === "hq-2501620" || moment === "hq-2501610"}
         decisionCount={ops ? ops.openDecisions.length : m.decisions.length} conflictCount={ops ? ops.openConflicts.length : conflictCount}
-        role={chrome.role} station={chrome.station} deviceId={chrome.deviceId} link={chrome.link} onNavigate={onNavigate} />}
+        role={chrome.role} station={chrome.station} deviceId={chrome.deviceId} link={chrome.link} onNavigate={onNavigate}
+        onDirector={live?.role === "HQ_OPS" ? () => navigate("/director") : undefined} />}
       strip={strip}
       drawer={<>{drawer}{live && syncOpen && <LiveSyncDrawer onClose={() => setSyncOpen(false)} />}</>}
     >

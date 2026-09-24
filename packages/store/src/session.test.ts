@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { emptySeed, type OpEvent, type StateResponse } from "@dhruv/shared";
+import { emptySeed, type OpEvent, type PushRequest, type StateResponse } from "@dhruv/shared";
 import { DhruvDb, getMeta } from "./db.js";
 import { bootstrap, cachedSeed } from "./session.js";
-import { createApiCall, type ApiCall } from "./sync.js";
+import { ApiRequestError, createApiCall, syncOnce, type ApiCall } from "./sync.js";
 import { writeEvent, type DeviceIdentity } from "./write.js";
 
 const maitri: DeviceIdentity = { device_id: "MAITRI-TAB-01", role: "STATION_LEADER", node_id: "MAITRI" };
@@ -70,5 +70,67 @@ describe("createApiCall", () => {
     await call("/sync/push", { method: "POST", body: "{}" });
     expect(seen[0]).toEqual({ Authorization: "Bearer t" });
     expect(seen[1]).toEqual({ "Content-Type": "application/json", Authorization: "Bearer t" });
+  });
+});
+
+describe("server log epoch (Reset to Start while a device was away)", () => {
+  const withEpoch = (epoch: string, events: OpEvent[] = [], cursor = 0): ApiCall => {
+    const seed = emptySeed();
+    return (async () => ({ seed, events, cursor, epoch })) as ApiCall;
+  };
+
+  it("bootstrap remembers the epoch and pushes carry it", async () => {
+    await bootstrap(db, maitri, withEpoch("E1"));
+    await writeEvent(db, maitri, count);
+    const pushed: PushRequest[] = [];
+    await syncOnce(db, maitri, {
+      push: async (req) => (pushed.push(req), { accepted: req.events.map((e) => e.event_id), duplicates: [], rejected: [], recorded_at_server: "" }),
+      pull: async () => ({ events: [], cursor: 1, epoch: "E1" }),
+    });
+    expect(pushed[0]!.epoch).toBe("E1");
+    expect(await getMeta(db, "epoch", null)).toBe("E1");
+  });
+
+  it("a pull from a newer epoch clears the store, so the device reloads instead of mixing runs", async () => {
+    await bootstrap(db, maitri, withEpoch("E1"));
+    await writeEvent(db, maitri, count);
+    await db.outbox.clear();
+    const outcome = await syncOnce(db, maitri, { push: async () => { throw new Error("nothing to push"); }, pull: async () => ({ events: [], cursor: 0, epoch: "E2" }) });
+    expect(outcome).toEqual({ ok: false, reset: true });
+    expect(await db.events.count()).toBe(0);
+    expect(await cachedSeed(db)).toBeNull();
+  });
+
+  it("a push refused with RESET_TO_START clears the store without sending the old run's events", async () => {
+    await bootstrap(db, maitri, withEpoch("E1"));
+    await writeEvent(db, maitri, count);
+    const outcome = await syncOnce(db, maitri, {
+      push: async () => { throw new ApiRequestError("reset", "RESET_TO_START"); },
+      pull: async () => ({ events: [], cursor: 0, epoch: "E2" }),
+    });
+    expect(outcome).toEqual({ ok: false, reset: true });
+    expect(await db.outbox.count()).toBe(0);
+  });
+
+  it("signing in again after a Reset discards the old run instead of merging it", async () => {
+    const old = await writeEvent(db, maitri, count);
+    await db.cache.put({ key: "seed", value: emptySeed(), computed_at: "" });
+    await db.meta.put({ key: "epoch", value: "E1" });
+
+    await bootstrap(db, maitri, withEpoch("E2"));
+    expect(await db.events.get(old.event_id)).toBeUndefined();
+    expect(await db.outbox.count()).toBe(0);
+    expect(await getMeta(db, "epoch", null)).toBe("E2");
+    expect((await writeEvent(db, maitri, count)).seq).toBe(1);
+  });
+
+  it("a store loaded before epochs existed is treated as stale; a store that never loaded adopts the epoch", async () => {
+    await db.cache.put({ key: "seed", value: emptySeed(), computed_at: "" });
+    expect(await syncOnce(db, maitri, { push: async () => ({ accepted: [], duplicates: [], rejected: [], recorded_at_server: "" }), pull: async () => ({ events: [], cursor: 0, epoch: "E9" }) })).toEqual({ ok: false, reset: true });
+
+    const fresh = new DhruvDb(`fresh-${Math.random()}`);
+    const outcome = await syncOnce(fresh, maitri, { push: async () => ({ accepted: [], duplicates: [], rejected: [], recorded_at_server: "" }), pull: async () => ({ events: [], cursor: 0, epoch: "E9" }) });
+    expect(outcome.ok).toBe(true);
+    expect(await getMeta(fresh, "epoch", null)).toBe("E9");
   });
 });

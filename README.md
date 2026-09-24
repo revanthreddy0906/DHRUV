@@ -66,7 +66,7 @@ flowchart LR
 - **Viewer-relative.** Each device evaluates against its own demo clock and the events it holds. An offline station and HQ can legitimately see different things until they sync, and the app shows how old each view is.
 - **Merge rules** (section 9). Facts are unioned; stock is last count plus deltas (a negative result goes to review); owner fields are last-write-wins; safety-critical fields keep the conservative value and raise `CONFLICT_FLAGGED`.
 - **The server** (Fastify + SQLite) is the meeting point for events. It validates each event against the role and node rules, detects conflicts, runs decision approval with lever follow-ups (holding the vessel emits `VESSEL_UPDATED` and `LEG_UPDATED`), and serves the Scenario Director's beats.
-- **The engine** (`packages/engine`, rules R01–R19) is a pure `evaluate(state, now)` that runs identically in the browser and on the server. It is still being built; see [Project status](#project-status).
+- **The engine** (`packages/engine`, rules R01–R19) is a pure `evaluate({ seed, events }, now)` that runs identically in the browser and on the server: every station, on fuel, food (from live POB), medical, spares and power, personnel and comms, with missions, levers, options, the point of no return, confidence bands, slip tolerance and the B0 baseline. The server uses it to propose decisions (Director beat 2 records the ranked options); each browser uses it for readiness, traces and what-if, on the events that device holds. Levers of an approved option are applied from the log.
 
 The full design is in the Build Bible (SIH26062 source of truth) and its v2 amendment document.
 
@@ -85,7 +85,7 @@ packages/
   store/      Client data layer: Dexie store, writeEvent, outbox drain, sync, views, Director channel
   map/        Positions, uncertainty circles, nearest capable assets, Leaflet layers, SVG schematic
   seed/       Season 48 dataset (section 13), Director beats 1–11, lever follow-ups
-  engine/     evaluate() (rules R01–R19), in progress
+  engine/     evaluate() (rules R01–R19): pure, deterministic, no clock or randomness
 docs/
   demo-run.md Step-by-step demo runbook with the expected result of every beat
 .github/workflows/ci.yml   Node 20: frozen install, typecheck, test, web build
@@ -218,7 +218,7 @@ Base path **`/api/v1`**, JSON only, 1 MB body limit. Errors use one shape: `{ "e
 | `GET /sync/pull?since=&limit=` | Other devices' events after the cursor | signed in |
 | `POST /events` · `GET /events` | Write one event · audit query | signed in |
 | `POST /decisions/:id/approve` · `/reject` | Human decision; approval emits the chosen levers' follow-ups | HQ Ops, or the station's Station Leader for station-level levers |
-| `POST /scenarios/run` | What-if on the engine (returns 501 until the engine lands) | signed in |
+| `POST /scenarios/run` | What-if on the engine: the log plus overlay events, nothing stored (the app runs the same engine locally) | signed in |
 | `POST /admin/seed` · `POST /admin/director/:beat` | Reset to Start · run a server-side Director beat | HQ Ops, demo mode only |
 
 Every write is checked against the Build Bible's permission rules: the event type must be allowed for the role, a Station Leader writes only for their own station (including the record the event changes), and `actor_role` must match the signed-in role.
@@ -232,9 +232,11 @@ pnpm typecheck
 pnpm test
 ```
 
-- **Server (63 tests)**: auth, idempotent push and pull, the cursor after a reset, role and node enforcement, conflict detection, decision approval with follow-ups (online and synced offline), the OpenAPI drift check, a 100-event push performance budget, and an end-to-end run of Director beats 1–11 with three simulated devices against the real server.
-- **Store (31 tests)**: write path, clock, priority drain and byte budget, backoff and stall, bootstrap, and the read-side views (decisions, conflicts, incidents, timeline).
-- **Map (19 tests)**: distances, uncertainty circles, nearest capable assets, Leaflet layers (clustering, labels, plain-text tooltips), schematic escaping.
+- **Engine (80 tests)**: every rule R01–R19 in isolation, determinism, food by POB.
+- **Server (97 tests)**: auth and device binding, idempotent push and pull, the log epoch after a reset, role and node enforcement, conflict detection, decisions proposed from the engine and approved with follow-ups (online and synced offline), the OpenAPI drift check, a push performance budget, an end-to-end run of Director beats 1–11 with three simulated devices, and the **golden-number harness** (`src/golden`): the Build Bible's T-ENG, T-FRESH, T-SYNC, T-BASE and T-WHATIF cases on season 48. All 29 pass. A case marked `known` would run as `it.fails` with its reason, and `GOLDEN_STRICT=1` runs such cases as ordinary tests.
+- **Store (37 tests)**: write path, clock, priority drain and byte budget, backoff and stall, bootstrap and epoch reset, and the read-side views.
+- **Map (19 tests)**: distances, uncertainty circles, nearest capable assets, Leaflet layers, schematic escaping.
+- **Web (8 tests)**: the hero demo through the engine and the screen adapter (options, PNR, Bharati, inventory and roles).
 
 CI (`.github/workflows/ci.yml`) runs on pushes to `main`, `develop` and `feature/**` and on pull requests: Node 20, `pnpm install --frozen-lockfile`, typecheck, test, and the web build.
 
@@ -250,10 +252,14 @@ CI (`.github/workflows/ci.yml`) runs on pushes to `main`, `develop` and `feature
 | Decision Detail: approve and reject, online or queued offline | Live |
 | Incident screen and map: position, circle, nearest assets, conflicts, escalation | Live (NASA Blue Marble tiles, schematic fallback) |
 | Sync drawer, Review queue, Audit, Scenario Director | Live |
-| **Readiness numbers, option ratios, confidence bands, traces, what-if** | **Design reference data until the engine (`packages/engine`) lands.** The app picks the reference state that matches the live event log |
-| Cargo, Inventory, Personnel and Missions screens | Design reference data (engine output) |
-| Manual data entry (stock count/issue, check-in, ETA edit) | Not built; the Director covers the demo |
+| Engine: every station and dimension, missions, levers and options, PNR, bands, slip tolerance, B0 | Working. All 29 golden cases pass |
+| Readiness, options, traces, Cargo, Inventory, Personnel and Missions, what-if | Live from the engine on each device's events. Signed out, `/screens` shows the design reference states |
+| Manual data entry | HQ can record a leg delay on Cargo (with an engine preview). Stock counts, issues and check-ins come from the Director and the Field screen |
 | AI explain · Print brief | AI explain not wired yet; Print brief prints the Incident screen, and is not wired on Decision Detail |
+
+**R01 horizon.** The requirement covers a fixed horizon, from the start of the season plan (24 Jan) to the next resupply, because stock changes only through counts, issues and receipts, never through elapsed time. This is what the Bible's golden numbers assume (R = 132.0 kL throughout the demo).
+
+**Values the Bible leaves open** are `FILLED` in `packages/seed/src/season48.ts` and `packages/shared/src/config.ts` (for example the 1 kL threshold below which a mission is not put at risk, and diesel burn per km for ground vehicles).
 
 ---
 

@@ -89,20 +89,39 @@ export function computeStationState(
     }
   }
 
-  // 2. Scan for unresolved safety-critical conflicts
-  const conflicts = detectConflicts(events, events);
-  for (const c of conflicts) {
-    if (c.kind === "SAFETY_CRITICAL") {
-      const gateTrace = `[R15] Gate: Unresolved safety-critical conflict on ${c.entity_type} ${c.entity_id} (${c.field}) adds gate banner`;
-      gates.push({
-        type: "SAFETY_CONFLICT",
-        id: c.entity_id,
-        message: `Unresolved safety conflict on ${c.entity_type} ${c.entity_id} (${c.field})`,
-        blocking: true,
-        trace: gateTrace,
-      });
-      trace.push(gateTrace);
-    }
+  // 2. Unresolved safety-critical conflicts at this station: CONFLICT_FLAGGED not yet closed by a
+  // CONFLICT_RESOLVED. Before the server's flag reaches this device, a disagreement it can already
+  // see locally (detectConflicts) gates too, so an offline station is not shown as clear.
+  const open = new Map<string, { entity_type: string; entity_id: string; field: string }>();
+  const resolved = new Set<string>();
+  for (const event of events) {
+    if (event.type === "CONFLICT_RESOLVED") resolved.add((event.payload as PayloadOf<"CONFLICT_RESOLVED">).conflict_id);
+  }
+  for (const event of events) {
+    if (event.type !== "CONFLICT_FLAGGED" || (nodeId && event.node_id !== nodeId)) continue;
+    const p = event.payload as PayloadOf<"CONFLICT_FLAGGED">;
+    if (!resolved.has(p.conflict_id)) open.set(`${p.entity_id}:${p.field}`, p);
+  }
+  const flaggedEver = new Set(events.filter((e) => e.type === "CONFLICT_FLAGGED").map((e) => {
+    const p = e.payload as PayloadOf<"CONFLICT_FLAGGED">;
+    return `${p.entity_id}:${p.field}`;
+  }));
+  for (const c of detectConflicts(events, events)) {
+    const key = `${c.entity_id}:${c.field}`;
+    if (c.kind !== "SAFETY_CRITICAL" || flaggedEver.has(key)) continue;
+    const atNode = events.some((e) => e.entity_id === c.entity_id && (!nodeId || e.node_id === nodeId));
+    if (atNode) open.set(key, c);
+  }
+  for (const c of open.values()) {
+    const gateTrace = `[R15] Gate: Unresolved safety-critical conflict on ${c.entity_type} ${c.entity_id} (${c.field}) adds gate banner`;
+    gates.push({
+      type: "SAFETY_CONFLICT",
+      id: c.entity_id,
+      message: `Unresolved safety conflict on ${c.entity_type} ${c.entity_id} (${c.field})`,
+      blocking: true,
+      trace: gateTrace,
+    });
+    trace.push(gateTrace);
   }
 
   // 3. Scan for blocked missions

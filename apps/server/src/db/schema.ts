@@ -143,6 +143,9 @@ export function applySchema(db: Database.Database): void {
       resolved_value TEXT, resolver TEXT
     );
 
+    -- Server bookkeeping outside section 14: the log epoch, renewed on every Reset to Start.
+    CREATE TABLE IF NOT EXISTS server_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
     CREATE TABLE IF NOT EXISTS incidents (
       id TEXT PRIMARY KEY, type TEXT NOT NULL, status TEXT NOT NULL,
       opened_at TEXT NOT NULL, last_confirmed_at TEXT, involved TEXT NOT NULL

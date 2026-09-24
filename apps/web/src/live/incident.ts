@@ -2,7 +2,8 @@ import * as React from "react";
 import { EVENT_RULES, config, stockBalance, type OpEvent } from "@dhruv/shared";
 import { buildMapModel, haversineKm, type MapModel } from "@dhruv/map";
 import { reduceOrder, type ConflictView, type IncidentView } from "@dhruv/store";
-import { INCIDENT, MOMENTS } from "../data/demo";
+import { evaluate } from "@dhruv/engine";
+import { INCIDENT } from "../data/demo";
 import type { Freshness, Tier } from "../data/types";
 import { useDevice } from "./DeviceProvider";
 import { nodeLabel } from "./chrome";
@@ -106,10 +107,22 @@ export function useLiveIncident(): LiveIncident | null {
 
     // Responders from the nearest-assets rule; excluded vehicles keep their reason.
     const assetOf = (id: string) => seed.assets.find((a) => a.id === id);
-    const autonomy = (type: string) =>
-      /helicopter/i.test(type)
-        ? "Aviation fuel is not tracked by DHRUV. Diesel autonomy unaffected; confirm aviation fuel separately."
-        : "Draws from the station diesel pool. Autonomy cost comes from the what-if engine (pending).";
+    // Autonomy cost of a diesel vehicle: the round trip drawn from the station's diesel, run through
+    // the same engine as an overlay STOCK_ISSUED (never written to the log).
+    const fuelDim = (evs: OpEvent[]) => evaluate({ seed, events: evs }, now).stations.find((s) => s.nodeId === incident.node_id)?.dimensions.find((d) => d.key === "FUEL");
+    const dieselItem = seed.inventory_items.find((i) => i.node_id === incident.node_id && i.dimension === "FUEL");
+    const autonomy = (type: string, distanceKm: number) => {
+      if (/helicopter/i.test(type)) return "Aviation fuel is not tracked by DHRUV. Diesel autonomy unaffected; confirm aviation fuel separately.";
+      const perKm = config.season.dieselVehicleKlPerKm[type];
+      const before = fuelDim(events);
+      if (!perKm || !dieselItem || !before || before.ratio === null) return "Draws from the station diesel pool; no burn rate in the seed for this vehicle.";
+      const kl = Math.round(2 * distanceKm * perKm * 100) / 100;
+      const overlay: OpEvent = { ...events[0]!, event_id: "autonomy-overlay", device_id: "WHATIF", seq: 0, type: "STOCK_ISSUED", entity_type: "inventory_item", entity_id: dieselItem.id, node_id: incident.node_id, observed_at: now, payload: { item_id: dieselItem.id, qty: kl, reason: "incident response (what-if)" } } as OpEvent;
+      const after = events.length ? fuelDim([...events, overlay]) : undefined;
+      return after && after.ratio !== null
+        ? `Round trip ≈ ${kl} kL of station diesel: fuel ${before.ratio.toFixed(4)} → ${after.ratio.toFixed(4)} ${after.state} (engine, not committed).`
+        : `Round trip ≈ ${kl} kL of station diesel.`;
+    };
     const capable = (focus?.nearest.capable ?? []).slice(0, 3).map((c) => ({
       id: c.asset_id,
       type: c.type,
@@ -117,7 +130,7 @@ export function useLiveIncident(): LiveIncident | null {
       eta: `≈ ${Math.round(c.etaMinutes)} min at ${assetOf(c.asset_id)?.speed_kmh ?? "?"} km/h`,
       status: "OK",
       excluded: false,
-      autonomy: autonomy(c.type),
+      autonomy: autonomy(c.type, c.distanceKm),
     }));
     const excluded = (focus?.nearest.excluded ?? [])
       .filter((x) => x.reason !== "no known position")
@@ -151,7 +164,7 @@ export function useLiveIncident(): LiveIncident | null {
         return false;
       }
     });
-    const missionState = MOMENTS[ops.mockMoment].stations[0]?.missions.find((m) => m.id === mission?.id);
+    const missionState = ops.stations.find((s) => s.nodeId === incident.node_id)?.missions.find((m) => m.id === mission?.id);
 
     const conflicts = ops.openConflicts.filter((c) => c.entity_type === "asset" && responderIds.has(c.entity_id));
     const opener = incident.opened_by;
@@ -180,7 +193,7 @@ export function useLiveIncident(): LiveIncident | null {
       ...(capable[0] ? [{ k: "Nearest capable", v: `${capable[0].id} ${capable[0].type} · ${capable[0].distance} · ${capable[0].eta}`, age: "status age unknown" }] : []),
       ...excluded.map((x) => ({ k: "Excluded", v: `${x.id} · ${x.autonomy.replace("Excluded: ", "").replace(/\.$/, "")}`, age: "until resolved", tone: "red" as const })),
       { k: "Comms", v: comms, age: own ? snap.link : heard ? formatAge(heard, now) : "seed", tone: own && snap.link !== "ONLINE" ? "red" : undefined },
-      { k: "Mission state", v: missionState ? `${missionState.id} ${missionState.status} (${missionState.why})` : "engine evaluation pending", age: "engine · fixture" },
+      { k: "Mission state", v: missionState ? `${missionState.id} ${missionState.status} (${missionState.why})` : "engine evaluation pending", age: "engine" },
     ];
 
     return { incident, data, rows, model, conflicts, canEscalate: identity.role === "HQ_OPS" || identity.role === "STATION_LEADER" };

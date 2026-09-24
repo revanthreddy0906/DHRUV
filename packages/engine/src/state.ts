@@ -1,6 +1,10 @@
 export interface InventoryState {
   itemId: string; nodeId: string; stock: number; unit: string;
   reservePct: number; dimension: string; lastObservedAt: string;
+  /** Latest BURN_RATE_CHANGED uplift as a fraction (0.15 = +15 %); absent = 0. */
+  burnUplift?: number;
+  /** Latest BURN_RATE_CHANGED new_rate per phase; replaces the seed profile's rate. */
+  rateOverrides?: Record<string, number>;
 }
 export interface LegState {
   legId: string; shipmentId: string; status: string;
@@ -28,6 +32,11 @@ export interface LinkNodeState {
 export interface DecisionState {
   decisionId: string; status: string; chosenOptionId: string | null;
   approver: string | null;
+  nodeId?: string;
+  /** Options as recorded on DECISION_PROPOSED (id and lever ids). */
+  options?: { id: string; levers: string[] }[];
+  /** Levers of the approved option: the engine treats them as applied. */
+  appliedLeverIds?: string[];
 }
 export interface State {
   asOf: string;

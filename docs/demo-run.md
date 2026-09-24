@@ -1,8 +1,8 @@
 # DHRUV demo run (browser)
 
-How to run the Build Bible section 17 runbook against the real server, and what each beat should show. Checked end to end on 23 Sep 2026 (branch `feature/frontend-v1`).
+How to run the Build Bible section 17 runbook against the real server, and what each beat should show. Checked end to end on 24 Sep 2026 (branch `integration`).
 
-All data is synthetic (section 13). Readiness numbers, option ratios, traces and the what-if result are design fixtures until the engine (`packages/engine`, owner A) lands; everything else below is live from events.
+All data is synthetic (section 13). Every number below is the engine's `evaluate()` on the events the viewing device holds, at its own clock.
 
 ## Start
 
@@ -33,7 +33,7 @@ The Director lists the open device tabs and says which tab each beat needs. Pres
 | Runbook | Director | Check |
 |---|---|---|
 | 0:00 | Reset to Start | HQ: 24 Jan 08:00, Maitri GREEN (fuel 1.0606), no decisions, no PNR |
-| 0:20 | Beats 1, 2 | HQ: Maitri RED 0.697, DEC-01 "Act by 3 Feb (10 d)", PNR 3 Feb (10 days) |
+| 0:20 | Beats 1, 2 | HQ: Maitri RED 0.697, F-27 at risk; DEC-01 proposed by the engine with (a) HOLD_VESSEL 1.0606, (b) + CONSERVE + DEFER_F27 1.1785, (c) 0.8754 RED; PNR 3 Feb (10 days) |
 | 0:50 | Beats 3, 4 | Maitri: OFFLINE, local operations active, 4 events pending; DEC-01 shows "Only HQ Ops can approve decisions touching vessels" |
 | 1:20 | Beat 5 | HQ: SK-2 OK (stale plan) in the timeline; none of Maitri's entries |
 | 1:30 | Beat 6 | Every tab at 25 Jan 16:00. HQ: "GREEN, could be AMBER" on option (a), 9 days to PNR |
@@ -42,7 +42,7 @@ The Director lists the open device tabs and says which tab each beat needs. Pres
 | 2:05 | Beat 9 (open Maitri's SYNC drawer first) | Degraded, then Online. Queue leaves in priority order: INCIDENT_OPENED, ASSET_STATUS_SET, CHECKIN_RECORDED, STOCK_ISSUED, STOCK_COUNTED, MISSION_UPDATED |
 | 2:15 | Beat 10 (happens on sync) | HQ: incident strip, Audit badge 1, SK-2 conflict DOWN vs OK with DOWN kept. Resolve it in the Review queue |
 | 2:25 | HQ approves option (a) in Decision Detail (or beat 11) | Queue and PNR clear; after "Show station cards", Maitri GREEN 1.0606 with the incident gate |
-| after | HQ: Open what-if | SIMULATION overlay; burn +15% after HOLD → 0.9223 RED (fixture) |
+| after | HQ: Open what-if | SIMULATION overlay, run locally: burn +15% after (a) → 0.9223 RED; the options that still work and the new PNR are listed |
 
 Beat 7 also records FT-3's check-in on the Maitri tablet (radio relay), so the offline station has the position at 1:40–1:50.
 

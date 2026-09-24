@@ -17,8 +17,9 @@ export interface LeverAction {
 
 /**
  * Domain events emitted by the server when an option using a lever is approved (section 15).
- * Only HOLD_VESSEL's follow-ups are specified; the other levers change the engine's
- * inputs through their effect and have no domain follow-up yet. TODO(A): confirm.
+ * The engine also folds every approved option's levers into the requirement and availability
+ * (it reads them from DECISION_PROPOSED + DECISION_APPROVED), so CONSERVE and AIRLIFT_PARTIAL
+ * need no domain event; DEFER_F27 records the mission as deferred for the Missions screen.
  */
 export const LEVER_ACTIONS: Record<string, LeverAction> = {
   HOLD_VESSEL: {
@@ -29,7 +30,7 @@ export const LEVER_ACTIONS: Record<string, LeverAction> = {
         entity_type: "vessel",
         entity_id: IDS.vessel,
         node_id: NODES.HQ,
-        payload: { vessel_id: IDS.vessel, departure: "2027-02-09T00:00:00.000Z", load_cutoff: "2027-02-07T00:00:00.000Z" },
+        payload: { vessel_id: IDS.vessel, departure: "2027-02-09T00:00:00.000Z", load_cutoff: "2027-02-07T00:00:00.000Z", eta_station: "2027-02-27T00:00:00.000Z" },
       },
       {
         type: "LEG_UPDATED",
@@ -41,6 +42,17 @@ export const LEVER_ACTIONS: Record<string, LeverAction> = {
     ],
   },
   AIRLIFT_PARTIAL: { hqOnly: true, followUps: [] },
-  DEFER_F27: { hqOnly: false, followUps: [] },
+  DEFER_F27: {
+    hqOnly: false,
+    followUps: [
+      {
+        type: "MISSION_UPDATED",
+        entity_type: "mission",
+        entity_id: IDS.missionF27,
+        node_id: NODES.MAITRI,
+        payload: { mission_id: IDS.missionF27, fields: { status: "DEFERRED" } },
+      },
+    ],
+  },
   CONSERVE: { hqOnly: false, followUps: [] },
 };

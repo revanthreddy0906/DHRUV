@@ -23,7 +23,7 @@ function requirement(seed: Seed, itemId: string): number {
     item.requirement_mode === "FIXED"
       ? item.fixed_requirement!
       : seed.consumption_profiles.filter((p) => p.item_id === itemId).reduce((sum, p) => sum + p.rate_per_day * PHASE_DAYS[p.phase]!, 0);
-  return base * (1 + item.reserve_pct / 100);
+  return base * (1 + item.reserve_pct);
 }
 
 /** (stock + inbound cargo) / requirement, as section 13's reference ratios compute it. */

@@ -68,7 +68,7 @@ export function LiveIncidentPanel({ compact = false }: { compact?: boolean }) {
 export function LiveIncidentScreen() {
   const ops = useLiveOps();
   return (
-    <Frame moment={ops?.mockMoment ?? "maitri-2501600"} nav="incident">
+    <Frame moment="start" nav="incident">
       <div className="p-5"><LiveIncidentPanel /></div>
     </Frame>
   );
@@ -85,7 +85,7 @@ export function LiveMapScreen() {
   if (!all || !ops) return null;
   const assets = all.features.filter((f) => f.kind === "asset");
   return (
-    <Frame moment={ops.mockMoment} nav="map">
+    <Frame moment="start" nav="map">
       <div className="space-y-4 p-5">
         <div>
           <h1 className="text-xl font-semibold text-fg">Map</h1>

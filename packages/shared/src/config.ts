@@ -26,6 +26,15 @@ export const config = {
     /** Personnel rule: minimum on station per critical role; GREEN needs at least need + 1. */
     roleNeed: { DOCTOR: 1, DIESEL_MECHANIC: 1, COMMS_ENGINEER: 1, COOK: 1 } as Record<string, number>,
     generatorsNeeded: 2,
+    /** Comms units (VSAT + Iridium) that must be OK; one spare makes GREEN (same pattern as R06). */
+    commsNeeded: 1,
+    /**
+     * R07: a mission drawing less diesel than this is not put at risk by RED fuel. FILLED: section 13
+     * marks F-31 (0.3 kL) unaffected and F-27 (4.0 kL) at risk; the Bible gives no threshold.
+     */
+    missionFuelMaterialKl: 1.0,
+    /** Diesel a ground vehicle burns per km (kL/km). FILLED: the seed has no vehicle burn rates. */
+    dieselVehicleKlPerKm: { "Snow tractor": 0.004, Skidoo: 0.0006 } as Record<string, number>,
   },
 
   sync: {

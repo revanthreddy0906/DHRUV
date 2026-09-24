@@ -71,7 +71,7 @@ export async function push(app: FastifyInstance, device: Device, events: OpEvent
 
 export async function pull(app: FastifyInstance, device: Device, since = 0) {
   const res = await app.inject({ method: "GET", url: `${API}/sync/pull?since=${since}`, headers: auth(device) });
-  return res.json() as { events: OpEvent[]; cursor: number };
+  return res.json() as { events: OpEvent[]; cursor: number; epoch?: string };
 }
 
 export const t = (day: number, hhmm: string) => `2027-01-${String(day).padStart(2, "0")}T${hhmm}:00.000Z`;

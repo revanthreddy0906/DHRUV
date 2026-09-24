@@ -1,6 +1,6 @@
 import type { Seed, StateResponse } from "@dhruv/shared";
-import { getMeta, setMeta, type DhruvDb } from "./db.js";
-import type { ApiCall } from "./sync.js";
+import { clearDeviceStore, getMeta, setMeta, type DhruvDb } from "./db.js";
+import { epochIsStale, type ApiCall } from "./sync.js";
 import type { DeviceIdentity } from "./write.js";
 
 const SEED_KEY = "seed";
@@ -15,6 +15,9 @@ const SEED_KEY = "seed";
  */
 export async function bootstrap(db: DhruvDb, identity: DeviceIdentity, call: ApiCall): Promise<StateResponse> {
   const state = await call<StateResponse>("/state");
+  // A store left from an earlier run of the server log (a Reset to Start since) is discarded,
+  // never merged: its events and unsent outbox belong to the previous run.
+  if (state.epoch && (await epochIsStale(db, state.epoch))) await clearDeviceStore(db);
   const serverSeq = state.events.filter((e) => e.device_id === identity.device_id).reduce((max, e) => Math.max(max, e.seq), 0);
 
   await db.transaction("rw", db.events, db.meta, db.cache, async () => {
@@ -23,6 +26,7 @@ export async function bootstrap(db: DhruvDb, identity: DeviceIdentity, call: Api
     // Never move the cursor back: events pulled since are already stored.
     await setMeta(db, "cursor", Math.max(state.cursor, await getMeta<number>(db, "cursor", 0)));
     await setMeta(db, "seq", Math.max(serverSeq, await getMeta<number>(db, "seq", 0)));
+    if (state.epoch) await setMeta(db, "epoch", state.epoch);
   });
   return state;
 }

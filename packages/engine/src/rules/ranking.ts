@@ -107,7 +107,7 @@ export function rankOptions(options: GeneratedOption[]): RankedOption[] {
     const rankingTrace = `[R10] Option ${label}: {${item.option.leverIds.join(
       ", ",
     )}} [${item.category}, ratio ${item.option.ratio.toFixed(4)}, cost ${
-      item.option.cost > 0 ? (item.option.cost / 100000).toFixed(1) + " lakh" : "none"
+      item.option.cost > 0 ? (item.option.costUnit.includes("lakh") ? item.option.cost : item.option.cost / 100000).toFixed(1) + " lakh" : "none"
     }, deadline ${item.option.deadline.slice(0, 10)}]`;
 
     return {

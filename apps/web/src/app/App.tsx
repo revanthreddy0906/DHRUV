@@ -1,5 +1,7 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LiveDecisionDetail } from "../screens/DecisionLive";
+import { LiveCargoScreen } from "../screens/CargoLive";
+import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDirector } from "../screens/DirectorLive";
@@ -32,7 +34,7 @@ function CommandRoute() {
   return (
     <CommandCenter
       key={params.toString()}
-      moment={useMoment("slip")}
+      moment={useMoment("start")}
       cascade={flag(params, "cascade")}
       trace={flag(params, "trace")}
       whatIf={flag(params, "whatif")}
@@ -60,22 +62,41 @@ function useOpsState() {
 }
 
 function CargoRoute() {
+  const device = useDevice();
   const state = useOpsState();
+  if (device) return <LiveCargoScreen />;
   return <CargoScreen key={state} state={state} />;
 }
 
 function InventoryRoute() {
+  const device = useDevice();
   const [params] = useSearchParams();
   const s = useOpsState();
   const state = flag(params, "empty") ? "empty" : s === "uncertain" ? "start" : s;
+  if (device) return <LiveInventoryScreen />;
   return <InventoryScreen key={state} state={state} role={params.get("role") === "HQ_OPS" ? "HQ_OPS" : "STATION_LEADER"} />;
 }
 
 function PersonnelRoute() {
+  const device = useDevice();
   const [params] = useSearchParams();
   const s = useOpsState();
   const role = params.get("role");
+  if (device) return <LivePersonnelScreen />;
   return <PersonnelScreen state={s === "uncertain" ? "start" : s} role={role === "HQ_OPS" || role === "FIELD_LEAD" ? role : "STATION_LEADER"} />;
+}
+
+/** Signed out, the Director cannot reach any device: say so, and keep the design mock below for reference. */
+function DirectorSignedOut() {
+  return (
+    <div className="min-h-screen bg-bg">
+      <div role="alert" className="flex items-center gap-3 border-b border-warn/60 bg-warn-tint px-6 py-3 text-sm text-fg">
+        <b>This tab is not signed in.</b> The Director runs as an HQ Ops device: sign in here as HQ Ops (for example HQ-WEB-02), then use Demo Director in the sidebar.
+        <Link to="/login?role=HQ_OPS" className="ml-auto rounded-md border border-accent px-3 py-1 font-semibold text-accent hover:bg-accent-tint">Sign in as HQ Ops</Link>
+      </div>
+      <div className="pointer-events-none opacity-50"><DirectorScreen /></div>
+    </div>
+  );
 }
 
 function MapRoute() {
@@ -246,7 +267,7 @@ export function App() {
         <Route path="/sync" element={<SyncRoute />} />
         <Route path="/what-if" element={<Navigate to="/command?moment=hq-2501620&whatif=1" replace />} />
         <Route path="/field" element={<FieldRoute />} />
-        <Route path="/director" element={device ? <LiveDirector /> : <DirectorScreen />} />
+        <Route path="/director" element={device ? <LiveDirector /> : <DirectorSignedOut />} />
         <Route path="/states" element={<FreshnessStates />} />
         <Route path="*" element={<Navigate to="/command" replace />} />
       </Routes>

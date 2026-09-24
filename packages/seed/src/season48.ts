@@ -92,6 +92,7 @@ const item = (
   dimension: Item["dimension"],
   unit: string,
   stock: number,
+  /** Reserve as a fraction of the requirement: 0.1 = 10 % (section 13). */
   reserve_pct: number,
   requirement: { mode: "BURN" } | { mode: "FIXED"; qty: number },
   last_counted: string,
@@ -112,17 +113,17 @@ const item = (
 
 const inventory_items: Seed["inventory_items"] = [
   // Maitri (section 13 table)
-  item(IDS.dieselMaitri, NODES.MAITRI, "Diesel", "FUEL", "kL", 92.0, 10, { mode: "BURN" }, at("2027-01-24", "04:00")),
-  item(IDS.foodMaitri, NODES.MAITRI, "Food", "FOOD", "person-days", 8900, 15, { mode: "BURN" }, at("2027-01-23", "20:00")),
-  item(IDS.medKitsMaitri, NODES.MAITRI, "Winter medical kits", "MEDICAL", "kits", 10, 50, { mode: "FIXED", qty: 6 }, at("2027-01-22", "10:00")),
-  item(IDS.oxygenMaitri, NODES.MAITRI, "Oxygen cylinders", "MEDICAL", "cylinders", 20, 50, { mode: "FIXED", qty: 12 }, at("2027-01-22", "10:00")),
-  item(IDS.gensetKitsMaitri, NODES.MAITRI, "Genset overhaul kits", "SPARES_POWER", "kits", 4, 50, { mode: "FIXED", qty: 2 }, at("2027-01-20", "10:00")),
+  item(IDS.dieselMaitri, NODES.MAITRI, "Diesel", "FUEL", "kL", 92.0, 0.1, { mode: "BURN" }, at("2027-01-24", "04:00")),
+  item(IDS.foodMaitri, NODES.MAITRI, "Food", "FOOD", "person-days", 8900, 0.15, { mode: "BURN" }, at("2027-01-23", "20:00")),
+  item(IDS.medKitsMaitri, NODES.MAITRI, "Winter medical kits", "MEDICAL", "kits", 10, 0.5, { mode: "FIXED", qty: 6 }, at("2027-01-22", "10:00")),
+  item(IDS.oxygenMaitri, NODES.MAITRI, "Oxygen cylinders", "MEDICAL", "cylinders", 20, 0.5, { mode: "FIXED", qty: 12 }, at("2027-01-22", "10:00")),
+  item(IDS.gensetKitsMaitri, NODES.MAITRI, "Genset overhaul kits", "SPARES_POWER", "kits", 4, 0.5, { mode: "FIXED", qty: 2 }, at("2027-01-20", "10:00")),
   // Bharati: diesel from section 13; other lines FILLED to ratios between 1.09 and 1.30.
-  item(IDS.dieselBharati, NODES.BHARATI, "Diesel", "FUEL", "kL", 135.0, 10, { mode: "BURN" }, at("2027-01-24", "06:00")),
-  item(IDS.foodBharati, NODES.BHARATI, "Food", "FOOD", "person-days", 3700, 15, { mode: "BURN" }, at("2027-01-23", "20:00")),
-  item(IDS.medKitsBharati, NODES.BHARATI, "Winter medical kits", "MEDICAL", "kits", 7, 50, { mode: "FIXED", qty: 4 }, at("2027-01-22", "10:00")),
-  item(IDS.oxygenBharati, NODES.BHARATI, "Oxygen cylinders", "MEDICAL", "cylinders", 14, 50, { mode: "FIXED", qty: 8 }, at("2027-01-22", "10:00")),
-  item(IDS.gensetKitsBharati, NODES.BHARATI, "Genset overhaul kits", "SPARES_POWER", "kits", 5, 50, { mode: "FIXED", qty: 3 }, at("2027-01-20", "10:00")),
+  item(IDS.dieselBharati, NODES.BHARATI, "Diesel", "FUEL", "kL", 135.0, 0.1, { mode: "BURN" }, at("2027-01-24", "06:00")),
+  item(IDS.foodBharati, NODES.BHARATI, "Food", "FOOD", "person-days", 3700, 0.15, { mode: "BURN" }, at("2027-01-23", "20:00")),
+  item(IDS.medKitsBharati, NODES.BHARATI, "Winter medical kits", "MEDICAL", "kits", 7, 0.5, { mode: "FIXED", qty: 4 }, at("2027-01-22", "10:00")),
+  item(IDS.oxygenBharati, NODES.BHARATI, "Oxygen cylinders", "MEDICAL", "cylinders", 14, 0.5, { mode: "FIXED", qty: 8 }, at("2027-01-22", "10:00")),
+  item(IDS.gensetKitsBharati, NODES.BHARATI, "Genset overhaul kits", "SPARES_POWER", "kits", 5, 0.5, { mode: "FIXED", qty: 3 }, at("2027-01-20", "10:00")),
 ];
 
 const burn = (item_id: string, closing: number, winter: number, mobilisation: number): Seed["consumption_profiles"] => [

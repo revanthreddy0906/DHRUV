@@ -268,7 +268,7 @@ components:
     ErrorCode:
       type: string
       enum:
-        [ROLE_FORBIDDEN, NODE_FORBIDDEN, INVALID_EVENT, DUPLICATE_SEQ_CONFLICT, NOT_FOUND, RATE_LIMITED, UNAUTHORIZED, DECISION_NOT_PROPOSED, DEADLINE_PASSED, VERIFY_REQUIRED, CONFLICT_OPEN, NOT_IMPLEMENTED, INTERNAL_ERROR]
+        [ROLE_FORBIDDEN, NODE_FORBIDDEN, INVALID_EVENT, DUPLICATE_SEQ_CONFLICT, NOT_FOUND, RATE_LIMITED, UNAUTHORIZED, DECISION_NOT_PROPOSED, DEADLINE_PASSED, VERIFY_REQUIRED, CONFLICT_OPEN, NOT_IMPLEMENTED, INTERNAL_ERROR, RESET_TO_START]
     ErrorResponse:
       type: object
       required: [error]
@@ -331,6 +331,7 @@ components:
       properties:
         device_id: { type: string, description: must match the token's device }
         events: { type: array, maxItems: 1000, items: { $ref: "#/components/schemas/OpEvent" } }
+        epoch: { type: string, description: "Log epoch the device loaded; a stale one is refused with 409 RESET_TO_START" }
     PushResponse:
       type: object
       required: [accepted, duplicates, rejected, recorded_at_server]
@@ -354,6 +355,7 @@ components:
       properties:
         events: { type: array, items: { $ref: "#/components/schemas/OpEvent" } }
         cursor: { type: integer }
+        epoch: { type: string, description: Changes on every Reset to Start }
 
     PostEventResponse:
       type: object
@@ -373,6 +375,7 @@ components:
           additionalProperties: { type: array, items: { type: object } }
         events: { type: array, items: { $ref: "#/components/schemas/OpEvent" } }
         cursor: { type: integer }
+        epoch: { type: string, description: Identifies this run of the log; changes on every Reset to Start }
 
     ApproveRequest:
       type: object

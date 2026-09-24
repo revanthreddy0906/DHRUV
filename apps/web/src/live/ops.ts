@@ -1,11 +1,14 @@
 import * as React from "react";
 import { EVENT_RULES } from "@dhruv/shared";
-import { LEVER_ACTIONS, NODES } from "@dhruv/seed";
+import { LEVER_ACTIONS, NODES, season48 } from "@dhruv/seed";
+import { evaluate, reduce, type Evaluation, type StationEval as EngineStationEval } from "@dhruv/engine";
+import type { OpEvent, Seed } from "@dhruv/shared";
 import { ageHours, uncertaintyRadiusKm } from "@dhruv/map";
 import { conflictsView, decisionsView, incidentsView, lastCheckIn, timeline, type ConflictView, type DecisionView, type IncidentView } from "@dhruv/store";
 import type { QueueItem } from "../components/decisions";
-import { MOMENTS, type MomentId } from "../data/demo";
-import type { OpEventRow, Tier } from "../data/types";
+import type { InventoryView } from "../data/demo";
+import type { Health, Lever, OpEventRow, OptionEval, StationEval, Tier, TraceStep } from "../data/types";
+import { adaptLiveEvaluation, inventoryRows, leverViews, roleRows } from "./adapter";
 import { useDevice } from "./DeviceProvider";
 import { nodeLabel } from "./chrome";
 import { coords, dayLabel, describeEvent, incidentTypeLabel } from "./describe";
@@ -16,9 +19,8 @@ import { formatAge } from "./format";
  * windows, conflicts, incidents, the timeline. Viewer-relative: HQ sees Maitri's offline entries
  * only after they sync.
  *
- * Readiness (station cards, ratios, bands, traces, each decision's current and best-case state) is
- * the engine's. Until A's evaluate() lands, those panels keep the design fixtures, and `mockMoment`
- * picks the fixture that matches where the live event log is in the demo.
+ * Readiness (station cards, ratios, bands, traces, inventory, roles, missions, levers, risks) is the
+ * engine's evaluate() on the same events at this device's clock. Nothing comes from design fixtures.
  */
 export interface LiveOps {
   decisions: QueueItem[];
@@ -30,7 +32,22 @@ export interface LiveOps {
   incidentStrip?: string;
   pnr?: { date: string; daysLeft: number };
   timeline: (OpEventRow & { age: string })[];
-  mockMoment: MomentId;
+  evaluation: Evaluation;
+  stations: StationEval[];
+  /** The station this viewer looks at first: their own, or Maitri for HQ. */
+  maitriStation: StationEval;
+  focusEval?: EngineStationEval;
+  options: OptionEval[];
+  traceSteps: TraceStep[];
+  risks: { text: string; state: Health | "INFO"; age?: string }[];
+  vessel?: { name: string; loadCutoff: string; departs: string; eta: string; closing: string };
+  inventory: InventoryView[];
+  roles: ReturnType<typeof roleRows>;
+  levers: Lever[];
+  /** Inputs for a local what-if: the same engine on these plus overlay events. */
+  seed: Seed;
+  events: OpEvent[];
+  now: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -47,14 +64,23 @@ export function approveReason(decision: DecisionView, role: string, nodeId: stri
   return undefined;
 }
 
-/** The design fixture closest to the live demo state, for the engine-driven panels only. */
-function pickMockMoment(args: { now: string; slipped: boolean; approved: boolean; conflictFlagged: boolean; maitriViewer: boolean; incidentOpen: boolean }): MomentId {
-  const t = Date.parse(args.now);
-  if (!args.slipped) return "start";
-  if (args.approved) return t >= Date.parse("2027-01-26T09:00:00.000Z") ? "hq-2600900" : "hq-2501620";
-  if (args.maitriViewer && args.incidentOpen) return "maitri-2501600";
-  if (t >= Date.parse("2027-01-25T16:00:00.000Z")) return args.conflictFlagged ? "hq-2501610" : "hq-2501600";
-  return "slip";
+const DIM_NAME: Record<string, string> = { FUEL: "Fuel", FOOD: "Food", MEDICAL: "Medical", POWER: "Spares & power", PERSONNEL: "Personnel", COMMS: "Comms" };
+
+/** Risks from the engine: dimensions off GREEN, missions not OK, inputs gone STALE, open conflicts. */
+function risksOf(evaluation: Evaluation, conflicts: ConflictView[], now: string): LiveOps["risks"] {
+  const out: LiveOps["risks"] = [];
+  for (const st of evaluation.stations) {
+    const station = nodeLabel(st.nodeId);
+    for (const d of st.dimensions) {
+      if (d.state !== "GREEN") out.push({ text: `${station} ${DIM_NAME[d.key] ?? d.key} ${d.ratio !== null ? d.ratio.toFixed(4) + " " : ""}${d.state}`, state: d.state });
+      if (d.freshness === "STALE" || d.freshness === "CRITICAL") out.push({ text: `${station} ${DIM_NAME[d.key] ?? d.key} count ${d.freshness}`, state: "AMBER", age: d.observedAt ? formatAge(d.observedAt, now) : undefined });
+      if (d.confidence?.straddles) out.push({ text: `${station} ${DIM_NAME[d.key] ?? d.key}: ${d.confidence.text}`, state: "AMBER" });
+    }
+    for (const m of st.missions ?? []) if (m.status === "AT_RISK" || m.status === "BLOCKED") out.push({ text: `${m.missionId} ${m.status.replace("_", " ")}: ${m.why}`, state: m.status === "BLOCKED" ? "RED" : "AMBER" });
+  }
+  for (const c of conflicts) out.push({ text: `Conflict on ${c.entity_id} ${c.field}: kept ${String(c.conservative_value)}`, state: "AMBER" });
+  const rank = { RED: 0, AMBER: 1, GREEN: 2, INFO: 3 } as const;
+  return out.sort((a, b) => rank[a.state] - rank[b.state]);
 }
 
 export function useLiveOps(): LiveOps | null {
@@ -73,28 +99,41 @@ export function useLiveOps(): LiveOps | null {
     const openConflicts = conflicts.filter((c) => c.status === "OPEN");
     const openIncidents = incidentsView(events).filter((i) => i.open);
 
-    const mockMoment = pickMockMoment({
-      now,
-      slipped: events.some((e) => e.type === "LEG_DELAYED"),
-      approved: decisions.some((d) => d.status === "APPROVED"),
-      conflictFlagged: conflicts.length > 0,
-      maitriViewer: identity.node_id === NODES.MAITRI,
-      incidentOpen: openIncidents.length > 0,
-    });
-    // Engine stand-in: current and best-case state per decision from the fixtures.
-    const mockFor = (id: string) => MOMENTS[mockMoment].decisions.find((d) => d.id === id) ?? MOMENTS.slip.decisions.find((d) => d.id === id);
+    const seed = snap.seed ?? season48;
+    const realEvaluation = evaluate({ seed, events }, now);
+    const focus = realEvaluation.stations.some((s) => s.nodeId === identity.node_id) ? identity.node_id : NODES.MAITRI;
+    const adapted = adaptLiveEvaluation(realEvaluation, seed, now, focus);
+    const focusEval = realEvaluation.stations.find((s) => s.nodeId === focus);
+    const reduced = reduce(seed, events);
+    const v = seed.vessels[0] ? reduced.vessels.get(seed.vessels[0].id) : undefined;
+    const vessel = v && { name: seed.vessels[0]!.name, loadCutoff: dayLabel(v.loadCutoff), departs: dayLabel(v.departure), eta: dayLabel(v.etaStation), closing: dayLabel(v.stationClosingDate) };
 
+    // The queue shows decisions that were really proposed (DECISION_PROPOSED events, options from
+    // the engine on the server). Nothing is invented here: an unproposed decision could not be approved.
     const queue: QueueItem[] = openDecisions.map((d) => {
-      const mock = mockFor(d.id);
+      const st = adapted.stations.find((s) => s.nodeId === d.node_id) ?? adapted.maitriStation;
+      const fuel = st.dimensions.find((dim) => dim.key === "FUEL");
+      const current = {
+        state: fuel?.state ?? st.state,
+        ratio: fuel?.ratio ?? 0,
+      };
+      // Best case: the best recorded option that reaches the target, else the live engine's first.
+      const recorded = d.options.filter((o) => o.reachesTarget !== false && o.ratio !== undefined && o.state).sort((a, b) => b.ratio! - a.ratio!)[0];
+      const best = recorded
+        ? { state: recorded.state!, ratio: Math.round(recorded.ratio! * 10000) / 10000 }
+        : adapted.options[0]
+          ? { state: adapted.options[0].resultingState, ratio: adapted.options[0].resultingRatio }
+          : current;
+
       return {
         id: d.id,
-        title: mock?.title ?? `Decision ${d.id}`,
+        title: `${nodeLabel(d.node_id)} fuel ${current.state === "GREEN" ? "decision" : "below required threshold"}`,
         station: nodeLabel(d.node_id),
         deadline: d.pnr ? dayLabel(d.pnr) : "no deadline",
         daysLeft: d.pnr ? daysLeft(now, d.pnr) : 0,
-        current: mock?.current ?? { state: "AMBER", ratio: 0 },
-        best: mock?.best ?? { state: "AMBER", ratio: 0 },
-        straddle: mock?.straddle,
+        current,
+        best,
+        straddle: fuel?.straddleText,
         approveReason: approveReason(d, identity.role, identity.node_id),
       };
     });
@@ -138,9 +177,22 @@ export function useLiveOps(): LiveOps | null {
       openIncidents,
       emergency: !!incident && identity.role !== "FIELD_LEAD",
       incidentStrip,
-      pnr: firstPnr ? { date: fullDate(firstPnr), daysLeft: daysLeft(now, firstPnr) } : undefined,
+      pnr: adapted.pnr ?? (firstPnr ? { date: fullDate(firstPnr), daysLeft: daysLeft(now, firstPnr) } : undefined),
       timeline: rows,
-      mockMoment,
+      evaluation: realEvaluation,
+      stations: adapted.stations,
+      maitriStation: adapted.maitriStation,
+      focusEval,
+      options: adapted.options,
+      traceSteps: adapted.traceSteps,
+      risks: risksOf(realEvaluation, openConflicts, now),
+      vessel,
+      inventory: inventoryRows(focusEval, seed, now),
+      roles: roleRows(focusEval, seed),
+      levers: leverViews(focusEval, now),
+      seed,
+      events,
+      now,
     };
   }, [device, snap]);
 }

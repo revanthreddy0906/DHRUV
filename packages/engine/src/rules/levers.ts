@@ -36,7 +36,26 @@ function daysBetween(a: string, b: string): number {
 
 function parseEffect(raw: string): LeverEffect {
   try {
-    return JSON.parse(raw);
+    const obj = JSON.parse(raw);
+    const addAvailableKl = obj.addAvailableKl ?? obj.adds_kl;
+    const saveRawKl = obj.saveRawKl ?? obj.saves_kl;
+    const burnRateUplift = obj.burnRateUplift ?? obj.burn_rate_uplift;
+    const newDeparture = obj.newDeparture ?? obj.vessel_departure;
+    let newLoadCutoff = obj.newLoadCutoff ?? obj.new_load_cutoff;
+    if (!newLoadCutoff && newDeparture) {
+      const depMs = new Date(newDeparture).getTime();
+      newLoadCutoff = new Date(depMs - 2 * 86400000).toISOString();
+    }
+    const newLegEta = obj.newLegEta ?? obj.new_leg_eta;
+    return {
+      ...obj,
+      addAvailableKl,
+      saveRawKl,
+      burnRateUplift,
+      newDeparture,
+      newLoadCutoff,
+      newLegEta,
+    };
   } catch {
     return {};
   }

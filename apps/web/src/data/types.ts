@@ -6,7 +6,7 @@ export type LinkStatus = "ONLINE" | "DEGRADED" | "OFFLINE";
 export type Role = "HQ_OPS" | "STATION_LEADER" | "FIELD_LEAD";
 export type Tier = 0 | 1 | 2 | 3 | 4 | 5;
 export type DimensionKey = "FUEL" | "FOOD" | "MEDICAL" | "SPARES_POWER" | "PERSONNEL" | "COMMS";
-export type MissionStatus = "OK" | "AT_RISK" | "BLOCKED";
+export type MissionStatus = "OK" | "AT_RISK" | "BLOCKED" | "DEFERRED";
 
 export interface EntityRef { type: string; id: string }
 

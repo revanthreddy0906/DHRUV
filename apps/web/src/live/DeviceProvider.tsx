@@ -217,6 +217,8 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         setLastSync({ at: Date.now(), outcome });
         if (isAuthError(outcome)) return signOut();
         if (!outcome.ok && "retryInSeconds" in outcome) delay = outcome.retryInSeconds * 1000;
+        // The server was reset to Start: the store was cleared, so reload it right away.
+        if (!outcome.ok && "reset" in outcome) delay = 0;
       } catch (err) {
         console.error(err);
       } finally {

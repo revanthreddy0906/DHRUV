@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { emptySeed, type OpEvent } from "@dhruv/shared";
+import { season48 } from "@dhruv/seed";
 import { buildApp } from "../app.js";
 import { openDb } from "../db/index.js";
 import { listConflicts, rebuildProjections } from "../db/projections.js";
@@ -168,7 +169,8 @@ describe("Vuln 4: a station may only change records its own station owns", () =>
 
 describe("Vuln 3: synced DECISION_APPROVED goes through the same rules as the approve endpoint", () => {
   async function withDecisions() {
-    const ctx = makeApp();
+    // DEC-01's options come from the engine, so the seed must be season48.
+    const ctx = makeApp({ seed: season48 });
     const hq = await login(ctx.app, "HQ-WEB-01", "HQ_OPS", "HQ");
     const maitri = await login(ctx.app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
     const bharati = await login(ctx.app, "BHARATI-TAB-01", "STATION_LEADER", "BHARATI");
