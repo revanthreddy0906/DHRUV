@@ -45,7 +45,7 @@ export function buildApp(db: Database.Database, options: AppOptions = {}): Fasti
     async (api) => {
       // Section 15: the backend publishes the contract the frontend codes against.
       api.get("/openapi.yaml", async (_request, reply) => reply.type("application/yaml").send(OPENAPI));
-      registerAuth(api);
+      registerAuth(api, db);
       registerSyncRoutes(api, db);
       registerEventRoutes(api, db);
       registerDecisionRoutes(api, db);

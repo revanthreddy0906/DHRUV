@@ -73,3 +73,15 @@ describe("performance budget (section 16)", () => {
     expect(elapsed).toBeLessThan(1000);
   });
 });
+
+describe("device ids are bound to their node", () => {
+  it("a device that signed in at Maitri cannot sign in at HQ, and vice versa", async () => {
+    const { app } = makeApp();
+    await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
+    const res = await app.inject({ method: "POST", url: `${API}/auth/login`, payload: { device_id: "MAITRI-TAB-01", pin: "HQ-2027", role: "HQ_OPS", node_id: "HQ" } });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.message).toMatch(/belongs to MAITRI/);
+    // Same node, other role (a Field Lead tablet handed to the Station Leader) is fine.
+    expect((await app.inject({ method: "POST", url: `${API}/auth/login`, payload: { device_id: "MAITRI-TAB-01", pin: "MAITRI-2027", role: "FIELD_LEAD", node_id: "MAITRI" } })).statusCode).toBe(200);
+  });
+});

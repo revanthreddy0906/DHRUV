@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type Database from "better-sqlite3";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { LOGIN_ROLES, type LoginResponse } from "@dhruv/shared";
@@ -22,10 +23,22 @@ export function issueToken(identity: Identity): string {
 }
 
 /**
+ * A device id belongs to the node it first signed in at (kept in server_meta). Without this, anyone
+ * with Maitri's PIN could sign in as HQ-WEB-01 and write into that device's seq space and audit trail.
+ */
+function claimDevice(db: Database.Database, deviceId: string, nodeId: string): string | null {
+  const key = `device:${deviceId}`;
+  const row = db.prepare(`SELECT value FROM server_meta WHERE key = ?`).get(key) as { value: string } | undefined;
+  if (row) return row.value === nodeId ? null : row.value;
+  db.prepare(`INSERT INTO server_meta (key, value) VALUES (?, ?)`).run(key, nodeId);
+  return null;
+}
+
+/**
  * Demo login (sections 4 and 15): a role switcher with a device id and a fixed PIN per node.
  * The token carries device, role and node; every write is checked against them.
  */
-export function registerAuth(app: FastifyInstance): void {
+export function registerAuth(app: FastifyInstance, db: Database.Database): void {
   app.post("/auth/login", async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) return sendError(reply, 400, "INVALID_EVENT", "invalid login request", parsed.error.issues);
@@ -39,6 +52,11 @@ export function registerAuth(app: FastifyInstance): void {
     }
     if (!roleAllowedAtNode(role, node_id)) {
       return sendError(reply, 403, "NODE_FORBIDDEN", `${role} cannot log in at ${node_id}`);
+    }
+
+    const boundTo = claimDevice(db, device_id, node_id);
+    if (boundTo) {
+      return sendError(reply, 403, "NODE_FORBIDDEN", `device ${device_id} belongs to ${boundTo}`);
     }
 
     const response: LoginResponse = { token: issueToken({ device_id, role, node_id }), role, node_id };
