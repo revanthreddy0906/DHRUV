@@ -66,6 +66,15 @@ describe("Scenario Director", () => {
     expect(result).toMatchObject({ where: "server", appliedOn: ["server"], eventsCreated: 1 });
   });
 
+  it("server beats move every open tab's clock forward to the beat's time, never backwards", async () => {
+    const { director, opened } = setup(HQ, MAITRI);
+    await director.runBeat("2");
+    for (const db of opened.values()) expect(await now(db)).toBe("2027-01-24T08:11:00.000Z");
+    await director.jumpClock("2027-01-25T16:00:00.000Z");
+    await director.runBeat("5");
+    for (const db of opened.values()) expect(await now(db)).toBe("2027-01-25T16:00:00.000Z");
+  });
+
   it("beat 4 lands only in Maitri's local store and outbox, not HQ's", async () => {
     const { director, tab } = setup(HQ, MAITRI);
     const result = await director.runBeat("4");
