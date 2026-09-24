@@ -1,6 +1,7 @@
 import type { LinkStatus } from "@dhruv/shared";
 import { findBeat, type BeatEvent } from "@dhruv/seed";
 import { clearDeviceStore, type DhruvDb } from "./db.js";
+import { now } from "./clock.js";
 import { jumpClock, setLinkStatus } from "./controls.js";
 import { createApiCall } from "./sync.js";
 import { writeEvent, type DeviceIdentity } from "./write.js";
@@ -20,7 +21,7 @@ export type DirectorMessage =
   | { kind: "ping"; id: string }
   | { kind: "pong"; id: string; device_id: string; node_id: string }
   | { kind: "run-events"; id: string; device_id: string; events: BeatEvent[] }
-  | { kind: "clock"; id: string; now: string }
+  | { kind: "clock"; id: string; now: string; forwardOnly?: boolean }
   | { kind: "link"; id: string; node_id: string; status: LinkStatus; observed_at?: string }
   | { kind: "reset"; id: string }
   | { kind: "ack"; id: string; device_id: string; ok: boolean; error?: string };
@@ -59,6 +60,8 @@ async function applyOnDevice(db: DhruvDb, identity: DeviceIdentity, message: Dir
       }
       return true;
     case "clock":
+      // forwardOnly: catch up to a server beat's time, never move a tab's clock backwards.
+      if (message.forwardOnly && Date.parse(await now(db)) >= Date.parse(message.now)) return true;
       await jumpClock(db, identity, message.now);
       return true;
     case "link":
@@ -208,6 +211,11 @@ export function createDirector({ channel = openDirectorChannel(), admin, timeout
 
     if (beat.where === "server") {
       const { events_created } = await admin.runServerBeat(beat.beat);
+      // Every open tab catches up to the beat's time, so what the beat recorded is not in their
+      // future (an approval dated before the proposal it approves is refused by the server).
+      const at = [...beat.events.map((e) => e.observed_at), ...(beat.approve ? [beat.approve.observed_at] : [])].sort().at(-1);
+      const open = at ? (await devices()).map((d) => d.device_id) : [];
+      if (at && open.length > 0) await command({ kind: "clock", id: nextId(), now: at, forwardOnly: true }, open);
       return { ...base, appliedOn: ["server"], eventsCreated: events_created };
     }
     if (beat.where === "emergent") return { ...base, appliedOn: [], eventsCreated: 0 };
