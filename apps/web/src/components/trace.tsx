@@ -4,7 +4,8 @@ import type { TraceStep as TStep } from "../data/types";
 import { cx, STATE_META, Button } from "./primitives";
 
 /** "[R03] Diesel availability vs requirement: 92.0 / 132.0 = 0.697 -> RED" */
-export const traceText = (s: TStep) => `[${s.rule}] ${s.title}: ${s.formula} -> ${s.result}`;
+export const traceText = (s: TStep) =>
+  s.formula ? `[${s.rule}] ${s.title}: ${s.formula} -> ${s.result}` : `[${s.rule}] ${s.title}: ${s.result}`;
 
 export function TraceFormula({ children }: { children: React.ReactNode }) {
   return <code className="block rounded-md border border-line bg-bg px-2.5 py-1.5 font-mono text-[12px] leading-5 text-fg">{children}</code>;

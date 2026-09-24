@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { rebuildProjections } from "../db/projections.js";
 import { emitServerEvent } from "../sync/ingest.js";
+import { season48 } from "@dhruv/seed";
 import { API, auth, login, makeApp, makeEvent, push, t, type Device } from "../test/helpers.js";
 
 async function director(app: FastifyInstance, device: Device, beat: string) {
@@ -145,11 +146,14 @@ describe("Director endpoints (section 15)", () => {
 });
 
 describe("POST /scenarios/run", () => {
-  it("reports NOT_IMPLEMENTED until A's evaluate() lands", async () => {
-    const { app } = makeApp();
+  it("runs evaluate() with overlay events and returns 200 with evaluation", async () => {
+    const { app } = makeApp({ seed: season48 });
     const hq = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
     const res = await app.inject({ method: "POST", url: `${API}/scenarios/run`, headers: auth(hq), payload: { overlay: [] } });
-    expect(res.statusCode).toBe(501);
-    expect(res.json().error.code).toBe("NOT_IMPLEMENTED");
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toHaveProperty("stations");
+    expect(Array.isArray(body.stations)).toBe(true);
+    expect(body.stations.length).toBeGreaterThan(0);
   });
 });
