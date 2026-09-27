@@ -159,12 +159,27 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
 }
 
 /**
- * Needs-attention order (section 8): pending decisions first, then RED, then AMBER, then stale
- * counts. Stable, so a viewer's own items keep their place within each group.
+ * Needs-attention order (section 8): pending decisions, open incidents and safety conflicts (every
+ * unresolved flag is one: the engine gates on it, R15), RED states, CRITICAL data, AMBER states,
+ * at-risk or missed milestones, events the server refused, then STALE data. Ties go by earliest
+ * deadline; items without one follow, in their existing order.
  */
+export function attentionGroup(e: OpsException): number {
+  if (e.id.startsWith("dec:")) return 0;
+  if (e.id.startsWith("inc:") || e.id.startsWith("conf:")) return 1;
+  if (e.id.startsWith("dim:")) return e.severity === "RED" ? 2 : 4;
+  if (e.id.startsWith("fresh:")) return e.severity === "RED" ? 3 : 7;
+  if (e.id.startsWith("ms:")) return 5;
+  if (e.id === "refused") return 6;
+  return 4;
+}
+
 export function rankForAttention(list: OpsException[]): OpsException[] {
-  const group = (e: OpsException) => (e.id.startsWith("dec:") ? 0 : e.id.startsWith("fresh:") ? 3 : e.severity === "RED" ? 1 : 2);
-  return list.map((e, i) => ({ e, i })).sort((a, b) => group(a.e) - group(b.e) || a.i - b.i).map((x) => x.e);
+  const due = (e: OpsException) => (e.deadline ? Date.parse(e.deadline) : Infinity);
+  return list
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => attentionGroup(a.e) - attentionGroup(b.e) || due(a.e) - due(b.e) || a.i - b.i)
+    .map((x) => x.e);
 }
 
 /** Station roles see their station and expedition-wide items; HQ sees everything. Their own first. */

@@ -298,7 +298,7 @@ the stations*.
 │ Station │ State │ Reason (sentence)            │ Deadline │ Link │ ›  │
 ├───────────────────────────────────────────┬──────────────────────────┤
 │ Needs attention (ranked list)             │ Season                   │
-│ decisions first, then RED, AMBER, stale   │ vessel window mini-      │
+│ decisions, incidents, RED, ... (see below)│ vessel window mini-      │
 │ each: severity word, title, owner,        │ timeline: cutoff, depart,│
 │ deadline, one-line cause, action button   │ ETA, closing, "now"      │
 │                                           ├──────────────────────────┤
@@ -319,7 +319,10 @@ the stations*.
 
 **Needs attention**
 - Use the existing `exceptionsOf()` / `forViewer()` (on the `improvements` branch) as the source.
-  Fold the old Decision queue into it: pending decisions rank first.
+  Fold the old Decision queue into it.
+- Order: pending decisions, then open incidents and safety conflicts, then RED states, then
+  CRITICAL data (verify required), then AMBER states, then at-risk or missed milestones, then
+  events the server refused, then STALE data. Ties go by earliest deadline.
 - Each item has:
   - severity word;
   - title;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluate, legMilestones } from "@dhruv/engine";
 import type { OpEvent } from "@dhruv/shared";
 import { season48 } from "@dhruv/seed";
-import { exceptionsOf, forViewer, rankForAttention } from "./exceptions";
+import { exceptionsOf, forViewer, rankForAttention, type OpsException } from "./exceptions";
 
 const AT = "2027-01-24T08:10:00.000Z";
 const slip: OpEvent = {
@@ -37,16 +37,34 @@ describe("exception queue", () => {
 });
 
 describe("needs attention order", () => {
-  it("pending decisions first, then RED, AMBER, stale", () => {
+  const ex = (id: string, severity: "RED" | "AMBER", deadline?: string) =>
+    ({ id, severity, node: "MAITRI", owners: ["HQ_OPS"], title: id, why: "", playbook: [], link: { to: "/", label: "" }, deadline }) as OpsException;
+
+  it("decisions, incidents and conflicts, RED, CRITICAL data, AMBER, milestones, refused, STALE", () => {
+    const shuffled = [
+      ex("fresh:MAITRI:POWER", "AMBER"), ex("refused", "AMBER"), ex("ms:C-104:LOAD_CUTOFF", "RED", "2027-02-04T00:00:00.000Z"),
+      ex("dim:MAITRI:MEDICAL", "AMBER"), ex("fresh:MAITRI:FOOD", "RED"), ex("dim:MAITRI:FUEL", "RED", "2027-02-03T00:00:00.000Z"),
+      ex("conf:CF-1", "AMBER"), ex("inc:INC-01", "RED"), ex("dec:DEC-01", "AMBER", "2027-02-03T00:00:00.000Z"),
+    ];
+    expect(rankForAttention(shuffled).map((e) => e.id)).toEqual([
+      "dec:DEC-01", "conf:CF-1", "inc:INC-01", "dim:MAITRI:FUEL", "fresh:MAITRI:FOOD", "dim:MAITRI:MEDICAL",
+      "ms:C-104:LOAD_CUTOFF", "refused", "fresh:MAITRI:POWER",
+    ]);
+  });
+
+  it("ties go by earliest deadline, undated last", () => {
+    const list = rankForAttention([ex("ms:C-112:ON_STATION", "AMBER", "2027-02-28T00:00:00.000Z"), ex("ms:X:Y", "AMBER"), ex("ms:C-104:LOAD_CUTOFF", "AMBER", "2027-02-04T00:00:00.000Z")]);
+    expect(list.map((e) => e.id)).toEqual(["ms:C-104:LOAD_CUTOFF", "ms:C-112:ON_STATION", "ms:X:Y"]);
+  });
+
+  it("on the real slip, the decision leads and its Review decision action", () => {
     const decision = { id: "DEC-01", status: "PROPOSED", node_id: "MAITRI", pnr: "2027-02-03T00:00:00.000Z", options: [{}, {}, {}] } as never;
     const list = rankForAttention(forViewer(exceptionsOf({
       evaluation: evaluate({ seed: season48, events: [slip] }, AT), milestones: legMilestones({ seed: season48, events: [slip] }, AT),
       decisions: [decision], conflicts: [], incidents: [], refused: 0, now: AT,
     }), "HQ_OPS", "HQ"));
-    expect(list[0]!.id).toBe("dec:DEC-01");
     expect(list[0]!.link.label).toBe("Review decision");
-    const groups = list.map((e) => (e.id.startsWith("dec:") ? 0 : e.id.startsWith("fresh:") ? 3 : e.severity === "RED" ? 1 : 2));
-    expect([...groups].sort((a, b) => a - b)).toEqual(groups);
-    expect(list.find((e) => e.id === "dim:MAITRI:FUEL")?.why).toBe("Fuel below requirement: 92.0 of 132.0 kL. Cargo excluded by vessel cutoff.");
+    expect(list[1]!.id).toBe("dim:MAITRI:FUEL");
+    expect(list[1]!.why).toBe("Fuel below requirement: 92.0 of 132.0 kL. Cargo excluded by vessel cutoff.");
   });
 });
