@@ -167,6 +167,58 @@ describe("Vuln 4: a station may only change records its own station owns", () =>
   });
 });
 
+describe("Inventory ownership: a station transacts only its own stock", () => {
+  // Ownership comes from inventory_items.node_id, so the seed must be loaded.
+  async function withInventory() {
+    const ctx = makeApp({ seed: season48 });
+    const maitri = await login(ctx.app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
+    const bharati = await login(ctx.app, "BHARATI-TAB-01", "STATION_LEADER", "BHARATI");
+    const hq = await login(ctx.app, "HQ-WEB-01", "HQ_OPS", "HQ");
+    const field = await login(ctx.app, "FT3-TAB-01", "FIELD_LEAD", "MAITRI");
+    return { ...ctx, maitri, bharati, hq, field };
+  }
+  const item = (id: string) => ({ entity_type: "inventory_item", entity_id: id });
+  const codes = (res: Awaited<ReturnType<typeof push>>) => res.rejected.map((r) => r.code);
+
+  it("Bharati's leader cannot issue Maitri's diesel, even under Bharati's node_id", async () => {
+    const { app, bharati } = await withInventory();
+    const res = await push(app, bharati, [makeEvent(bharati, "STOCK_ISSUED", item("INV-DSL"), { item_id: "INV-DSL", qty: 5, reason: "hostile" }, t(24, "09:00"))]);
+    expect(codes(res)).toEqual(["NODE_FORBIDDEN"]);
+  });
+
+  it("Bharati's leader cannot claim Maitri's node_id", async () => {
+    const { app, bharati } = await withInventory();
+    const res = await push(app, bharati, [makeEvent(bharati, "STOCK_COUNTED", item("INV-DSL"), { item_id: "INV-DSL", qty: 1 }, t(24, "09:00"), { node_id: "MAITRI" })]);
+    expect(codes(res)).toEqual(["NODE_FORBIDDEN"]);
+  });
+
+  it("Maitri's leader issues, receives and counts Maitri's own stock", async () => {
+    const { app, maitri } = await withInventory();
+    const res = await push(app, maitri, [
+      makeEvent(maitri, "STOCK_ISSUED", item("INV-DSL"), { item_id: "INV-DSL", qty: 2.5, reason: "generator refuel" }, t(24, "09:00")),
+      makeEvent(maitri, "STOCK_RECEIVED", item("INV-DSL"), { item_id: "INV-DSL", qty: 1 }, t(24, "09:05")),
+      makeEvent(maitri, "STOCK_COUNTED", item("INV-DSL"), { item_id: "INV-DSL", qty: 90 }, t(24, "09:10")),
+    ]);
+    expect(res.accepted).toHaveLength(3);
+    expect(res.rejected).toEqual([]);
+  });
+
+  it("HQ Ops may count either station's stock but not issue or receive it", async () => {
+    const { app, hq } = await withInventory();
+    const count = makeEvent(hq, "STOCK_COUNTED", item("INV-BH-DSL"), { item_id: "INV-BH-DSL", qty: 130 }, t(24, "09:00"), { node_id: "BHARATI" });
+    expect((await push(app, hq, [count])).accepted).toEqual([count.event_id]);
+    const issue = makeEvent(hq, "STOCK_ISSUED", item("INV-BH-DSL"), { item_id: "INV-BH-DSL", qty: 1, reason: "x" }, t(24, "09:05"), { node_id: "BHARATI" });
+    const receive = makeEvent(hq, "STOCK_RECEIVED", item("INV-DSL"), { item_id: "INV-DSL", qty: 1 }, t(24, "09:06"), { node_id: "MAITRI" });
+    expect(codes(await push(app, hq, [issue, receive]))).toEqual(["ROLE_FORBIDDEN", "ROLE_FORBIDDEN"]);
+  });
+
+  it("a Field Lead has no stock writes", async () => {
+    const { app, field } = await withInventory();
+    const res = await push(app, field, [makeEvent(field, "STOCK_COUNTED", item("INV-DSL"), { item_id: "INV-DSL", qty: 1 }, t(24, "09:00"))]);
+    expect(codes(res)).toEqual(["ROLE_FORBIDDEN"]);
+  });
+});
+
 describe("Vuln 3: synced DECISION_APPROVED goes through the same rules as the approve endpoint", () => {
   async function withDecisions() {
     // DEC-01's options come from the engine, so the seed must be season48.
