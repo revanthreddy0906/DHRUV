@@ -19,23 +19,6 @@ export function SyntheticDataBanner() {
   );
 }
 
-/* ---------- Demo clock (absolute jumps, v2 C5) ---------- */
-
-export function DemoClock({ time, onJump, onReset }: { time: string; onJump?: (h: 1 | 6 | 30) => void; onReset?: () => void }) {
-  return (
-    <div className="flex items-center gap-1.5" aria-label="Demo clock">
-      <span className="rounded-md border border-line-strong bg-bg px-2 py-1 font-mono text-sm font-semibold text-fg" aria-live="polite">{time}</span>
-      {([1, 6, 30] as const).map((h) => (
-        <button key={h} type="button" onClick={() => onJump?.(h)}
-          className="h-7 rounded-md border border-line-strong px-1.5 font-mono text-xs text-fg-2 hover:border-accent/60 hover:text-fg">+{h} h</button>
-      ))}
-      <button type="button" onClick={onReset} className="flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-fg-2 hover:text-fg" aria-label="Reset demo clock to 24 Jan 08:00">
-        <RotateCcw size={12} aria-hidden />Reset
-      </button>
-    </div>
-  );
-}
-
 /* ---------- Link switch ---------- */
 
 const LINK_META: Record<LinkStatus, { Icon: typeof Wifi; label: string; cls: string }> = {
@@ -44,23 +27,30 @@ const LINK_META: Record<LinkStatus, { Icon: typeof Wifi; label: string; cls: str
   OFFLINE: { Icon: WifiOff, label: "Offline", cls: "text-bad" },
 };
 
-export function LinkSwitch({ value, onChange }: { value: LinkStatus; onChange?: (v: LinkStatus) => void }) {
+/** Demo control: the simulated link of one device or station. Lives in the Demo dock and the Director. */
+export function LinkSwitch({ value, onChange, caption = true }: { value: LinkStatus; onChange?: (v: LinkStatus) => void; caption?: boolean }) {
   return (
     <div className="flex flex-col items-start">
-      <div role="radiogroup" aria-label="Simulated link" className="flex rounded-md border border-line-strong bg-bg p-0.5">
+      <div role="radiogroup" aria-label="Simulated link" className="flex rounded-md border border-line-ctrl bg-surface p-0.5">
         {(["ONLINE", "DEGRADED", "OFFLINE"] as LinkStatus[]).map((s) => {
           const m = LINK_META[s]; const on = s === value;
           return (
             <button key={s} role="radio" aria-checked={on} type="button" onClick={() => onChange?.(s)}
-              className={cx("flex h-6 items-center gap-1 rounded px-1.5 text-xs font-medium", on ? cx("bg-elevated", m.cls) : "text-fg-2 hover:text-fg")}>
-              <m.Icon size={12} aria-hidden />{m.label}
+              className={cx("flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium", on ? "bg-accent-tint text-accent" : "text-fg-2 hover:text-fg")}>
+              <m.Icon size={14} aria-hidden />{m.label}
             </button>
           );
         })}
       </div>
-      <span className="mt-0.5 text-xs text-fg-2">simulated link</span>
+      {caption && <span className="mt-0.5 text-xs text-fg-2">Simulated link</span>}
     </div>
   );
+}
+
+/** This device's link as a word and icon: plain when Online, amber otherwise (never colour alone). */
+export function LinkStatusText({ status, className }: { status: LinkStatus; className?: string }) {
+  const m = LINK_META[status];
+  return <span className={cx("inline-flex items-center gap-1.5", status === "ONLINE" ? "text-fg" : "text-warn", className)}><m.Icon size={16} strokeWidth={1.75} aria-hidden />{m.label}</span>;
 }
 
 /** A node's link. Without `status` (another node's link, which this device cannot see) it shows only the last-heard age. */
@@ -85,22 +75,6 @@ export function LinkChip({ node, status, age }: { node: string; status?: LinkSta
   );
 }
 
-/* ---------- Role switcher (demo) ---------- */
-
-export function RoleSwitcher({ role, onChange }: { role: Role; onChange?: (r: Role) => void }) {
-  return (
-    <label className="flex items-center gap-1.5 text-xs text-fg-2">
-      <UserCog size={14} aria-hidden />
-      <span className="sr-only">Role (demo)</span>
-      <select value={role} onChange={(e) => onChange?.(e.target.value as Role)}
-        className="h-7 rounded-md border border-line-strong bg-bg px-1.5 text-xs font-medium text-fg">
-        {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-      </select>
-      <span className="text-xs text-fg-2">demo</span>
-    </label>
-  );
-}
-
 /* ---------- Sync indicator ---------- */
 
 export function SyncIndicator({ count, oldest, onOpen }: { count: number; oldest?: string; onOpen?: () => void }) {
@@ -116,9 +90,9 @@ export function SyncIndicator({ count, oldest, onOpen }: { count: number; oldest
 
 /* ---------- Top bar ---------- */
 
-export function TopBar({ phase = "CLOSING", role, link, clock, pending, onOpenSync, onLinkChange, onRoleChange, onJump, onReset, status }: {
+export function TopBar({ phase = "CLOSING", clock, pending, onOpenSync, status }: {
   phase?: string; role: Role; link: LinkStatus; clock: string; pending: { count: number; oldest?: string };
-  onOpenSync?: () => void; onLinkChange?: (l: LinkStatus) => void; onRoleChange?: (r: Role) => void; onJump?: (h: 1 | 6 | 30) => void; onReset?: () => void;
+  onOpenSync?: () => void;
   /** Right-hand status: live sync state and sign-out, or a preview tag when not signed in. */
   status?: React.ReactNode;
 }) {
@@ -128,12 +102,9 @@ export function TopBar({ phase = "CLOSING", role, link, clock, pending, onOpenSy
         <span className="font-mono text-[17px] font-bold tracking-[0.2em] text-fg">DHRUV</span>
         <span className="font-mono text-xs font-medium text-fg-2">SEASON 48 · {phase}</span>
       </div>
-      <div className="ml-2 h-6 w-px bg-line" />
-      <RoleSwitcher role={role} onChange={onRoleChange} />
-      <LinkSwitch value={link} onChange={onLinkChange} />
       <div className="ml-auto flex items-center gap-4">
         {status}
-        <DemoClock time={clock} onJump={onJump} onReset={onReset} />
+        <span className="font-mono text-sm text-fg" aria-live="polite">{clock}</span>
         <SyncIndicator count={pending.count} oldest={pending.oldest} onOpen={onOpenSync} />
       </div>
     </header>
@@ -156,10 +127,8 @@ const NAV: { key: NavKey; label: string; Icon: typeof Radar }[] = [
   { key: "data", label: "Where data lives", Icon: Database },
 ];
 
-export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, role, station, deviceId, link, onNavigate, onDirector }: {
+export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, role, station, deviceId, link, onNavigate }: {
   active: NavKey; incidentOpen?: boolean; decisionCount?: number; conflictCount?: number; role: Role; station: string; deviceId: string; link: LinkStatus; onNavigate?: (k: NavKey) => void;
-  /** Demo only: opens the Scenario Director in this tab. */
-  onDirector?: () => void;
 }) {
   const m = LINK_META[link];
   return (
@@ -183,13 +152,6 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
           );
         })}
       </ul>
-      {onDirector && (
-        <div className="p-2">
-          <button type="button" onClick={onDirector} className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-warn/60 px-2.5 text-left text-xs font-medium text-warn hover:bg-warn-tint">
-            <Clapperboard size={15} aria-hidden /><span className="flex-1">Demo Director</span><span className="text-xs">demo</span>
-          </button>
-        </div>
-      )}
       <dl className="space-y-1 border-t border-line p-3 text-xs">
         <div className="flex justify-between"><dt className="text-fg-2">Role</dt><dd className="font-medium text-fg">{ROLE_LABEL[role]}</dd></div>
         <div className="flex justify-between"><dt className="text-fg-2">Station</dt><dd className="text-fg">{station}</dd></div>

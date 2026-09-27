@@ -3,7 +3,7 @@ import { X, RefreshCw, GitMerge, ShieldAlert, CheckCircle2, CircleAlert, Play } 
 import type { Conflict, LinkStatus, OpEventRow, Tier } from "../data/types";
 import { TIERS } from "../data/demo";
 import { cx, PriorityTierBadge, Button, SectionHeader, Tag } from "./primitives";
-import { LinkSwitch } from "./shell";
+import { LinkStatusText, LinkSwitch } from "./shell";
 
 export function ByteBudgetBar({ used, budget, label }: { used: number; budget: number; label: string }) {
   const pct = Math.min(100, (used / budget) * 100);
@@ -100,7 +100,7 @@ export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange,
       </header>
       <div className="min-h-0 flex-1 space-y-4 overflow-auto px-5 py-4">
         <div className="flex items-start justify-between gap-3">
-          <LinkSwitch value={link} onChange={onLinkChange} />
+          {onLinkChange ? <LinkSwitch value={link} onChange={onLinkChange} /> : <span className="text-sm">Link <LinkStatusText status={link} className="font-semibold" /></span>}
           <div className="text-right font-mono text-xs">
             <div className="font-semibold text-fg" aria-live="polite">{pendingCount} pending</div>
             {oldest && pendingCount > 0 && <div className="text-fg-2">oldest {oldest}</div>}

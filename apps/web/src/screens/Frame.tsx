@@ -2,6 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Eye } from "lucide-react";
 import { DhruvShell, TopBar, Sidebar, OfflineBanner, type NavKey } from "../components/shell";
+import { DemoDock } from "../components/DemoDock";
 import { MOMENTS, type MomentId } from "../data/demo";
 import { useLiveChrome, type LiveChrome } from "../live/chrome";
 import { useLiveOps } from "../live/ops";
@@ -55,22 +56,26 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
     : <OfflineBanner node={m.viewer.node} pending={m.pending.count} oldest={m.pending.oldest} dataAge="HQ data as of 24 Jan 09:00" />;
 
   return (
+    <>
     <DhruvShell
       simulation={simulation}
       top={<TopBar role={chrome.role} link={chrome.link} clock={chrome.clock} phase={chrome.phase} pending={chrome.pending}
-        onRoleChange={live ? live.onRoleChange : setRole} onLinkChange={live ? live.onLinkChange : setLink}
-        onJump={live?.onJump} onReset={live?.onReset} onOpenSync={live ? () => setSyncOpen(true) : undefined}
+        onOpenSync={live ? () => setSyncOpen(true) : undefined}
         status={live ? <LiveStatus live={live} /> : <PreviewTag />} />}
       banner={banner ?? (offline ? offlineBanner : undefined)}
       sidebar={<Sidebar active={nav}
         incidentOpen={ops ? ops.openIncidents.length > 0 : !!m.incident || moment === "hq-2501620" || moment === "hq-2501610"}
         decisionCount={ops ? ops.openDecisions.length : m.decisions.length} conflictCount={ops ? ops.openConflicts.length : conflictCount}
-        role={chrome.role} station={chrome.station} deviceId={chrome.deviceId} link={chrome.link} onNavigate={onNavigate}
-        onDirector={live?.role === "HQ_OPS" ? () => navigate("/director") : undefined} />}
+        role={chrome.role} station={chrome.station} deviceId={chrome.deviceId} link={chrome.link} onNavigate={onNavigate} />}
       strip={strip}
       drawer={<>{drawer}{live && syncOpen && <LiveSyncDrawer onClose={() => setSyncOpen(false)} />}</>}
     >
       {children}
     </DhruvShell>
+    <DemoDock role={chrome.role} link={chrome.link}
+      onRoleChange={live ? live.onRoleChange : setRole} onLinkChange={live ? live.onLinkChange : setLink}
+      onJump={live?.onJump} onJumpTo={live?.onJumpTo} onReset={live?.onReset} clockJumps={live?.clockJumps}
+      director={live?.role === "HQ_OPS"} />
+    </>
   );
 }
