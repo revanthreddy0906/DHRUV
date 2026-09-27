@@ -1,8 +1,11 @@
 import * as React from "react";
-import { EVENT_RULES, type Seed } from "@dhruv/shared";
+import { EVENT_RULES, type OpEvent, type Seed } from "@dhruv/shared";
+import type { Evaluation } from "@dhruv/engine";
 import { Button, Card, SectionHeader } from "../components/primitives";
 import type { InventoryView } from "../data/demo";
 import { WriteFeedback, useEventWriter } from "./writeStatus";
+import { useConsequencePreview } from "./useConsequencePreview";
+import { cx } from "../components/primitives";
 
 const STOCK_ACTIONS = [
   { type: "STOCK_ISSUED", label: "Issue" },
@@ -34,7 +37,11 @@ const input = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg
  * It only produces STOCK_* events through device.write(); the table beside it moves because the
  * engine re-reduces the log, never because this form touched a number. Mount it keyed by station.
  */
-export function StockTransactionForm({ role, node, seed, rows }: { role: string; node: string; seed: Seed; rows: InventoryView[] }) {
+export function StockTransactionForm({ role, node, seed, rows, events, now, evaluation }: {
+  role: string; node: string; seed: Seed; rows: InventoryView[];
+  /** This device's events, clock and current evaluation: the consequence preview runs the engine on them. */
+  events: OpEvent[]; now: string; evaluation: Evaluation;
+}) {
   const actions = stockActionsFor(role);
   const items = seed.inventory_items.filter((i) => i.node_id === node);
   const shipments = seed.shipments.filter((s) => s.dest_node_id === node);
@@ -46,6 +53,13 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
   const [shipmentId, setShipmentId] = React.useState("");
   const [touched, setTouched] = React.useState(false);
   const { busy, error, last, submit } = useEventWriter();
+
+  // Consequence preview (section 9.4): once item, action and quantity are valid, the engine is run
+  // with the draft as a hypothetical overlay event, exactly as the what-if drawer does.
+  const qtyNumber = Number(qty);
+  const qtyValid = !validateStock(action, qty, "x").qty;
+  const draft = itemId && qtyValid && actions.length > 0 ? { type: action, itemId, node, qty: qtyNumber, role } : undefined;
+  const preview = useConsequencePreview(draft, { seed, events, now, evaluation });
 
   if (actions.length === 0) {
     return (
@@ -123,6 +137,11 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
           <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : "Submit"}</Button>
         </div>
       </form>
+      {preview && (
+        <p role="status" aria-live="polite" className={cx("mt-3 text-sm", preview.tone === "RED" ? "font-semibold text-bad" : preview.tone === "AMBER" ? "font-semibold text-warn" : "text-fg")}>
+          <span className="text-fg-2">If recorded: </span>{preview.text}
+        </p>
+      )}
       <div className="mt-3">
         <WriteFeedback event={last?.event} summary={last?.summary} error={error} />
       </div>

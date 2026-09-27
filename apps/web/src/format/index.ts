@@ -7,5 +7,6 @@ export { formatRatio } from "./ratio";
 export { formatHaveNeed, formatMargin } from "./margin";
 export { ALL_CLEAR, DIMENSION_LABEL, dimensionHeadline, dimensionReason, drivingDimension, drivingItem, isAllClear, stationReason, statusLine } from "./status";
 export { RULE_TITLE, TRACE_GROUPS, b0Line, groupTrace, traceGroup, traceSentence, type EngineStep, type TraceGroup } from "./trace";
+export { consequenceLine, countPlausibility, type ConsequenceInput } from "./consequence";
 export { timelinePositions } from "./timeline";
 export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallTime } from "./time";

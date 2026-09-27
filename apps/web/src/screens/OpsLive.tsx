@@ -41,7 +41,7 @@ export function LiveInventoryScreen() {
             <Link to={`/graph?station=${node}&focus=${rows[0]?.id ?? ""}`} className="flex items-center gap-1 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
           </div>
         </div>
-        <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} />
+        <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} events={ops.events} now={ops.now} evaluation={ops.evaluation} />
         <Card pad="none" className="overflow-hidden">
           <table className="w-full">
             <thead className="bg-elevated text-left text-xs text-fg-2">
