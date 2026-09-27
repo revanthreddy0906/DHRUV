@@ -12,7 +12,7 @@ export interface StockDraft {
   role: string;
 }
 
-function findItem(evaluation: Evaluation, node: string, itemId: string) {
+export function findItem(evaluation: Evaluation, node: string, itemId: string) {
   const st = evaluation.stations.find((s) => s.nodeId === node);
   for (const d of st?.dimensions ?? []) {
     const item = d.items?.find((i) => i.id === itemId);
