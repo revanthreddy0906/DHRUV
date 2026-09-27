@@ -15,3 +15,4 @@ docs/ui-redesign/**/*.png
 docs/ui-redesign/**/*.jpg
 docs/ui-redesign/**/*.jpeg
 docs/ui-redesign/**/*.webp
+!docs/ui-redesign/CLAUDE.md
