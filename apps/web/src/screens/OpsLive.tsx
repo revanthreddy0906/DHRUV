@@ -7,6 +7,7 @@ import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { StationContext } from "../live/StationContext";
 import { StockTransactionForm } from "../live/StockTransactionForm";
+import { RobustnessPanel } from "../live/RobustnessPanel";
 import { PersonnelActionForm, type LivePerson } from "../live/PersonnelActionForm";
 import { formatAge } from "../live/format";
 import { Frame } from "./Frame";
@@ -49,6 +50,7 @@ export function LiveInventoryScreen() {
           </table>
           {rows.length === 0 && <p className="p-8 text-center text-sm text-fg-2">No inventory items for this station in the seed. Readiness for these dimensions shows unknown, not zero.</p>}
         </Card>
+        <RobustnessPanel seed={ops.seed} events={ops.events} now={ops.now} node={node} />
       </div>
     </Frame>
   );

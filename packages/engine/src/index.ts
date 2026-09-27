@@ -5,6 +5,7 @@ import { reduce } from "./reduce.js";
 import { computeRequirement, type PhaseBoundaries } from "./rules/requirement.js";
 import { checkFeasibility } from "./rules/feasibility.js";
 import { computeAvailability, worstOf } from "./rules/availability.js";
+import { evaluateBudgetCurve, type GammaEvaluationResult, type UncertainInput } from "./robustness/index.js";
 import { computePersonnelCoverage, computeAssetRedundancy, type CoverageResult } from "./rules/coverage.js";
 import { computeMissionImpact, type MissionImpactResult, type MissionNeeds } from "./rules/mission.js";
 import { catalogueLevers, type CataloguedLever, type LeverEffect } from "./rules/levers.js";
@@ -572,4 +573,93 @@ export function evaluate(raw: EngineInput, now: string): Evaluation {
     if (s) stations.push(s);
   }
   return { at: now, stations };
+}
+
+/**
+ * The three adverse deviations the fuel robustness panel starts from (robustness/README.md):
+ * a cold snap raising burn 15 %, a tank reading 10 % high, and the feeder arriving 3 days later.
+ */
+export const DEFAULT_FUEL_UNCERTAINTIES: readonly UncertainInput[] = [
+  { name: "cold_snap_burn_rate", target: "burnRate", nominal: 0, deviation: 15, unit: "percent", adverseDirection: "increase" },
+  { name: "tank_measurement_error", target: "stockCount", nominal: 0, deviation: 10, unit: "percent", adverseDirection: "decrease" },
+  { name: "feeder_weather_delay", target: "shipmentSlack", nominal: 0, deviation: 3, unit: "absolute", adverseDirection: "decrease" },
+];
+
+export interface FuelRobustness {
+  nodeId: string;
+  itemId: string;
+  unit: string;
+  stock: number;
+  /** Feasible inbound the analysis starts from (all of it rides `feeder`, see below). */
+  inboundQty: number;
+  /** The feasible feeder with the least slack to its vessel's load cut-off, if any. */
+  feeder?: { legId: string; shipmentId: string; eta: string; loadCutoff: string; slackDays: number };
+  /** The deviations actually applied: a shipment delay is dropped when no inbound can slip. */
+  uncertainties: UncertainInput[];
+  /** Γ = 0 .. n, from the robustness layer on R01-R03. */
+  curve: GammaEvaluationResult[];
+  /** The fuel ratio evaluate() reports for this station now. Γ = 0 equals it unless approved levers apply. */
+  engineRatio: number;
+  /** Approved levers change the live ratio but are not modelled by the robustness layer. */
+  leversApplied: boolean;
+}
+
+/**
+ * Γ-budget robustness (packages/engine/src/robustness) on a station's live fuel state: the same
+ * reduce(), requirement horizon (PLAN_FROM) and R02 feasibility as evaluate(), so Γ = 0 is the
+ * dashboard's fuel ratio. Every feasible inbound line is treated as riding the tightest feeder, so
+ * one feeder delay can take all of it out: the conservative reading a worst case wants.
+ */
+export function fuelRobustness(
+  raw: EngineInput,
+  nodeId: string,
+  now: string,
+  uncertainties: readonly UncertainInput[] = DEFAULT_FUEL_UNCERTAINTIES,
+): FuelRobustness | null {
+  const input: EngineInput = { ...raw, seed: withCreatedShipments(raw.seed, raw.events) };
+  const state = reduce(input.seed, input.events);
+  const diesel = [...state.inventory.values()].find((i) => i.nodeId === nodeId && i.dimension === "FUEL");
+  if (!diesel) return null;
+  const fuel = evaluate(input, now).stations.find((s) => s.nodeId === nodeId)?.dimensions.find((d) => d.key === "FUEL");
+
+  // Feasible inbound lines, each with its feeder and vessel (the R02 walk of feasibleInbound()).
+  let inboundQty = 0;
+  let tightest: { leg: NonNullable<Inbound["feeder"]>; vessel: NonNullable<Inbound["vessel"]>; slack: number } | undefined;
+  for (const cargo of input.seed.cargo_items.filter((c) => c.inventory_item_id === diesel.itemId)) {
+    const legs = input.seed.legs.filter((l) => l.shipment_id === cargo.shipment_id).sort((a, b) => a.seq - b.seq);
+    const vesselLeg = legs.find((l) => l.vessel_id);
+    const vessel = vesselLeg?.vessel_id ? state.vessels.get(vesselLeg.vessel_id) : undefined;
+    const feederSeed = [...legs].reverse().find((l) => !l.vessel_id && (!vesselLeg || l.seq < vesselLeg.seq));
+    const leg = feederSeed ? state.legs.get(feederSeed.id) : undefined;
+    if (!leg || !vessel || !checkFeasibility(leg, vessel).feasible) continue;
+    inboundQty += cargo.qty;
+    const slack = (Date.parse(vessel.loadCutoff) - Date.parse(leg.eta)) / 86_400_000;
+    if (!tightest || slack < tightest.slack) tightest = { leg, vessel, slack };
+  }
+
+  const applied = uncertainties.filter((u) => u.target !== "shipmentSlack" || tightest);
+  const curve = evaluateBudgetCurve(
+    {
+      item: diesel,
+      consumptionProfiles: input.seed.consumption_profiles,
+      now: PLAN_FROM,
+      phaseBoundaries: PHASE_BOUNDARIES,
+      inboundLeg: tightest?.leg,
+      vessel: tightest?.vessel,
+      inboundCargoQty: inboundQty,
+    },
+    applied,
+  );
+  return {
+    nodeId,
+    itemId: diesel.itemId,
+    unit: diesel.unit,
+    stock: diesel.stock,
+    inboundQty,
+    feeder: tightest && { legId: tightest.leg.legId, shipmentId: tightest.leg.shipmentId, eta: tightest.leg.eta, loadCutoff: tightest.vessel.loadCutoff, slackDays: Math.round(tightest.slack * 10) / 10 },
+    uncertainties: applied,
+    curve,
+    engineRatio: fuel?.ratio ?? curve[0]!.ratio,
+    leversApplied: appliedLeverIds(state, nodeId).length > 0,
+  };
 }
