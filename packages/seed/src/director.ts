@@ -26,7 +26,11 @@ export interface BeatEvent {
 export interface DirectorBeat {
   beat: string;
   label: string;
-  where: "server" | "client" | "emergent";
+  /**
+   * "operator": a step the presenter does by hand in a device tab with the app's own forms. Its
+   * `events` are the same action, which the Director can write instead ("do it for me").
+   */
+  where: "server" | "client" | "emergent" | "operator";
   events: BeatEvent[];
   /** Absolute demo-clock jump applied on every open device (v2 C5). */
   clockJump?: string;
@@ -41,6 +45,12 @@ export interface DirectorBeat {
   proposeFromEngine?: { node_id: string };
   /** Server-side fallback for the human approval beat. */
   approve?: { decision_id: string; chosen_option_id: string; verify_ack: boolean; observed_at: string };
+  /** After the beat, move every open tab's clock forward (never back) to the beat's latest time. */
+  advanceClock?: boolean;
+  /** Operator beats: which tab, what to do there, and how the Director knows it was done. */
+  operator?: { device_id: string; instruction: string; expect: { type: EventType; payload?: Record<string, unknown> } };
+  /** Real-incident scenarios: what actually happened at this point, and the source. */
+  real?: { when: string; text: string; source: string };
 }
 
 const at = (day: number, hhmm: string) => `2027-01-${String(day).padStart(2, "0")}T${hhmm}:00.000Z`;
@@ -264,7 +274,3 @@ export const DIRECTOR_BEATS: DirectorBeat[] = [
     approve: { decision_id: IDS.decision1, chosen_option_id: "OPT-1", verify_ack: true, observed_at: at(25, "16:20") },
   },
 ];
-
-export function findBeat(beat: string): DirectorBeat | undefined {
-  return DIRECTOR_BEATS.find((b) => b.beat === beat);
-}

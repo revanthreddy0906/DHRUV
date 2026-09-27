@@ -1,15 +1,24 @@
 import { compareEvents, type OpEvent, type PayloadOf } from "./events.js";
 import type { Seed } from "./api.js";
 
+/** Seeds this module produced: folding one again would draw receipts down twice. */
+const FOLDED = new WeakSet<Seed>();
+
 /**
- * The seed plus every shipment created by a SHIPMENT_CREATED event (merge class A: a record is
- * created once). Events are taken in reduce order and the first creation of a shipment or leg id
- * wins; ids the seed already has are ignored, so folding an already folded seed changes nothing.
- * Returns the same seed object when the log holds no SHIPMENT_CREATED.
+ * The seed as the event log has changed its shipments:
+ * - every shipment created by a SHIPMENT_CREATED event (merge class A: created once). Events are
+ *   taken in reduce order and the first creation of a shipment or leg id wins; ids the seed
+ *   already has are ignored.
+ * - every STOCK_RECEIVED that names a shipment draws that shipment's cargo line for the item down
+ *   by the quantity received (never below 0), so offloaded cargo is counted once, as stock, and
+ *   no longer as inbound.
+ * Returns the same seed object when the log changes nothing, and a folded seed is returned as is.
  */
 export function withCreatedShipments(seed: Seed, events: OpEvent[]): Seed {
+  if (FOLDED.has(seed)) return seed;
   const created = events.filter((e) => e.type === "SHIPMENT_CREATED");
-  if (created.length === 0) return seed;
+  const receipts = events.filter((e) => e.type === "STOCK_RECEIVED" && typeof (e.payload as { shipment_id?: unknown }).shipment_id === "string");
+  if (created.length === 0 && receipts.length === 0) return seed;
 
   const shipments = [...seed.shipments];
   const legs = [...seed.legs];
@@ -38,5 +47,23 @@ export function withCreatedShipments(seed: Seed, events: OpEvent[]): Seed {
     }
     p.cargo.forEach((c, i) => cargo.push({ id: `CG-${p.shipment_id}-${i + 1}`, shipment_id: p.shipment_id, inventory_item_id: c.inventory_item_id, qty: c.qty }));
   }
-  return { ...seed, shipments, legs, cargo_items: cargo };
+  // Receipts against a shipment: what has been offloaded is stock now, not inbound.
+  const received = new Map<string, number>();
+  for (const e of receipts) {
+    const p = e.payload as PayloadOf<"STOCK_RECEIVED">;
+    const key = `${p.shipment_id}|${p.item_id}`;
+    received.set(key, (received.get(key) ?? 0) + p.qty);
+  }
+  const drawn = cargo.map((c) => {
+    const key = `${c.shipment_id}|${c.inventory_item_id}`;
+    const left = received.get(key);
+    if (left === undefined || left <= 0) return c;
+    const take = Math.min(left, c.qty);
+    received.set(key, left - take);
+    return { ...c, qty: Math.round((c.qty - take) * 1e6) / 1e6 };
+  });
+
+  const folded = { ...seed, shipments, legs, cargo_items: drawn };
+  FOLDED.add(folded);
+  return folded;
 }

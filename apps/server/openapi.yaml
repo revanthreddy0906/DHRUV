@@ -241,22 +241,39 @@ paths:
 
   /admin/seed:
     post:
-      summary: Reset to Start (demo only, HQ_OPS)
+      summary: Reset to Start (demo only, HQ_OPS), optionally to another Director scenario
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { scenario: { type: string, enum: [season48, aurora2016] } } }
       responses:
         "200":
           description: Reset
           content:
             application/json:
-              schema: { type: object, required: [ok], properties: { ok: { type: boolean } } }
+              schema: { type: object, required: [ok], properties: { ok: { type: boolean }, scenario: { type: string } } }
         "404": { $ref: "#/components/responses/Error" }
+
+  /admin/scenario:
+    get:
+      summary: The Director scenario the server was last reset to (demo only, HQ_OPS)
+      responses:
+        "200":
+          description: Active scenario
+          content:
+            application/json:
+              schema: { type: object, required: [scenario, title], properties: { scenario: { type: string }, title: { type: string } } }
+        "403": { $ref: "#/components/responses/Error" }
 
   /admin/director/{beat}:
     post:
       summary: Inject a server-side Scenario Director beat (demo only, HQ_OPS)
       description: |
-        Server beats: 1 (slip), 2 (decision proposed), 5 (HQ's SK-2 edit), 11 (approval). Client beats
-        (3, 4, 6, 7, 8, 9) must run on the device's own tab through the Director panel and answer 400 here;
-        beat 10 is emergent.
+        Beats of the active scenario (see /admin/scenario). season48 server beats: 1 (slip), 2 (decision
+        proposed), 5 (HQ's SK-2 edit), 11 (approval). Client beats (3, 4, 6, 7, 8, 9) must run on the device's
+        own tab through the Director panel and answer 400 here; beat 10 is emergent. An operator step that is
+        an approval (aurora2016 A8) can also run here.
       parameters:
         - { name: beat, in: path, required: true, schema: { type: string } }
       responses:

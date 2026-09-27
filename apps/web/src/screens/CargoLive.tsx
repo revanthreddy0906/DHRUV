@@ -152,7 +152,7 @@ export function LiveCargoScreen() {
         {creating && isHq && (
           <ShipmentForm
             seed={seed}
-            vessel={vessel && seed.vessels[0] ? { id: seed.vessels[0].id, name: seed.vessels[0].name, departure: vessel.departure, etaStation: vessel.etaStation, loadCutoff: vessel.loadCutoff } : undefined}
+            vessels={seed.vessels.flatMap((v) => { const st = reduce(seed, events).vessels.get(v.id); return st ? [{ id: v.id, name: v.name, departure: st.departure, etaStation: st.etaStation, loadCutoff: st.loadCutoff }] : []; })}
             onDone={() => setCreating(false)}
           />
         )}

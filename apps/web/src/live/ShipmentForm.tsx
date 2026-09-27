@@ -72,7 +72,11 @@ const field = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg
  * HQ Ops creates an inbound shipment: one SHIPMENT_CREATED event through device.write(). The list
  * below and the destination's inbound stock pick it up from the event log (withCreatedShipments).
  */
-export function ShipmentForm({ seed, vessel, onDone }: { seed: Seed; vessel?: { id: string; name: string; departure: string; etaStation: string; loadCutoff: string }; onDone: () => void }) {
+export interface VesselOption { id: string; name: string; departure: string; etaStation: string; loadCutoff: string }
+
+export function ShipmentForm({ seed, vessels, onDone }: { seed: Seed; vessels: VesselOption[]; onDone: () => void }) {
+  const [vesselId, setVesselId] = React.useState(vessels[0]?.id);
+  const vessel = vessels.find((v) => v.id === vesselId) ?? vessels[0];
   const [input, setInput] = React.useState<ShipmentInput>(() => ({
     id: nextShipmentId(seed), name: "", priority: "HIGH", dest: STATION_NODES[0]!, feederEta: "30 Jan", onVessel: true, itemId: "", qty: "",
   }));
@@ -137,10 +141,15 @@ export function ShipmentForm({ seed, vessel, onDone }: { seed: Seed; vessel?: { 
           <Checkbox
             checked={input.onVessel}
             onChange={(v) => set("onVessel", v)}
-            label={vessel ? `Loads on ${vessel.name} at Cape Town` : "Loads on the season vessel"}
+            label={vessel ? (vessels.length > 1 ? "Loads on a vessel at Cape Town" : `Loads on ${vessel.name} at Cape Town`) : "Loads on the season vessel"}
             description={vessel ? `Cut-off ${dayLabel(vessel.loadCutoff)} · departs ${dayLabel(vessel.departure)} · arrives ${dayLabel(vessel.etaStation)}. Cargo counts as inbound only if the feeder reaches Cape Town by the cut-off (R02).` : undefined}
           />
           {err("onVessel")}
+          {vessels.length > 1 && input.onVessel && (
+            <select aria-label="Vessel" value={vessel?.id} onChange={(e) => setVesselId(e.target.value)} className={`${field} ml-6 mt-2 block w-72`}>
+              {vessels.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          )}
         </div>
         <div className="col-span-full flex gap-2">
           <Button variant="primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Create shipment"}</Button>

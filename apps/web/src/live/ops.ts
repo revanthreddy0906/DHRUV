@@ -160,11 +160,15 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       const position = incident.team_id ? lastCheckIn(events, incident.team_id) : null;
       const age = ageHours(now, incident.last_confirmed_at);
       const radius = uncertaintyRadiusKm(age);
-      incidentStrip = [
-        `${incident.id} · ${incident.team_id ?? incident.person_ids.join(", ")} ${incidentTypeLabel(incident.type)}`,
-        `last confirmed ${formatAge(incident.last_confirmed_at, now)} ago${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
-        radius !== null ? `circle ${Math.round(radius)} km` : "position fresh",
-      ].join(" · ");
+      // Only incidents about people or a team have a position to be uncertain about.
+      const tracked = !!incident.team_id || incident.person_ids.length > 0;
+      incidentStrip = tracked
+        ? [
+            `${incident.id} · ${incident.team_id ?? incident.person_ids.join(", ")} ${incidentTypeLabel(incident.type)}`,
+            `last confirmed ${formatAge(incident.last_confirmed_at, now)} ago${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
+            radius !== null ? `circle ${Math.round(radius)} km` : "position fresh",
+          ].join(" · ")
+        : `${incident.id} · ${incidentTypeLabel(incident.type)} at ${nodeLabel(incident.node_id)} · opened ${formatAge(incident.opened_at, now)} ago`;
     }
 
     const rows = timeline(events).map((e) => ({

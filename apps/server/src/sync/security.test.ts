@@ -37,7 +37,7 @@ describe("Vuln 2: admin endpoints", () => {
   it("still work for HQ_OPS in demo mode", async () => {
     const { app } = makeApp();
     const hq = await login(app, "HQ-WEB-01", "HQ_OPS", "HQ");
-    expect((await app.inject({ method: "POST", url: `${API}/admin/seed`, headers: auth(hq) })).json()).toEqual({ ok: true });
+    expect((await app.inject({ method: "POST", url: `${API}/admin/seed`, headers: auth(hq) })).json()).toEqual({ ok: true, scenario: "season48" });
     expect((await app.inject({ method: "POST", url: `${API}/admin/director/1`, headers: auth(hq) })).json()).toEqual({ events_created: 1 });
   });
 });
