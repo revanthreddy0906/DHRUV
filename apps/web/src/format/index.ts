@@ -5,4 +5,4 @@
 export { UNKNOWN, decimalsFor, formatQty } from "./number";
 export { formatRatio } from "./ratio";
 export { formatHaveNeed, formatMargin } from "./margin";
-export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime } from "./time";
+export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallTime } from "./time";

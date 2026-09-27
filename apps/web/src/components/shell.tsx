@@ -1,8 +1,8 @@
 import * as React from "react";
+import { Link } from "react-router-dom";
 import {
-  Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Info, Wifi, WifiOff, Signal, RotateCcw,
-  CloudUpload, FlaskConical, UserCog, TabletSmartphone, RadioTower, Clapperboard,
-  Database, Network,
+  Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Wifi, WifiOff, Signal,
+  FlaskConical, TabletSmartphone, RadioTower, Database, Network, LogOut,
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
@@ -12,9 +12,8 @@ import { ROLE_LABEL, SYNTHETIC_BANNER } from "../data/demo";
 
 export function SyntheticDataBanner() {
   return (
-    <div role="note" className="flex h-7 items-center justify-center gap-2 border-b border-line bg-elevated text-xs text-fg-2">
-      <Info size={13} aria-hidden className="text-accent" />
-      <span>{SYNTHETIC_BANNER}</span>
+    <div role="note" className="flex h-7 shrink-0 items-center justify-center border-b border-line bg-elevated text-xs text-fg-2">
+      {SYNTHETIC_BANNER}
     </div>
   );
 }
@@ -77,36 +76,109 @@ export function LinkChip({ node, status, age }: { node: string; status?: LinkSta
 
 /* ---------- Sync indicator ---------- */
 
-export function SyncIndicator({ count, oldest, onOpen }: { count: number; oldest?: string; onOpen?: () => void }) {
+/**
+ * This device's link and outbox in one button (section 7.1): "Online · synced 20:35",
+ * "Offline · 5 pending", "Degraded · 2 pending". Amber whenever the link is down or sync stalled.
+ */
+export function SyncIndicator({ link, pending, stalled, syncedAt, onOpen }: { link: LinkStatus; pending: number; stalled?: boolean; syncedAt?: string; onOpen?: () => void }) {
+  const m = LINK_META[link];
+  const warn = link !== "ONLINE" || !!stalled;
+  const text = stalled ? `Sync stalled · ${pending} pending`
+    : link !== "ONLINE" || pending > 0 ? `${m.label} · ${pending} pending`
+    : syncedAt ? `Online · synced ${syncedAt}` : "Online";
   return (
-    <button type="button" onClick={onOpen} aria-label={`${count} events pending sync${oldest ? `, oldest ${oldest}` : ""}. Open sync drawer`}
-      className={cx("flex h-8 items-center gap-1.5 rounded-md border px-2 font-mono text-xs", count ? "border-warn/50 bg-warn-tint text-fg" : "border-line text-fg-2")}>
-      <CloudUpload size={14} className={count ? "text-warn" : "text-fg-2"} aria-hidden />
-      <span className="font-semibold">SYNC {count}</span>
-      {oldest && <span className="text-fg-2">· oldest {oldest}</span>}
+    <button type="button" onClick={onOpen} disabled={!onOpen} aria-live="polite" aria-label={`${text}. Open the sync drawer`}
+      className={cx("flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm tabular-nums disabled:cursor-default",
+        warn ? "border-transparent bg-warn-tint text-warn" : "border-line text-fg hover:bg-elevated")}>
+      <m.Icon size={16} strokeWidth={1.75} aria-hidden />{text}
     </button>
+  );
+}
+
+/* ---------- User menu ---------- */
+
+const INITIALS: Record<Role, string> = { HQ_OPS: "HQ", STATION_LEADER: "SL", FIELD_LEAD: "FL" };
+
+/** Role, station, device and Sign out: the one home for who this tab is (section 7.1). */
+export function UserMenu({ role, station, deviceId, onSignOut }: { role: Role; station: string; deviceId: string; onSignOut: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`User menu: ${ROLE_LABEL[role]}, ${station}`}
+        className="flex size-8 items-center justify-center rounded-md border border-line-strong bg-elevated text-xs font-semibold text-fg hover:border-accent/60">
+        {INITIALS[role]}
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-10 z-50 w-60 rounded-lg border border-line bg-surface p-3 shadow-drawer">
+          <dl className="space-y-1.5 text-sm">
+            <div className="flex justify-between gap-3"><dt className="text-fg-2">Role</dt><dd className="text-fg">{ROLE_LABEL[role]}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-fg-2">Station</dt><dd className="text-fg">{station}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-fg-2">Device</dt><dd className="font-mono text-fg">{deviceId}</dd></div>
+          </dl>
+          <button type="button" role="menuitem" onClick={onSignOut}
+            className="mt-3 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-line-strong bg-elevated text-sm font-semibold text-fg hover:border-accent/60">
+            <LogOut size={16} aria-hidden />Sign out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
 /* ---------- Top bar ---------- */
 
-export function TopBar({ phase = "CLOSING", clock, pending, onOpenSync, status }: {
-  phase?: string; role: Role; link: LinkStatus; clock: string; pending: { count: number; oldest?: string };
-  onOpenSync?: () => void;
-  /** Right-hand status: live sync state and sign-out, or a preview tag when not signed in. */
-  status?: React.ReactNode;
+export type StationScope =
+  | { kind: "select"; value?: string; options: { id: string; label: string }[]; onChange: (node: string | undefined) => void }
+  | { kind: "fixed"; label: string };
+
+/**
+ * One row, 56 px (section 7.1): wordmark, station context, then on the right the PNR pill (only
+ * when a point of no return exists), this device's sync, the read-only sim time and the user menu.
+ */
+export function TopBar({ scope, pnr, sync, clock, user }: {
+  scope: StationScope;
+  pnr?: { date: string; daysLeft: number; href: string };
+  sync: React.ComponentProps<typeof SyncIndicator>;
+  clock: string;
+  /** Who this tab is; a preview tag instead when the tab is not signed in. */
+  user?: React.ComponentProps<typeof UserMenu>;
 }) {
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-line bg-surface px-4">
-      <div className="flex items-baseline gap-3">
-        <span className="font-mono text-[17px] font-bold tracking-[0.2em] text-fg">DHRUV</span>
-        <span className="font-mono text-xs font-medium text-fg-2">SEASON 48 · {phase}</span>
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-4">
+      <span className="font-mono text-heading font-semibold tracking-[0.2em] text-fg">DHRUV</span>
+      {scope.kind === "select" ? (
+        <select aria-label="Station" value={scope.value ?? ""} onChange={(e) => scope.onChange(e.target.value || undefined)}
+          className="h-8 rounded-md border border-line-ctrl bg-surface px-2 text-sm text-fg">
+          <option value="">All stations</option>
+          {scope.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      ) : (
+        <span className="text-sm font-semibold text-fg">{scope.label}</span>
+      )}
+      <div className="flex-1" />
+      <div aria-live="polite">
+        {pnr && (
+          <Link to={pnr.href} className="flex h-8 items-center rounded-md bg-bad-tint px-2.5 text-sm font-semibold text-bad hover:underline">
+            Point of no return {pnr.date} · {pnr.daysLeft} {pnr.daysLeft === 1 ? "day" : "days"}
+          </Link>
+        )}
       </div>
-      <div className="ml-auto flex items-center gap-4">
-        {status}
-        <span className="font-mono text-sm text-fg" aria-live="polite">{clock}</span>
-        <SyncIndicator count={pending.count} oldest={pending.oldest} onOpen={onOpenSync} />
-      </div>
+      <SyncIndicator {...sync} />
+      <span className="flex items-baseline gap-1.5 text-sm text-fg-2">Sim time <span className="font-mono tabular-nums text-fg">{clock}</span></span>
+      {user ? <UserMenu {...user} /> : (
+        <Link to="/login" className="flex h-8 items-center rounded-md border border-line-strong px-2.5 text-sm text-fg-2 hover:text-fg" title="Not signed in: design fixtures, not live data">
+          Preview · Sign in
+        </Link>
+      )}
     </header>
   );
 }
@@ -116,48 +188,47 @@ export function TopBar({ phase = "CLOSING", clock, pending, onOpenSync, status }
 export type NavKey = "command" | "decisions" | "cargo" | "inventory" | "personnel" | "map" | "incident" | "audit" | "data" | "graph";
 const NAV: { key: NavKey; label: string; Icon: typeof Radar }[] = [
   { key: "command", label: "Command", Icon: Radar },
+  { key: "incident", label: "Incident", Icon: Siren },
   { key: "decisions", label: "Decisions", Icon: Scale },
   { key: "cargo", label: "Cargo", Icon: Ship },
   { key: "inventory", label: "Inventory", Icon: Package },
-  { key: "personnel", label: "Personnel and Missions", Icon: Users },
+  { key: "personnel", label: "Personnel", Icon: Users },
   { key: "map", label: "Map", Icon: MapIcon },
-  { key: "incident", label: "Incident", Icon: Siren },
   { key: "audit", label: "Audit", Icon: ScrollText },
+];
+const ANALYSIS: { key: NavKey; label: string; Icon: typeof Radar }[] = [
   { key: "graph", label: "Connections", Icon: Network },
   { key: "data", label: "Where data lives", Icon: Database },
 ];
 
-export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, role, station, deviceId, link, onNavigate }: {
-  active: NavKey; incidentOpen?: boolean; decisionCount?: number; conflictCount?: number; role: Role; station: string; deviceId: string; link: LinkStatus; onNavigate?: (k: NavKey) => void;
+/**
+ * 220 px, no footer (section 7.4): who this tab is lives in the user menu, its link in the sync
+ * indicator. Badges only for what needs action. The Incident item shows only while one is open.
+ */
+export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, onNavigate }: {
+  active: NavKey; incidentOpen?: boolean; decisionCount?: number; conflictCount?: number; onNavigate?: (k: NavKey) => void;
 }) {
-  const m = LINK_META[link];
+  const item = (n: (typeof NAV)[number]) => {
+    const on = n.key === active; const inc = n.key === "incident";
+    const badge = n.key === "decisions" ? decisionCount : n.key === "audit" ? conflictCount : 0;
+    return (
+      <li key={n.key}>
+        <button type="button" aria-current={on ? "page" : undefined} onClick={() => onNavigate?.(n.key)}
+          className={cx("flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm",
+            on ? "bg-accent-tint font-semibold text-accent" : inc ? "font-semibold text-bad hover:bg-elevated" : "text-fg hover:bg-elevated")}>
+          <n.Icon size={16} strokeWidth={1.75} aria-hidden />
+          <span className="flex-1">{n.label}</span>
+          {badge > 0 && <span className="text-xs font-semibold tabular-nums text-fg" aria-label={n.key === "decisions" ? `${badge} pending` : `${badge} open conflicts`}>{badge}</span>}
+        </button>
+      </li>
+    );
+  };
   return (
-    <nav aria-label="Primary" className="flex w-56 shrink-0 flex-col border-r border-line bg-surface">
-      <ul className="flex-1 space-y-0.5 p-2">
-        {NAV.filter((n) => n.key !== "incident" || incidentOpen).map((n) => {
-          const on = n.key === active; const inc = n.key === "incident";
-          return (
-            <li key={n.key}>
-              <button type="button" aria-current={on ? "page" : undefined} onClick={() => onNavigate?.(n.key)}
-                className={cx("flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-medium",
-                  on ? "bg-accent-tint text-fg ring-1 ring-accent/50" : "text-fg-2 hover:bg-elevated hover:text-fg",
-                  inc && "text-bad")}>
-                <n.Icon size={16} aria-hidden className={inc ? "text-bad" : on ? "text-accent" : ""} />
-                <span className="flex-1">{n.label}</span>
-                {n.key === "decisions" && decisionCount > 0 && <span className="rounded bg-bad-tint px-1.5 font-mono text-xs text-bad">{decisionCount}</span>}
-                {n.key === "audit" && conflictCount > 0 && <span className="rounded bg-warn-tint px-1.5 font-mono text-xs text-warn" title="Open conflicts">{conflictCount}</span>}
-                {inc && <span className="rounded border border-bad/60 px-1 text-xs font-bold">OPEN</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <dl className="space-y-1 border-t border-line p-3 text-xs">
-        <div className="flex justify-between"><dt className="text-fg-2">Role</dt><dd className="font-medium text-fg">{ROLE_LABEL[role]}</dd></div>
-        <div className="flex justify-between"><dt className="text-fg-2">Station</dt><dd className="text-fg">{station}</dd></div>
-        <div className="flex justify-between"><dt className="text-fg-2">Device</dt><dd className="font-mono text-fg">{deviceId}</dd></div>
-        <div className="flex justify-between"><dt className="text-fg-2">Link</dt><dd className={cx("flex items-center gap-1 font-semibold", m.cls)}><m.Icon size={12} aria-hidden />{link}</dd></div>
-      </dl>
+    <nav aria-label="Primary" className="flex w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface p-2">
+      <ul className="space-y-0.5">{NAV.filter((n) => n.key !== "incident" || incidentOpen).map(item)}</ul>
+      <div className="mx-2.5 my-3 border-t border-line" />
+      <p className="px-2.5 pb-1 text-xs text-fg-2">Analysis</p>
+      <ul className="space-y-0.5">{ANALYSIS.map(item)}</ul>
     </nav>
   );
 }

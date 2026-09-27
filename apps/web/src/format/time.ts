@@ -54,3 +54,9 @@ export function formatTime(iso: string): string {
   const d = new Date(iso);
   return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
+
+/** Wall-clock time of a real event on this machine (the last sync), 24 h: "20:35". */
+export function formatWallTime(ms: number): string {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

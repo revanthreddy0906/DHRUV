@@ -7,7 +7,7 @@ import type { OpEvent, Seed } from "@dhruv/shared";
 import { Card, SectionHeader, Tag, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
-import { StationContext } from "../live/StationContext";
+import { useStationFocus } from "../live/stationFocus";
 import { StockTransactionForm } from "../live/StockTransactionForm";
 import { RobustnessPanel } from "../live/RobustnessPanel";
 import { PersonnelActionForm, type LivePerson } from "../live/PersonnelActionForm";
@@ -24,7 +24,7 @@ const Loading = ({ nav }: { nav: "inventory" | "personnel" }) => (
  */
 export function LiveInventoryScreen() {
   const device = useDevice();
-  const [focus, setFocus] = React.useState<string>();
+  const [focus] = useStationFocus();
   const ops = useLiveOps(focus);
   if (!device || !ops) return <Loading nav="inventory" />;
   const { role } = device.session.identity;
@@ -40,7 +40,6 @@ export function LiveInventoryScreen() {
           </div>
           <div className="ml-auto flex items-center gap-3">
             <Link to={`/graph?station=${node}&focus=${rows[0]?.id ?? ""}`} className="flex items-center gap-1 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
-            <StationContext role={role} node={node} onChange={setFocus} />
           </div>
         </div>
         <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} />
@@ -75,7 +74,7 @@ const STATUS_TONE: Record<string, "neutral" | "accent" | "red" | "amber" | "gree
 /** Role coverage (R05) and mission impact (R07) from the engine; people with their live status and station from reduce(). */
 export function LivePersonnelScreen() {
   const device = useDevice();
-  const [focus, setFocus] = React.useState<string>();
+  const [focus] = useStationFocus();
   const ops = useLiveOps(focus);
   const node = ops?.maitriStation.nodeId;
   const people = React.useMemo(() => (ops && node ? peopleAt(ops.seed, ops.events, node) : []), [ops, node]);
@@ -90,7 +89,6 @@ export function LivePersonnelScreen() {
             <h1 className="text-title font-semibold text-fg">Personnel and Missions · {ops.maitriStation.name}</h1>
             <p className="mt-0.5 text-sm text-fg-2">{people.length} people at {ops.maitriStation.name} now. Role coverage: GREEN needs need + 1; AMBER at need; RED below need (R05).</p>
           </div>
-          <div className="ml-auto"><StationContext role={role} node={node} onChange={setFocus} /></div>
         </div>
         <PersonnelActionForm key={node} role={role} node={node} people={people} now={ops.now} />
         <section><SectionHeader title="Critical role coverage" /><RoleCoverage roles={ops.roles} /></section>

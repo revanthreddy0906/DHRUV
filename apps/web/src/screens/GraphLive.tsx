@@ -4,7 +4,7 @@ import { impactOf, knowledgeGraph, type GraphEdge, type GraphNode, type GraphNod
 import { Card, SectionHeader, StateBadge, Tag, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
-import { StationContext } from "../live/StationContext";
+import { useStationFocus } from "../live/stationFocus";
 import { Frame } from "./Frame";
 
 /** Column per node type: supply chain left to right, what it feeds on the right. */
@@ -68,7 +68,7 @@ function edgePath(a: Placed, b: Placed): string {
 export function LiveGraphScreen() {
   const device = useDevice();
   const [params, setParams] = useSearchParams();
-  const [focus, setFocus] = React.useState<string | undefined>(params.get("station") ?? undefined);
+  const [focus] = useStationFocus();
   const ops = useLiveOps(focus);
   const node = ops?.maitriStation.nodeId;
   const graph = React.useMemo(() => (ops && node ? knowledgeGraph({ seed: ops.seed, events: ops.events }, ops.evaluation, node) : null), [ops, node]);
@@ -100,7 +100,6 @@ export function LiveGraphScreen() {
               Click a record to see its links and what a delay or shortage there would reach.
             </p>
           </div>
-          <div className="ml-auto"><StationContext role={device.session.identity.role} node={node} onChange={(n) => { setFocus(n); select(undefined); }} /></div>
         </div>
 
         <div className="grid gap-4 2xl:grid-cols-[1fr_380px]">
