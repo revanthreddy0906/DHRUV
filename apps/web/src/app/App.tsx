@@ -1,5 +1,5 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { LiveDecisionDetail } from "../screens/DecisionLive";
+import { LiveDecisionDetail, LiveDecisionsIndex } from "../screens/DecisionLive";
 import { LiveCargoScreen } from "../screens/CargoLive";
 import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
@@ -55,6 +55,15 @@ function DecisionRoute() {
   if (device) return <LiveDecisionDetail key={decisionId} id={decisionId} />;
   const m: DecisionMoment = (DECISION_MOMENTS as readonly string[]).includes(moment) ? (moment as DecisionMoment) : "hq-2501600";
   return <DecisionDetailScreen key={m} moment={m} />;
+}
+
+/**
+ * /decisions: signed in, the decision waiting (or the latest); signed out, the design reference.
+ * No redirect while the session restores, so a reload never lands on a fixed decision id.
+ */
+function DecisionsIndexRoute() {
+  if (useDevice()) return <LiveDecisionsIndex />;
+  return <DecisionDetailScreen moment="hq-2501600" />;
 }
 
 /** Cargo, Inventory and Personnel take a coarser state than the moment. */
@@ -270,7 +279,7 @@ export function App() {
         <Route path="/screens" element={<Gallery />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/command" element={<CommandRoute />} />
-        <Route path="/decisions" element={<Navigate to="/decisions/DEC-01" replace />} />
+        <Route path="/decisions" element={<DecisionsIndexRoute />} />
         <Route path="/decisions/:decisionId" element={<DecisionRoute />} />
         <Route path="/cargo" element={<CargoRoute />} />
         <Route path="/inventory" element={<InventoryRoute />} />

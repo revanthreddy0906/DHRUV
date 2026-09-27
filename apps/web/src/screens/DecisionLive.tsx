@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Link, Navigate } from "react-router-dom";
 import { SearchX } from "lucide-react";
 import type { ApproveRequest, ApproveResponse, RejectRequest } from "@dhruv/shared";
 import { decisionsView, type DecisionOptionView } from "@dhruv/store";
@@ -43,6 +44,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const decision = decisionsView(events).find((d) => d.id === id);
 
   if (!decision) {
+    const others = decisionsView(events);
     return (
       <Frame moment="start" nav="decisions">
         <div className="flex h-full items-center justify-center p-8">
@@ -50,6 +52,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
             <SearchX size={18} className="mb-2 text-fg-2" aria-hidden />
             <p className="font-semibold text-fg">Decision {id} is not on this device.</p>
             <p className="mt-1">It may not have synced here yet. Local operations continue; it appears after the next sync that brings it in.</p>
+            {others.length > 0 && <DecisionLinks decisions={others} />}
           </div>
         </div>
       </Frame>
@@ -171,6 +174,46 @@ export function LiveDecisionDetail({ id }: { id: string }) {
         onApprove={approve}
         onReject={reject}
       />
+    </Frame>
+  );
+}
+
+function DecisionLinks({ decisions }: { decisions: ReturnType<typeof decisionsView> }) {
+  return (
+    <div className="mt-3">
+      <p className="text-fg">Decisions on this device:</p>
+      <ul className="mt-1 space-y-1">
+        {decisions.map((d) => (
+          <li key={d.id}>
+            <Link to={`/decisions/${d.id}`} className="font-mono text-accent hover:underline">{d.id}</Link>
+            <span className="ml-2 text-[12px]">{nodeLabel(d.node_id)} · {d.status.toLowerCase()}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * /decisions for a signed-in device: the first decision still waiting (the queue's order), else the
+ * most recent one. Decision ids depend on the scenario (DEC-01 in season48, DEC-AGROUND in the 2016
+ * run-through), so the sidebar never links to a fixed id.
+ */
+export function LiveDecisionsIndex() {
+  const device = useDevice();
+  const snap = device?.snapshot;
+  if (!snap) return null;
+  const decisions = decisionsView(snap.events.filter((e) => !snap.rejected.has(e.event_id)));
+  const pick = decisions.find((d) => d.status === "PROPOSED") ?? [...decisions].sort((a, b) => b.proposed_at.localeCompare(a.proposed_at))[0];
+  if (pick) return <Navigate to={`/decisions/${pick.id}`} replace />;
+  return (
+    <Frame moment="start" nav="decisions">
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="max-w-md rounded-xl border border-dashed border-line-strong p-6 text-sm text-fg-2">
+          <p className="font-semibold text-fg">No decisions on this device yet.</p>
+          <p className="mt-1">The engine proposes one when a station falls below its thresholds and a lever can help. It appears here, and in the Command Center's queue, as soon as it reaches this device.</p>
+        </div>
+      </div>
     </Frame>
   );
 }
