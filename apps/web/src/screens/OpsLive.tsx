@@ -1,10 +1,14 @@
 import * as React from "react";
 import { InventoryRow, MissionRow, RoleCoverage } from "../components/ops";
-import { Card, SectionHeader, cx } from "../components/primitives";
+import { reduce } from "@dhruv/engine";
+import type { OpEvent, Seed } from "@dhruv/shared";
+import { Card, SectionHeader, Tag, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { StationContext } from "../live/StationContext";
 import { StockTransactionForm } from "../live/StockTransactionForm";
+import { PersonnelActionForm, type LivePerson } from "../live/PersonnelActionForm";
+import { formatAge } from "../live/format";
 import { Frame } from "./Frame";
 
 const Loading = ({ nav }: { nav: "inventory" | "personnel" }) => (
@@ -50,22 +54,38 @@ export function LiveInventoryScreen() {
   );
 }
 
-/** Role coverage (R05) and mission impact (R07) from the engine; people from the seed with their live station. */
+/** Everyone the engine's reduce() places at `node` now, named from the seed roster. */
+function peopleAt(seed: Seed, events: OpEvent[], node: string): LivePerson[] {
+  const names = new Map(seed.personnel.map((p) => [p.id, p.name]));
+  return [...reduce(seed, events).personnel.values()]
+    .filter((p) => p.nodeId === node)
+    .map((p) => ({ id: p.personId, name: names.get(p.personId) ?? p.personId, role: p.role, nodeId: p.nodeId, status: p.status, lastObservedAt: p.lastObservedAt }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const STATUS_TONE: Record<string, "neutral" | "accent" | "red" | "amber" | "green"> = { ON_STATION: "green", FIELD: "accent", UNAVAILABLE: "amber", INJURED: "red", EVACUATED: "red" };
+
+/** Role coverage (R05) and mission impact (R07) from the engine; people with their live status and station from reduce(). */
 export function LivePersonnelScreen() {
   const device = useDevice();
-  const ops = useLiveOps();
-  if (!device || !ops) return <Loading nav="personnel" />;
-  const canEdit = device.session.identity.role !== "FIELD_LEAD";
-  const node = ops.maitriStation.nodeId;
-  const people = ops.seed.personnel.filter((p) => p.node_id === node);
-  const named = people.filter((p) => !/^P-[MB]\d+$/.test(p.id));
+  const [focus, setFocus] = React.useState<string>();
+  const ops = useLiveOps(focus);
+  const node = ops?.maitriStation.nodeId;
+  const people = React.useMemo(() => (ops && node ? peopleAt(ops.seed, ops.events, node) : []), [ops, node]);
+  if (!device || !ops || !node) return <Loading nav="personnel" />;
+  const { role } = device.session.identity;
+  const canEdit = role !== "FIELD_LEAD";
   return (
     <Frame moment="start" nav="personnel">
       <div className="space-y-4 p-5">
-        <div>
-          <h1 className="text-xl font-semibold text-fg">Personnel and Missions · {ops.maitriStation.name}</h1>
-          <p className="mt-0.5 text-sm text-fg-2">{people.length} winterers in the seed. Role coverage: GREEN needs need + 1; AMBER at need; RED below need (R05).</p>
+        <div className="flex items-end gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-fg">Personnel and Missions · {ops.maitriStation.name}</h1>
+            <p className="mt-0.5 text-sm text-fg-2">{people.length} people at {ops.maitriStation.name} now. Role coverage: GREEN needs need + 1; AMBER at need; RED below need (R05).</p>
+          </div>
+          <div className="ml-auto"><StationContext role={role} node={node} onChange={setFocus} /></div>
         </div>
+        <PersonnelActionForm key={node} role={role} node={node} people={people} now={ops.now} />
         <section><SectionHeader title="Critical role coverage" /><RoleCoverage roles={ops.roles} /></section>
         <div className="grid grid-cols-[1.6fr_1fr] gap-4">
           <Card pad="none" className="overflow-hidden">
@@ -75,10 +95,18 @@ export function LivePersonnelScreen() {
             </tbody></table>
             {ops.maitriStation.missions.length === 0 && <p className="p-4 text-sm text-fg-2">No missions for this station in the seed.</p>}
           </Card>
-          <Card>
-            <SectionHeader title="Named people (seed)" />
-            <ul className="divide-y divide-line text-[13px]">{named.map((p) => <li key={p.id} className="flex justify-between py-1.5"><span className="text-fg">{p.name}</span><span className="text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></li>)}</ul>
-            <p className="mt-2 text-[11px] text-fg-2">Other winterers are generated in the seed and not named here.</p>
+          <Card pad="none" className="overflow-hidden">
+            <div className="px-4 pt-3"><SectionHeader title="People (live)" meta={<span className="text-[11px] text-fg-2">status · last update</span>} /></div>
+            <ul className="max-h-96 divide-y divide-line overflow-y-auto px-4 text-[13px]">
+              {people.map((p) => (
+                <li key={p.id} className="flex items-center gap-2 py-1.5">
+                  <span className="min-w-0 flex-1 truncate text-fg">{p.name}<span className="ml-1.5 text-[11px] text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
+                  <Tag tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status.replace("_", " ")}</Tag>
+                  <span className="w-14 text-right font-mono text-[11px] text-fg-2">{formatAge(p.lastObservedAt, ops.now)}</span>
+                </li>
+              ))}
+            </ul>
+            {people.length === 0 && <p className="p-4 text-sm text-fg-2">No one is at this station now.</p>}
           </Card>
         </div>
       </div>
