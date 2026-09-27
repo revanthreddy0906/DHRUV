@@ -3,6 +3,7 @@ import {
   computeStockBalance,
   config,
   EVENT_RULES,
+  withCreatedShipments,
   type OpEvent,
   type Seed,
 } from "@dhruv/shared";
@@ -30,7 +31,8 @@ interface DevicePersonRecord {
   observedAt: string;
 }
 
-export function reduce(seed: Seed, events: OpEvent[]): State {
+export function reduce(baseSeed: Seed, events: OpEvent[]): State {
+  const seed = withCreatedShipments(baseSeed, events);
   const sorted = [...events].sort(compareEvents);
 
   const inventory = new Map<string, InventoryState>();

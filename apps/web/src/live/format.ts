@@ -46,3 +46,12 @@ export function daysToResupply(nowIso: string): number {
 export function addHours(iso: string, hours: number): string {
   return new Date(Date.parse(iso) + hours * 3_600_000).toISOString();
 }
+
+/** "7 Feb", "7 Feb 2027" or "2027-02-07" as midnight UTC in the demo year; null if unreadable. */
+export function parseEtaInput(input: string): string | null {
+  const t = input.trim();
+  // Date() alone is lenient ("soon 2027" parses), so only the three documented forms are read.
+  if (!/^(\d{1,2} [A-Za-z]{3,9}( \d{4})?|\d{4}-\d{2}-\d{2})$/.test(t)) return null;
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T00:00:00Z` : `${t}${/\d{4}/.test(t) ? "" : " 2027"} 00:00 UTC`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}

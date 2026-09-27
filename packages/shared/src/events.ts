@@ -24,6 +24,31 @@ export const payloadSchemas = {
   BURN_RATE_CHANGED: z
     .object({ item_id: z.string(), phase: z.enum(["CLOSING", "WINTER", "MOBILISATION"]), new_rate: z.number().optional(), uplift_pct: z.number().optional() })
     .refine((p) => p.new_rate !== undefined || p.uplift_pct !== undefined, "new_rate or uplift_pct is required"),
+  /**
+   * DHRUV extension (not in section 6): a new inbound shipment with its legs and cargo lines. The
+   * seed's shipments are the only other source; withCreatedShipments() folds these into the seed.
+   */
+  SHIPMENT_CREATED: z.object({
+    shipment_id: z.string().min(1),
+    name: z.string().min(1),
+    priority: z.enum(["CRITICAL", "HIGH", "NORMAL"]),
+    dest_node_id: z.string().min(1),
+    legs: z
+      .array(
+        z.object({
+          leg_id: z.string().min(1),
+          seq: z.number().int().min(1),
+          from_node: z.string().min(1),
+          to_node: z.string().min(1),
+          etd: iso.nullable().optional(),
+          eta: iso,
+          vessel_id: z.string().nullable().optional(),
+        }),
+      )
+      .min(1)
+      .refine((legs) => new Set(legs.map((l) => l.leg_id)).size === legs.length, "leg ids must be unique"),
+    cargo: z.array(z.object({ inventory_item_id: z.string().min(1), qty: z.number().positive() })),
+  }),
   LEG_UPDATED: z.object({ leg_id: z.string(), etd: iso.optional(), eta: iso.optional(), status: z.enum(["PLANNED", "IN_TRANSIT", "DONE", "DELAYED"]) }),
   LEG_DELAYED: z.object({ leg_id: z.string(), new_eta: iso, reason: z.string() }),
   VESSEL_UPDATED: z.object({ vessel_id: z.string(), departure: iso.optional(), load_cutoff: iso.optional(), eta_station: iso.optional() }),
@@ -93,6 +118,7 @@ export const EVENT_RULES: Record<EventType, EventRule> = {
   STOCK_ISSUED: { defaultPriority: 2, allowedRoles: [SL], mergeClass: "B" },
   STOCK_RECEIVED: { defaultPriority: 2, allowedRoles: [SL], mergeClass: "B" },
   BURN_RATE_CHANGED: { defaultPriority: 2, allowedRoles: [SL, HQ], mergeClass: "C" }, // unspecified
+  SHIPMENT_CREATED: { defaultPriority: 3, allowedRoles: [HQ], mergeClass: "A" },
   LEG_UPDATED: { defaultPriority: 3, allowedRoles: [HQ, SYS], mergeClass: "C" },
   LEG_DELAYED: { defaultPriority: 3, allowedRoles: [HQ], mergeClass: "C" },
   VESSEL_UPDATED: { defaultPriority: 3, allowedRoles: [HQ, SYS], mergeClass: "C" },

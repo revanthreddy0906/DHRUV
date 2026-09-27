@@ -4,6 +4,7 @@ export * from "./api.js";
 export * from "./config.js";
 export * from "./conflicts.js";
 export * from "./stock.js";
+export * from "./shipments.js";
 
 export type {
   Seed,

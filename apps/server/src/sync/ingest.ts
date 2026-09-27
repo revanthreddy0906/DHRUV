@@ -10,12 +10,13 @@ import {
   type ErrorCode,
   type LoginRole,
   type OpEvent,
+  type PayloadOf,
 } from "@dhruv/shared";
 import { DEVICES, type FollowUp } from "@dhruv/seed";
 import { getEvent, insertEvent, listAllEvents, nextSeq } from "../db/events.js";
 import { listConflicts, rebuildProjections } from "../db/projections.js";
 import { seedStock } from "../db/seedData.js";
-import { checkApproval, checkRejection, conflictFlag, entityOwner, ownerOf } from "./authorize.js";
+import { checkApproval, checkRejection, conflictFlag, entityOwner, ownerOf, shipmentCreationProblem } from "./authorize.js";
 
 export interface Identity {
   device_id: string;
@@ -118,6 +119,11 @@ function check(db: Database.Database, raw: unknown, identity: Identity | undefin
         return { event_id: eventId, code: "INVALID_EVENT", message: "resolver must be the resolving device's own id" };
       }
     }
+  }
+
+  if (event.type === "SHIPMENT_CREATED") {
+    const problem = shipmentCreationProblem(db, event.payload as PayloadOf<"SHIPMENT_CREATED">);
+    if (problem) return { event_id: eventId, code: "INVALID_EVENT", message: problem };
   }
 
   // Section 15 skew rule. Off in demo mode: demo time (Jan 2027) is far ahead of the server's real clock.

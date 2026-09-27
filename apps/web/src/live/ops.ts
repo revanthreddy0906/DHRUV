@@ -1,5 +1,5 @@
 import * as React from "react";
-import { EVENT_RULES } from "@dhruv/shared";
+import { EVENT_RULES, withCreatedShipments } from "@dhruv/shared";
 import { LEVER_ACTIONS, NODES, season48 } from "@dhruv/seed";
 import { evaluate, reduce, type Evaluation, type StationEval as EngineStationEval } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
@@ -83,7 +83,11 @@ function risksOf(evaluation: Evaluation, conflicts: ConflictView[], now: string)
   return out.sort((a, b) => rank[a.state] - rank[b.state]);
 }
 
-export function useLiveOps(): LiveOps | null {
+/**
+ * `focusNode` lets HQ Ops look at another station; it is ignored for station roles, who always see
+ * the station in their token.
+ */
+export function useLiveOps(focusNode?: string): LiveOps | null {
   const device = useDevice();
   const snap = device?.snapshot;
   return React.useMemo(() => {
@@ -99,9 +103,14 @@ export function useLiveOps(): LiveOps | null {
     const openConflicts = conflicts.filter((c) => c.status === "OPEN");
     const openIncidents = incidentsView(events).filter((i) => i.open);
 
-    const seed = snap.seed ?? season48;
+    // Shipments HQ created (SHIPMENT_CREATED) join the seed's, so every view that lists shipments,
+    // legs or cargo lines sees them without a second model.
+    const seed = withCreatedShipments(snap.seed ?? season48, events);
     const realEvaluation = evaluate({ seed, events }, now);
-    const focus = realEvaluation.stations.some((s) => s.nodeId === identity.node_id) ? identity.node_id : NODES.MAITRI;
+    const evaluated = (n: string | undefined) => !!n && realEvaluation.stations.some((s) => s.nodeId === n);
+    const focus = evaluated(identity.node_id)
+      ? identity.node_id
+      : identity.role === "HQ_OPS" && evaluated(focusNode) ? focusNode! : NODES.MAITRI;
     const adapted = adaptLiveEvaluation(realEvaluation, seed, now, focus);
     const focusEval = realEvaluation.stations.find((s) => s.nodeId === focus);
     const reduced = reduce(seed, events);
@@ -194,5 +203,5 @@ export function useLiveOps(): LiveOps | null {
       events,
       now,
     };
-  }, [device, snap]);
+  }, [device, snap, focusNode]);
 }

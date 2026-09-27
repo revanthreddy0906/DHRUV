@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Pencil, TriangleAlert } from "lucide-react";
+import { PackagePlus, Pencil, TriangleAlert } from "lucide-react";
 import { checkCargoFeasibilityConfidence, classifyFreshness, evaluate, reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
 import type { LegView, ShipmentView } from "../data/demo";
@@ -7,17 +7,11 @@ import { LegTimeline } from "../components/ops";
 import { Button, Card, SectionHeader } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
+import { ShipmentForm } from "../live/ShipmentForm";
 import { nodeLabel } from "../live/chrome";
 import { dayLabel } from "../live/describe";
-import { formatAge } from "../live/format";
+import { formatAge, parseEtaInput } from "../live/format";
 import { Frame } from "./Frame";
-
-/** "7 Feb", "7 Feb 2027" or "2027-02-07" as midnight UTC in the demo year; null if unreadable. */
-function parseEtaInput(input: string): string | null {
-  const t = input.trim();
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T00:00:00Z` : `${t}${/\d{4}/.test(t) ? "" : " 2027"} 00:00 UTC`);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
 
 /** When a leg's ETA was last reported (LEG_UPDATED / LEG_DELAYED). */
 function reportedAt(events: OpEvent[], legId: string): string | undefined {
@@ -78,6 +72,7 @@ export function LiveCargoScreen() {
   const device = useDevice();
   const ops = useLiveOps();
   const [edit, setEdit] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
   const [shipmentId, setShipmentId] = React.useState<string>();
   const [newEtaInput, setNewEtaInput] = React.useState("7 Feb");
   const [reasonInput, setReasonInput] = React.useState("feeder vessel delayed");
@@ -141,14 +136,23 @@ export function LiveCargoScreen() {
             <h1 className="text-xl font-semibold text-fg">Cargo</h1>
             {vessel && (
               <p className="mt-0.5 text-sm text-fg-2">
-                Inbound to {nodeLabel(seed.shipments[0]?.dest_node_id ?? "MAITRI")} · {seed.vessels[0]!.name} load cutoff <span className="font-mono">{dayLabel(vessel.loadCutoff)}</span> · departs {dayLabel(vessel.departure)} · closing {dayLabel(vessel.stationClosingDate)}
+                Inbound to {[...new Set(seed.shipments.map((s) => nodeLabel(s.dest_node_id)))].join(" and ") || nodeLabel("MAITRI")} · {seed.vessels[0]!.name} load cutoff <span className="font-mono">{dayLabel(vessel.loadCutoff)}</span> · departs {dayLabel(vessel.departure)} · closing {dayLabel(vessel.stationClosingDate)}
               </p>
             )}
           </div>
           <div className="ml-auto flex gap-2">
+            <Button icon={<PackagePlus size={14} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
             <Button icon={<Pencil size={14} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
           </div>
         </div>
+
+        {creating && isHq && (
+          <ShipmentForm
+            seed={seed}
+            vessel={vessel && seed.vessels[0] ? { id: seed.vessels[0].id, name: seed.vessels[0].name, departure: vessel.departure, etaStation: vessel.etaStation, loadCutoff: vessel.loadCutoff } : undefined}
+            onDone={() => setCreating(false)}
+          />
+        )}
 
         {edit && isHq && (
           <Card className="border-accent/60">

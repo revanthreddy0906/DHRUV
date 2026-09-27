@@ -205,3 +205,29 @@ export function checkRejection(db: Database.Database, identity: Identity, decisi
   if (now < loaded.value.observed_at) return deny(400, "INVALID_EVENT", "rejection cannot be dated before the proposal");
   return loaded;
 }
+
+/**
+ * SHIPMENT_CREATED creates records once (merge class A): its shipment and leg ids must be new to
+ * both the seed tables and earlier SHIPMENT_CREATED events, its destination must be a station, and
+ * each cargo line must be an item that station holds. Returns why it is refused, or null.
+ */
+export function shipmentCreationProblem(db: Database.Database, p: PayloadOf<"SHIPMENT_CREATED">): string | null {
+  const created = (key: "$.shipment_id" | "leg", id: string) =>
+    key === "leg"
+      ? db.prepare(`SELECT 1 FROM events, json_each(events.payload, '$.legs') AS l WHERE events.type = 'SHIPMENT_CREATED' AND json_extract(l.value, '$.leg_id') = ?`).get(id)
+      : db.prepare(`SELECT 1 FROM events WHERE type = 'SHIPMENT_CREATED' AND json_extract(payload, '$.shipment_id') = ?`).get(id);
+
+  if (db.prepare("SELECT 1 FROM shipments WHERE id = ?").get(p.shipment_id) || created("$.shipment_id", p.shipment_id)) {
+    return `shipment ${p.shipment_id} already exists`;
+  }
+  for (const leg of p.legs) {
+    if (db.prepare("SELECT 1 FROM legs WHERE id = ?").get(leg.leg_id) || created("leg", leg.leg_id)) return `leg ${leg.leg_id} already exists`;
+  }
+  const stations = db.prepare("SELECT id FROM nodes WHERE type = 'STATION'").all() as { id: string }[];
+  if (stations.length > 0 && !stations.some((s) => s.id === p.dest_node_id)) return `${p.dest_node_id} is not a station`;
+  for (const line of p.cargo) {
+    const owner = entityOwner(db, "inventory_item", line.inventory_item_id);
+    if (owner && owner !== p.dest_node_id) return `${line.inventory_item_id} belongs to ${owner}, not ${p.dest_node_id}`;
+  }
+  return null;
+}
