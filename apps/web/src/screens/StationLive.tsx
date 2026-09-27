@@ -1,12 +1,11 @@
 import * as React from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { FlaskConical, Network, Sigma } from "lucide-react";
-import { adaptTraces } from "../live/adapter";
 import { Button, Card, GateBanner, SectionHeader, StateBadge } from "../components/primitives";
 import { DimensionsTable, Disclosure, MissionList } from "../components/station";
 import { BaselineB0Badge } from "../components/readiness";
 import { TraceDrawer } from "../components/trace";
-import { DIMENSION_LABEL, dimensionHeadline, drivingDimension, stationReason } from "../format";
+import { DIMENSION_LABEL, b0Line, dimensionHeadline, dimensionReason, drivingDimension, formatDate, stationReason } from "../format";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveChrome } from "../live/chrome";
 import { useLiveOps } from "../live/ops";
@@ -67,8 +66,11 @@ export function LiveStationScreen() {
     <Frame moment="start" nav="stations" simulation={whatIf}
       drawer={<>
         {traced && (
-          <TraceDrawer title={`${view.name} · ${DIMENSION_LABEL[traced.key] ?? traced.key}`} subtitle={`As seen by ${live.deviceId} at ${live.clock}`}
-            steps={adaptTraces(traced.trace)} onClose={() => setTraceKey(undefined)} />
+          <TraceDrawer key={traced.key} title={`${view.name} · ${DIMENSION_LABEL[traced.key] ?? traced.key}`} state={traced.state} subtitle={`As seen by ${live.deviceId} at ${live.clock}`}
+            steps={traced.trace} units={Object.fromEntries((traced.items ?? []).map((i) => [i.id, i.unit]))}
+            b0={traced.baselineB0 ? b0Line(traced.baselineB0) : undefined}
+            explanation={traced.state === "GREEN" ? undefined : { source: "template", text: `${dimensionReason(traced)}${traced.key === "FUEL" && st.pnr?.pnrDate ? ` Point of no return: ${formatDate(st.pnr.pnrDate)}, ${st.pnr.daysRemaining ?? 0} days left.` : ""}` }}
+            onClose={() => setTraceKey(undefined)} />
         )}
         {whatIf && <LiveWhatIfDrawer ops={ops} role={live.role} onClose={() => setWhatIf(false)} />}
       </>}>

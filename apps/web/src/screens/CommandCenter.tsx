@@ -2,7 +2,7 @@ import * as React from "react";
 import { MOMENTS, TIMELINES, HERO_TRACE, FRESHNESS_TRACE_HQ_2501600, START_TRACE, APPROVED_TRACE, CALENDAR, type MomentId } from "../data/demo";
 import { Frame } from "./Frame";
 import { IncidentStrip, NeedsAttention, RecentEvents, SeasonPanel, StationsTable, StatusLine, type AttentionView } from "../components/command";
-import { TraceDrawer } from "../components/trace";
+import { TraceDrawer, traceText } from "../components/trace";
 import { WhatIfDrawer } from "../components/whatif";
 import { cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
@@ -87,7 +87,8 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
     <Frame moment={moment} nav="command" simulation={sim}
       drawer={<>
         {/* Design previews only (?trace=1): signed in, the math opens from the Station page on the dimension clicked. */}
-        {showTrace && !ops && <TraceDrawer title="Maitri · Fuel" subtitle={`As seen by ${MOMENTS[moment].viewer.id} at ${MOMENTS[moment].clock}`} steps={fixtureTrace} animate={cascade} onClose={() => setShowTrace(false)} />}
+        {showTrace && !ops && <TraceDrawer title="Maitri · Fuel" state={MOMENTS[moment].stations[0]?.dimensions.find((d) => d.key === "FUEL")?.state} subtitle={`As seen by ${MOMENTS[moment].viewer.id} at ${MOMENTS[moment].clock}`}
+          steps={fixtureTrace.map((s) => ({ rule: s.rule, text: traceText(s) }))} units={{ "INV-DSL": "kL" }} animate={cascade} onClose={() => setShowTrace(false)} />}
         {sim && (ops && live ? <LiveWhatIfDrawer ops={ops} role={live.role} onClose={() => setSim(false)} /> : <WhatIfDrawer onClose={() => setSim(false)} onDiscard={() => setSim(false)} />)}
       </>}>
       <div className="space-y-6 p-6">
