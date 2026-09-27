@@ -1,5 +1,5 @@
 import type { LinkStatus } from "@dhruv/shared";
-import { findBeat, type BeatEvent } from "@dhruv/seed";
+import { DEFAULT_SCENARIO, findBeat, type BeatEvent } from "@dhruv/seed";
 import { clearDeviceStore, type DhruvDb } from "./db.js";
 import { now } from "./clock.js";
 import { jumpClock, setLinkStatus } from "./controls.js";
@@ -103,7 +103,10 @@ export function attachDirectorListener(db: DhruvDb, identity: DeviceIdentity, ch
 
 export interface DirectorAdminApi {
   runServerBeat(beat: string): Promise<{ events_created: number }>;
-  resetServer(): Promise<void>;
+  /** Reset to Start, to `scenario` when named (the server remembers it for its beats). */
+  resetServer(scenario?: string): Promise<void>;
+  /** The scenario the server was last reset to. */
+  activeScenario?(): Promise<string>;
 }
 
 /** Admin calls need an authenticated session; the Director panel runs inside a logged-in tab. */
@@ -111,9 +114,10 @@ export function createDirectorHttpApi(baseUrl: string, getToken: () => string, f
   const call = createApiCall(baseUrl, getToken, fetchImpl);
   return {
     runServerBeat: (beat) => call(`/admin/director/${encodeURIComponent(beat)}`, { method: "POST" }),
-    resetServer: async () => {
-      await call("/admin/seed", { method: "POST" });
+    resetServer: async (scenario) => {
+      await call("/admin/seed", scenario ? { method: "POST", body: JSON.stringify({ scenario }) } : { method: "POST" });
     },
+    activeScenario: async () => (await call<{ scenario: string }>("/admin/scenario")).scenario,
   };
 }
 
@@ -125,7 +129,7 @@ export interface OpenDevice {
 export interface BeatResult {
   beat: string;
   label: string;
-  where: "server" | "client" | "emergent";
+  where: "server" | "client" | "emergent" | "operator";
   /** Device ids that applied it, or "server". */
   appliedOn: string[];
   eventsCreated: number;
@@ -142,11 +146,12 @@ export interface DirectorOptions {
 
 export interface Director {
   devices(): Promise<OpenDevice[]>;
-  runBeat(beat: string): Promise<BeatResult>;
+  /** Runs a beat of `scenario` (season48 by default). An operator beat is done for the presenter. */
+  runBeat(beat: string, scenario?: string): Promise<BeatResult>;
   jumpClock(now: string): Promise<string[]>;
   setLink(nodeId: string, status: LinkStatus, observedAt?: string): Promise<string[]>;
   /** Reset to Start: server state and every open device's local store. */
-  reset(): Promise<string[]>;
+  reset(scenario?: string): Promise<string[]>;
   close(): void;
 }
 
@@ -204,12 +209,28 @@ export function createDirector({ channel = openDirectorChannel(), admin, timeout
     return command({ kind: "link", id: nextId(), node_id: nodeId, status, observed_at: observedAt }, targets);
   };
 
-  async function runBeat(beatId: string): Promise<BeatResult> {
-    const beat = findBeat(beatId);
-    if (!beat) throw new Error(`no Director beat ${beatId}`);
+  /** Moves every open tab's clock forward (never back) to `at`. */
+  async function catchUp(at: string | undefined): Promise<void> {
+    if (!at) return;
+    const open = (await devices()).map((d) => d.device_id);
+    if (open.length > 0) await command({ kind: "clock", id: nextId(), now: at, forwardOnly: true }, open);
+  }
+
+  async function runBeat(beatId: string, scenario: string = DEFAULT_SCENARIO): Promise<BeatResult> {
+    const beat = findBeat(beatId, scenario);
+    if (!beat) throw new Error(`no Director beat ${beatId} in ${scenario}`);
+    const result = await applyBeat(beat);
+    // Real-incident beats span weeks: every tab follows the story's clock.
+    if (beat.advanceClock && beat.where !== "server") {
+      await catchUp([...beat.events.map((e) => e.observed_at), ...(beat.approve ? [beat.approve.observed_at] : [])].sort().at(-1));
+    }
+    return result;
+  }
+
+  async function applyBeat(beat: NonNullable<ReturnType<typeof findBeat>>): Promise<BeatResult> {
     const base = { beat: beat.beat, label: beat.label, where: beat.where };
 
-    if (beat.where === "server") {
+    if (beat.where === "server" || (beat.where === "operator" && beat.approve)) {
       const { events_created } = await admin.runServerBeat(beat.beat);
       // Every open tab catches up to the beat's time, so what the beat recorded is not in their
       // future (an approval dated before the proposal it approves is refused by the server).
@@ -247,8 +268,8 @@ export function createDirector({ channel = openDirectorChannel(), admin, timeout
     return { ...base, appliedOn: [...appliedOn], eventsCreated: beat.events.length };
   }
 
-  async function reset(): Promise<string[]> {
-    await admin.resetServer();
+  async function reset(scenario?: string): Promise<string[]> {
+    await admin.resetServer(scenario);
     const open = await devices();
     return open.length === 0 ? [] : command({ kind: "reset", id: nextId() }, open.map((d) => d.device_id));
   }

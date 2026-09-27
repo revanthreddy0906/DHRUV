@@ -7,7 +7,7 @@ import { INCIDENT } from "../data/demo";
 import type { Freshness, Tier } from "../data/types";
 import { useDevice } from "./DeviceProvider";
 import { nodeLabel } from "./chrome";
-import { coords, describeEvent } from "./describe";
+import { coords, describeEvent, incidentTypeLabel } from "./describe";
 import { formatAge, formatShort } from "./format";
 import { useLiveOps } from "./ops";
 
@@ -175,6 +175,7 @@ export function useLiveIncident(): LiveIncident | null {
       openedAt: formatShort(incident.opened_at),
       openedBy: opener,
       team: incident.team_id ?? incident.person_ids.join(", "),
+      headline: incident.team_id || incident.person_ids.length ? undefined : incidentTypeLabel(incident.type),
       mission: mission ? `${mission.id} ${mission.name}` : "no mission recorded",
       people,
       lastConfirmed,

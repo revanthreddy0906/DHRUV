@@ -37,3 +37,13 @@ export function seedStock(db: Database.Database): Map<string, number> {
   const rows = db.prepare(`SELECT id, stock FROM inventory_items`).all() as { id: string; stock: number }[];
   return new Map(rows.map((r) => [r.id, r.stock]));
 }
+
+/** The Director scenario the reference tables were last reset to (season48 until one is chosen). */
+export function activeScenario(db: Database.Database): string {
+  const row = db.prepare(`SELECT value FROM server_meta WHERE key = 'scenario'`).get() as { value: string } | undefined;
+  return row?.value ?? "season48";
+}
+
+export function setActiveScenario(db: Database.Database, scenario: string): void {
+  db.prepare(`INSERT INTO server_meta (key, value) VALUES ('scenario', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`).run(scenario);
+}

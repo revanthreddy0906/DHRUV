@@ -21,4 +21,5 @@ export type {
   ApproveResponse,
   RejectRequest,
   ScenarioRequest,
+  StorageResponse,
 } from "./api.js";

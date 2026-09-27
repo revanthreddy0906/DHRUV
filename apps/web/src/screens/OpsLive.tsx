@@ -1,4 +1,6 @@
 import * as React from "react";
+import { Link } from "react-router-dom";
+import { Network } from "lucide-react";
 import { InventoryRow, MissionRow, RoleCoverage } from "../components/ops";
 import { reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
@@ -36,7 +38,10 @@ export function LiveInventoryScreen() {
             <h1 className="text-xl font-semibold text-fg">Inventory · {ops.maitriStation.name}</h1>
             <p className="mt-0.5 text-sm text-fg-2">Ratio = (stock + feasible inbound) / requirement to the next resupply with reserve. Evaluated on this device at its own clock.</p>
           </div>
-          <div className="ml-auto"><StationContext role={role} node={node} onChange={setFocus} /></div>
+          <div className="ml-auto flex items-center gap-3">
+            <Link to={`/graph?station=${node}&focus=${rows[0]?.id ?? ""}`} className="flex items-center gap-1 text-[12px] text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
+            <StationContext role={role} node={node} onChange={setFocus} />
+          </div>
         </div>
         <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} />
         <Card pad="none" className="overflow-hidden">

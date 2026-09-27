@@ -663,3 +663,5 @@ export function fuelRobustness(
     leversApplied: appliedLeverIds(state, nodeId).length > 0,
   };
 }
+export { knowledgeGraph, impactOf, type KnowledgeGraph, type GraphNode, type GraphEdge, type GraphNodeType, type EdgeSource } from "./graph.js";
+export { legMilestones, type Milestone, type MilestoneState, type ShipmentMilestones } from "./milestones.js";

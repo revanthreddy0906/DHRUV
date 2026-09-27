@@ -1,7 +1,7 @@
 import * as React from "react";
 import { EVENT_RULES, withCreatedShipments } from "@dhruv/shared";
 import { LEVER_ACTIONS, NODES, season48 } from "@dhruv/seed";
-import { evaluate, reduce, type Evaluation, type StationEval as EngineStationEval } from "@dhruv/engine";
+import { evaluate, legMilestones, reduce, type Evaluation, type ShipmentMilestones, type StationEval as EngineStationEval } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
 import { ageHours, uncertaintyRadiusKm } from "@dhruv/map";
 import { conflictsView, decisionsView, incidentsView, lastCheckIn, timeline, type ConflictView, type DecisionView, type IncidentView } from "@dhruv/store";
@@ -10,6 +10,7 @@ import type { InventoryView } from "../data/demo";
 import type { Health, Lever, OpEventRow, OptionEval, StationEval, Tier, TraceStep } from "../data/types";
 import { adaptLiveEvaluation, inventoryRows, leverViews, roleRows } from "./adapter";
 import { useDevice } from "./DeviceProvider";
+import { exceptionsOf, forViewer, type OpsException } from "./exceptions";
 import { nodeLabel } from "./chrome";
 import { coords, dayLabel, describeEvent, incidentTypeLabel } from "./describe";
 import { formatAge } from "./format";
@@ -40,6 +41,10 @@ export interface LiveOps {
   options: OptionEval[];
   traceSteps: TraceStep[];
   risks: { text: string; state: Health | "INFO"; age?: string }[];
+  /** Back-scheduled milestones per shipment (engine legMilestones). */
+  milestones: ShipmentMilestones[];
+  /** Exception queue for this viewer: their station, their role's items first. */
+  exceptions: OpsException[];
   vessel?: { name: string; loadCutoff: string; departs: string; eta: string; closing: string };
   inventory: InventoryView[];
   roles: ReturnType<typeof roleRows>;
@@ -155,11 +160,15 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       const position = incident.team_id ? lastCheckIn(events, incident.team_id) : null;
       const age = ageHours(now, incident.last_confirmed_at);
       const radius = uncertaintyRadiusKm(age);
-      incidentStrip = [
-        `${incident.id} · ${incident.team_id ?? incident.person_ids.join(", ")} ${incidentTypeLabel(incident.type)}`,
-        `last confirmed ${formatAge(incident.last_confirmed_at, now)} ago${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
-        radius !== null ? `circle ${Math.round(radius)} km` : "position fresh",
-      ].join(" · ");
+      // Only incidents about people or a team have a position to be uncertain about.
+      const tracked = !!incident.team_id || incident.person_ids.length > 0;
+      incidentStrip = tracked
+        ? [
+            `${incident.id} · ${incident.team_id ?? incident.person_ids.join(", ")} ${incidentTypeLabel(incident.type)}`,
+            `last confirmed ${formatAge(incident.last_confirmed_at, now)} ago${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
+            radius !== null ? `circle ${Math.round(radius)} km` : "position fresh",
+          ].join(" · ")
+        : `${incident.id} · ${incidentTypeLabel(incident.type)} at ${nodeLabel(incident.node_id)} · opened ${formatAge(incident.opened_at, now)} ago`;
     }
 
     const rows = timeline(events).map((e) => ({
@@ -179,6 +188,12 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       age: formatAge(e.observed_at, now),
     }));
 
+    const milestones = legMilestones({ seed, events }, now);
+    const exceptions = forViewer(
+      exceptionsOf({ evaluation: realEvaluation, milestones, decisions, conflicts, incidents: openIncidents, refused: snap.rejected.size, now }),
+      identity.role, identity.node_id,
+    );
+
     return {
       decisions: queue,
       openDecisions,
@@ -195,6 +210,8 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       options: adapted.options,
       traceSteps: adapted.traceSteps,
       risks: risksOf(realEvaluation, openConflicts, now),
+      milestones,
+      exceptions,
       vessel,
       inventory: inventoryRows(focusEval, seed, now),
       roles: roleRows(focusEval, seed),

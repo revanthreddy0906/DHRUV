@@ -379,7 +379,7 @@ Straddle flag fires when `low` falls into a worse state than the point estimate.
 
 **What does not:** seeing other nodes' new events until sync; HQ-authority decision approval (queued as a proposal); uncached map tiles (schematic fallback); attachment upload (queued, lowest priority); AI explanation (falls back to templates).
 
-**Client architecture.** Dexie database `paridhi` with stores: `events` (all known events, PK `event_id`), `outbox` (unacknowledged events, key `[device_id+seq]`), `meta` (last pulled cursor, device id, seq counter), `cache` (map tile metadata). The UI reads only from the local `events` store and the engine — never waits on the network.
+**Client architecture.** One Dexie database per device, `dhruv-<device_id>`, with stores: `events` (all known events, PK `event_id`), `outbox` (unacknowledged events, key `[device_id+seq]`, pending or rejected), `meta` (seq counter, pull cursor, log epoch, sync failures), `cache` (the season seed, for offline start). See `docs/data-storage.md`. The UI reads only from the local `events` store and the engine — never waits on the network.
 
 ---
 
@@ -516,7 +516,11 @@ CREATE TABLE conflicts (id TEXT PRIMARY KEY, entity_type TEXT NOT NULL, entity_i
 CREATE TABLE incidents (id TEXT PRIMARY KEY, type TEXT NOT NULL, status TEXT NOT NULL, opened_at TEXT NOT NULL, last_confirmed_at TEXT, involved TEXT NOT NULL);
 ```
 
-The server does not persist a computed projection in the demo — it recomputes `reduce()` on read (fast enough at this data size). Dexie holds the same events client-side and reduces locally.
+```sql
+CREATE TABLE server_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);  -- the log epoch, renewed on Reset to Start
+```
+
+`decisions`, `conflicts` and `incidents` are projections: the server wipes and rebuilds them from the whole log after each accepted batch, so they can always be dropped. Stock, leg ETAs, person status and readiness are never stored: every device and the server compute them with `reduce()` and `evaluate()` on the events they hold. `GET /storage` reports row counts of every table. See `docs/data-storage.md`.
 
 ---
 

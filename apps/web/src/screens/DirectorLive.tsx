@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { Clapperboard, RotateCcw, Radio, Clock } from "lucide-react";
-import type { LinkStatus } from "@dhruv/shared";
-import { DIRECTOR_BEATS, NODES } from "@dhruv/seed";
+import { Clapperboard, RotateCcw, Radio, Clock, Hand, ExternalLink } from "lucide-react";
+import type { LinkStatus, OpEvent } from "@dhruv/shared";
+import { DEFAULT_SCENARIO, NODES, SCENARIOS, scenarioById, type DirectorBeat } from "@dhruv/seed";
 import { createDirector, createDirectorHttpApi, type Director, type OpenDevice } from "@dhruv/store";
 import { cx } from "../components/primitives";
 import { LinkSwitch } from "../components/shell";
@@ -11,14 +11,15 @@ import { nodeLabel } from "../live/chrome";
 
 type BeatState = { status: "running" | "done" | "error"; text: string };
 
-const CLOCK_JUMPS = [
-  { label: "24 Jan 08:00", iso: "2027-01-24T08:00:00.000Z" },
-  { label: "25 Jan 16:00", iso: "2027-01-25T16:00:00.000Z" },
-  { label: "26 Jan 09:00", iso: "2027-01-26T09:00:00.000Z" },
-];
-
 /** Devices a client beat writes on, so the panel can say which tab must be open. */
-const beatDevices = (beat: (typeof DIRECTOR_BEATS)[number]) => [...new Set(beat.events.map((e) => e.device_id))];
+const beatDevices = (beat: DirectorBeat) => [...new Set(beat.events.map((e) => e.device_id))];
+
+/** An operator step is done once an event of its type (with its payload fields) is in this tab's log. */
+function operatorDone(beat: DirectorBeat, events: OpEvent[] | undefined): boolean {
+  const expect = beat.operator?.expect;
+  if (!expect || !events) return false;
+  return events.some((e) => e.type === expect.type && Object.entries(expect.payload ?? {}).every(([k, v]) => (e.payload as Record<string, unknown>)[k] === v));
+}
 
 /**
  * Scenario Director (hidden, ?director=1, section 17): runs the section 13 beats against the real
@@ -35,14 +36,19 @@ export function LiveDirector() {
   const [director, setDirector] = React.useState<Director | null>(null);
   React.useEffect(() => {
     if (!token || !isHq) return;
-    const d = createDirector({ admin: createDirectorHttpApi("", () => token), timeoutMs: 1500 });
+    const admin = createDirectorHttpApi("", () => token);
+    const d = createDirector({ admin, timeoutMs: 1500 });
     setDirector(d);
+    void admin.activeScenario?.().then((id) => { setActive(id); setScenarioId(id); }).catch(() => undefined);
     return () => {
       d.close();
       setDirector(null);
     };
   }, [token, isHq]);
 
+  const [scenarioId, setScenarioId] = React.useState(DEFAULT_SCENARIO);
+  /** The scenario the server was last reset to: beats run against it. */
+  const [active, setActive] = React.useState<string>();
   const [devices, setDevices] = React.useState<OpenDevice[]>([]);
   const [beats, setBeats] = React.useState<Record<string, BeatState>>({});
   const [links, setLinks] = React.useState<Record<string, LinkStatus>>({ [NODES.MAITRI]: "ONLINE", [NODES.BHARATI]: "ONLINE" });
@@ -91,7 +97,7 @@ export function LiveDirector() {
     void run(`Beat ${beat}`, async () => {
       setBeats((b) => ({ ...b, [beat]: { status: "running", text: "running" } }));
       try {
-        const r = await director.runBeat(beat);
+        const r = await director.runBeat(beat, scenario.id);
         const text = r.where === "emergent" ? "happens on sync" : `applied on ${r.appliedOn.join(", ")}`;
         setBeats((b) => ({ ...b, [beat]: { status: "done", text } }));
         return text;
@@ -101,6 +107,8 @@ export function LiveDirector() {
       }
     });
 
+  const scenario = scenarioById(scenarioId) ?? SCENARIOS[0]!;
+  const stale = active !== undefined && active !== scenario.id;
   const open = new Set(devices.map((d) => d.device_id));
   // A device answering from two tabs would get each client beat twice: show it, don't hide it.
   const answers = new Map<string, { node_id: string; count: number }>();
@@ -108,30 +116,55 @@ export function LiveDirector() {
 
   return (
     <div className="min-h-screen bg-bg p-6">
-      <div className="w-[760px] border-2 border-dashed border-warn bg-bg p-4 font-mono text-[12px] text-fg">
+      <div className="w-[920px] max-w-full border-2 border-dashed border-warn bg-bg p-4 font-mono text-[12px] text-fg">
         <div className="mb-3 flex items-center gap-2 border-b border-line pb-2">
           <Clapperboard size={15} className="text-warn" aria-hidden />
           <span className="font-bold tracking-[0.2em] text-warn">DEMO CONTROL</span>
           <span className="text-fg-2">not part of the product · as {device.session.identity.device_id}</span>
           <Link to="/command" className="border border-line-strong px-2 py-1 text-fg-2 hover:text-fg">← Command</Link>
-          <button type="button" disabled={busy} onClick={() => void run("Reset to Start", async () => { const on = await director.reset(); setBeats({}); setLinks({ [NODES.MAITRI]: "ONLINE", [NODES.BHARATI]: "ONLINE" }); return `server and ${on.length} tab(s) cleared`; })}
+          <button type="button" disabled={busy} onClick={() => void run("Reset to Start", async () => { const on = await director.reset(scenario.id); setActive(scenario.id); setBeats({}); setLinks({ [NODES.MAITRI]: "ONLINE", [NODES.BHARATI]: "ONLINE" }); return `server reset to ${scenario.id}, ${on.length} tab(s) cleared`; })}
             className="ml-auto flex items-center gap-1 border border-line-strong px-2 py-1 hover:border-warn disabled:opacity-50"><RotateCcw size={12} aria-hidden />Reset to Start</button>
         </div>
 
+        <div className="mb-3 space-y-1 border-b border-line pb-3">
+          <label className="flex items-center gap-2">
+            <span className="text-fg-2">Scenario</span>
+            <select aria-label="Scenario" value={scenario.id} onChange={(e) => { setScenarioId(e.target.value); setBeats({}); }} className="border border-line-strong bg-bg px-2 py-1 text-fg">
+              {SCENARIOS.map((sc) => <option key={sc.id} value={sc.id}>{sc.title}</option>)}
+            </select>
+          </label>
+          <p className="text-fg-2">{scenario.blurb}</p>
+          {stale && <p className="text-warn">The server is on {active}. Press Reset to Start to switch it to {scenario.id} before running beats.</p>}
+        </div>
+
         <ol className="space-y-1">
-          {DIRECTOR_BEATS.map((b) => {
+          {scenario.beats.map((b) => {
             const state = beats[b.beat];
-            const needs = beatDevices(b).filter((d) => b.where === "client" && !b.clockJump);
+            const needs = beatDevices(b).filter((d) => (b.where === "client" || b.where === "operator") && !b.clockJump);
             const missing = needs.filter((d) => !open.has(d));
+            const byHand = b.where === "operator" && operatorDone(b, device.snapshot?.events);
             return (
-              <li key={b.beat} className={cx("flex items-center gap-2 border px-2 py-1", state?.status === "done" ? "border-line text-fg-2" : state?.status === "error" ? "border-bad/60" : "border-line-strong")}>
-                <button type="button" disabled={busy} onClick={() => runBeat(b.beat)} className="w-16 shrink-0 border border-line-strong py-0.5 text-center font-bold hover:border-warn disabled:opacity-50">Beat {b.beat}</button>
-                <span className="w-14 shrink-0 text-fg-2">{b.where}</span>
-                <span className="flex-1">
-                  {b.label}
-                  {missing.length > 0 && <span className="ml-2 text-warn">needs {missing.join(", ")} open</span>}
-                </span>
-                {state && <span className={cx("max-w-[260px] truncate text-right", state.status === "done" ? "text-ok" : state.status === "error" ? "text-bad" : "text-fg-2")} title={state.text}>{state.status === "done" ? `done · ${state.text}` : state.text}</span>}
+              <li key={b.beat} className={cx("border px-2 py-1", state?.status === "done" || byHand ? "border-line text-fg-2" : state?.status === "error" ? "border-bad/60" : b.where === "operator" ? "border-accent/60" : "border-line-strong")}>
+                <div className="flex items-center gap-2">
+                  <button type="button" disabled={busy || stale} onClick={() => runBeat(b.beat)} title={b.where === "operator" ? "Do it for me" : undefined}
+                    className="w-16 shrink-0 border border-line-strong py-0.5 text-center font-bold hover:border-warn disabled:opacity-50">Beat {b.beat}</button>
+                  <span className={cx("w-16 shrink-0", b.where === "operator" ? "text-accent" : "text-fg-2")}>{b.where === "operator" ? "by hand" : b.where}</span>
+                  <span className="flex-1">
+                    {b.label}
+                    {missing.length > 0 && <span className="ml-2 text-warn">needs {missing.join(", ")} open</span>}
+                  </span>
+                  {byHand && !state && <span className="text-ok">done in the app</span>}
+                  {state && <span className={cx("max-w-[260px] truncate text-right", state.status === "done" ? "text-ok" : state.status === "error" ? "text-bad" : "text-fg-2")} title={state.text}>{state.status === "done" ? `done · ${state.text}` : state.text}</span>}
+                </div>
+                {b.operator && !byHand && (
+                  <div className="ml-[8.5rem] mt-1 flex items-start gap-1.5 text-accent"><Hand size={12} className="mt-0.5 shrink-0" aria-hidden />{b.operator.instruction}<span className="text-fg-2"> · or press the beat to have it done</span></div>
+                )}
+                {b.real && (
+                  <div className="ml-[8.5rem] mt-0.5 text-[11px] text-fg-2">
+                    <span className="text-fg">What really happened, {b.real.when}:</span> {b.real.text}{" "}
+                    <a href={b.real.source} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline hover:text-fg">source<ExternalLink size={10} aria-hidden /></a>
+                  </div>
+                )}
               </li>
             );
           })}
@@ -158,7 +191,7 @@ export function LiveDirector() {
             ))}
             <div className="flex items-center gap-1 text-fg-2"><Clock size={12} aria-hidden />Clock jump (absolute, every tab)</div>
             <div className="flex gap-1">
-              {CLOCK_JUMPS.map((c) => (
+              {scenario.clockJumps.map((c) => (
                 <button key={c.iso} type="button" disabled={busy} onClick={() => void run(`Clock ${c.label}`, async () => `applied on ${(await director.jumpClock(c.iso)).join(", ")}`)}
                   className="border border-line-strong px-1.5 py-0.5 hover:border-warn disabled:opacity-50">{c.label}</button>
               ))}

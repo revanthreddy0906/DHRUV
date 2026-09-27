@@ -6,6 +6,7 @@ import { PnrStrip, StationCard } from "../components/readiness";
 import type { StationEval } from "../data/types";
 import { DecisionQueue } from "../components/decisions";
 import { RiskList, EventTimeline } from "../components/events";
+import { ExceptionQueue } from "../live/ExceptionQueue";
 import { MapPanel, SchematicMap } from "../components/map";
 import { TraceDrawer } from "../components/trace";
 import { IncidentPanel } from "../components/incident";
@@ -141,7 +142,7 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
         <div className="grid min-h-0 flex-1 grid-cols-[30fr_45fr_25fr] gap-4 p-4">
           <div className="min-h-0 space-y-5 overflow-auto pr-1">
             <DecisionQueue items={ops ? ops.decisions : m.decisions} onOpen={(id) => navigate(ops ? `/decisions/${id}` : `/decisions/${id}?moment=${moment}`)} />
-            <RiskList items={ops ? ops.risks : m.risks} />
+            {ops && live ? <ExceptionQueue items={ops.exceptions} role={live.role} /> : <RiskList items={m.risks} />}
           </div>
           <div className={cx("min-h-0 space-y-3 overflow-auto pr-1", cascade && "dh-cascade-in")}>
             {emergency ? (ops ? <LiveIncidentPanel compact /> : <IncidentPanel compact />) : (

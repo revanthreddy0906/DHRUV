@@ -1,5 +1,6 @@
 import * as React from "react";
-import { PackagePlus, Pencil, TriangleAlert } from "lucide-react";
+import { Network, PackagePlus, Pencil, TriangleAlert } from "lucide-react";
+import { Link } from "react-router-dom";
 import { checkCargoFeasibilityConfidence, classifyFreshness, evaluate, reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
 import type { LegView, ShipmentView } from "../data/demo";
@@ -8,6 +9,7 @@ import { Button, Card, SectionHeader } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { ShipmentForm } from "../live/ShipmentForm";
+import { MilestoneStrip } from "../live/MilestoneStrip";
 import { nodeLabel } from "../live/chrome";
 import { dayLabel } from "../live/describe";
 import { formatAge, parseEtaInput } from "../live/format";
@@ -140,7 +142,8 @@ export function LiveCargoScreen() {
               </p>
             )}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex items-center gap-2">
+            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-[12px] text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
             <Button icon={<PackagePlus size={14} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
             <Button icon={<Pencil size={14} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
           </div>
@@ -149,7 +152,7 @@ export function LiveCargoScreen() {
         {creating && isHq && (
           <ShipmentForm
             seed={seed}
-            vessel={vessel && seed.vessels[0] ? { id: seed.vessels[0].id, name: seed.vessels[0].name, departure: vessel.departure, etaStation: vessel.etaStation, loadCutoff: vessel.loadCutoff } : undefined}
+            vessels={seed.vessels.flatMap((v) => { const st = reduce(seed, events).vessels.get(v.id); return st ? [{ id: v.id, name: v.name, departure: st.departure, etaStation: st.etaStation, loadCutoff: st.loadCutoff }] : []; })}
             onDone={() => setCreating(false)}
           />
         )}
@@ -184,7 +187,7 @@ export function LiveCargoScreen() {
           </Card>
         )}
 
-        {view.shipments.map((s) => <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} />)}
+        {view.shipments.map((s) => { const ms = ops.milestones.find((x) => x.shipmentId === s.id); return <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} milestones={ms && <MilestoneStrip m={ms} />} />; })}
 
         <p className="text-[11px] text-fg-2">
           Cargo-leg freshness is shown as a badge. When an ETA report is STALE or worse and slack ≤ 2 d, R17 marks the inbound UNCERTAIN and the band's low side excludes it.

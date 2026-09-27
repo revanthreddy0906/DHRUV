@@ -1,10 +1,20 @@
-import { season48 } from "@dhruv/seed";
+import { DEFAULT_SCENARIO, scenarioById } from "@dhruv/seed";
 import { openDb } from "./db/index.js";
-import { resetToStart } from "./db/seedData.js";
+import { resetToStart, setActiveScenario } from "./db/seedData.js";
 import { env } from "./env.js";
 
-/** `pnpm seed`: reset server state to Start (section 13): the season48 reference data and an empty event log. */
+/**
+ * `pnpm seed [scenario]`: reset server state to Start (section 13): a scenario's reference data and
+ * an empty event log. season48 by default; `pnpm seed aurora2016` for the 2016 grounding run-through.
+ */
+const id = process.argv[2] ?? DEFAULT_SCENARIO;
+const scenario = scenarioById(id);
+if (!scenario) {
+  console.error(`No scenario "${id}". Try season48 or aurora2016.`);
+  process.exit(1);
+}
 const db = openDb(env.dbFile);
-resetToStart(db, season48);
+resetToStart(db, scenario.seed);
+setActiveScenario(db, scenario.id);
 db.close();
-console.log(`Reset ${env.dbFile} to Start (season48).`);
+console.log(`Reset ${env.dbFile} to Start (${scenario.id}).`);

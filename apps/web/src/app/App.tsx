@@ -1,9 +1,11 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { LiveDecisionDetail } from "../screens/DecisionLive";
+import { LiveDecisionDetail, LiveDecisionsIndex } from "../screens/DecisionLive";
 import { LiveCargoScreen } from "../screens/CargoLive";
 import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
+import { LiveDataScreen } from "../screens/DataLive";
+import { LiveGraphScreen } from "../screens/GraphLive";
 import { LiveDirector } from "../screens/DirectorLive";
 import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
@@ -55,6 +57,15 @@ function DecisionRoute() {
   return <DecisionDetailScreen key={m} moment={m} />;
 }
 
+/**
+ * /decisions: signed in, the decision waiting (or the latest); signed out, the design reference.
+ * No redirect while the session restores, so a reload never lands on a fixed decision id.
+ */
+function DecisionsIndexRoute() {
+  if (useDevice()) return <LiveDecisionsIndex />;
+  return <DecisionDetailScreen moment="hq-2501600" />;
+}
+
 /** Cargo, Inventory and Personnel take a coarser state than the moment. */
 function useOpsState() {
   const moment = useMoment("slip");
@@ -87,6 +98,18 @@ function PersonnelRoute() {
 }
 
 /** Signed out, the Director cannot reach any device: say so, and keep the design mock below for reference. */
+/** A live-only screen opened without a device (yet): it renders as soon as the tab's session is restored. */
+function SignedOut({ what }: { what: string }) {
+  return (
+    <div className="min-h-screen bg-bg">
+      <div role="alert" className="flex items-center gap-3 border-b border-warn/60 bg-warn-tint px-6 py-3 text-sm text-fg">
+        <b>This tab is not signed in.</b> {what}, so it needs a signed-in device.
+        <Link to="/login" className="ml-auto rounded-md border border-accent px-3 py-1 font-semibold text-accent hover:bg-accent-tint">Sign in</Link>
+      </div>
+    </div>
+  );
+}
+
 function DirectorSignedOut() {
   return (
     <div className="min-h-screen bg-bg">
@@ -256,7 +279,7 @@ export function App() {
         <Route path="/screens" element={<Gallery />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/command" element={<CommandRoute />} />
-        <Route path="/decisions" element={<Navigate to="/decisions/DEC-01" replace />} />
+        <Route path="/decisions" element={<DecisionsIndexRoute />} />
         <Route path="/decisions/:decisionId" element={<DecisionRoute />} />
         <Route path="/cargo" element={<CargoRoute />} />
         <Route path="/inventory" element={<InventoryRoute />} />
@@ -264,6 +287,8 @@ export function App() {
         <Route path="/map" element={<MapRoute />} />
         <Route path="/incident" element={<IncidentRoute />} />
         <Route path="/audit" element={<AuditRoute />} />
+        <Route path="/graph" element={device ? <LiveGraphScreen /> : <SignedOut what="Connections shows the links behind this device's own data" />} />
+        <Route path="/data" element={device ? <LiveDataScreen /> : <SignedOut what="Where data lives reads this device's own store" />} />
         <Route path="/sync" element={<SyncRoute />} />
         <Route path="/what-if" element={<Navigate to="/command?moment=hq-2501620&whatif=1" replace />} />
         <Route path="/field" element={<FieldRoute />} />

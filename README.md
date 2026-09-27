@@ -68,6 +68,8 @@ flowchart LR
 - **The server** (Fastify + SQLite) is the meeting point for events. It validates each event against the role and node rules, detects conflicts, runs decision approval with lever follow-ups (holding the vessel emits `VESSEL_UPDATED` and `LEG_UPDATED`), and serves the Scenario Director's beats.
 - **The engine** (`packages/engine`, rules R01–R19) is a pure `evaluate({ seed, events }, now)` that runs identically in the browser and on the server: every station, on fuel, food (from live POB), medical, spares and power, personnel and comms, with missions, levers, options, the point of no return, confidence bands, slip tolerance and the B0 baseline. The server uses it to propose decisions (Director beat 2 records the ranked options); each browser uses it for readiness, traces and what-if, on the events that device holds. Levers of an approved option are applied from the log.
 
+How the data is stored, table by table, is in [docs/data-storage.md](docs/data-storage.md); the **Where data lives** screen (`/data`) shows it live.
+
 The full design is in the Build Bible (SIH26062 source of truth) and its v2 amendment document.
 
 ---
@@ -87,7 +89,10 @@ packages/
   seed/       Season 48 dataset (section 13), Director beats 1–11, lever follow-ups
   engine/     evaluate() (rules R01–R19): pure, deterministic, no clock or randomness
 docs/
-  demo-run.md Step-by-step demo runbook with the expected result of every beat
+  demo-run.md       Step-by-step demo runbook with the expected result of every beat
+  data-storage.md   How data is stored: device IndexedDB, outbox, server SQLite log, what is computed
+  logistics-landscape.md  How other logistics platforms work, with sources, and what DHRUV adopted
+  run-through-aurora-2016.md  A real incident (Aurora Australis aground, 2016) replayed on Maitri, beat by beat
 .github/workflows/ci.yml   Node 20: frozen install, typecheck, test, web build
 ```
 
@@ -158,6 +163,8 @@ The demo follows the Build Bible's runbook: a shipment slips, Maitri turns RED, 
 3. Press **Reset to Start**, then run beats 1–11 while watching the HQ and Maitri tabs.
 
 **[docs/demo-run.md](docs/demo-run.md)** lists every beat and exactly what each screen should show (for example "Maitri offline: INC-01, last confirmed 9 h ago, circle 27 km, HX-1 ≈ 11 min").
+
+**A real incident.** The Director's scenario picker also offers **Aurora Australis aground at Mawson (2016)**, replayed on Maitri with the real dates moved to 2027. Its "by hand" steps are done with the Inventory, Decisions and Cargo forms. See **[docs/run-through-aurora-2016.md](docs/run-through-aurora-2016.md)** for the sources, the adaptation and the expected numbers. `pnpm seed aurora2016` starts the server on it.
 
 Controls available in every signed-in tab:
 
@@ -254,7 +261,7 @@ CI (`.github/workflows/ci.yml`) runs on pushes to `main`, `develop` and `feature
 | Sync drawer, Review queue, Audit, Scenario Director | Live |
 | Engine: every station and dimension, missions, levers and options, PNR, bands, slip tolerance, B0 | Working. All 29 golden cases pass |
 | Readiness, options, traces, Cargo, Inventory, Personnel and Missions, what-if | Live from the engine on each device's events. Signed out, `/screens` shows the design reference states |
-| Manual data entry | HQ can record a leg delay on Cargo (with an engine preview). Stock counts, issues and check-ins come from the Director and the Field screen |
+| Manual data entry | Inventory: Issue, Receive and Count (Station Leader; HQ may count). Cargo: HQ creates shipments (`SHIPMENT_CREATED`) and records leg delays with an engine preview. Personnel: set status, move people between stations. Every form writes one event through `device.write()` |
 | AI explain · Print brief | AI explain not wired yet; Print brief prints the Incident screen, and is not wired on Decision Detail |
 
 **R01 horizon.** The requirement covers a fixed horizon, from the start of the season plan (24 Jan) to the next resupply, because stock changes only through counts, issues and receipts, never through elapsed time. This is what the Bible's golden numbers assume (R = 132.0 kL throughout the demo).

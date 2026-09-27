@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type Database from "better-sqlite3";
 import { EVENT_RULES, type OpEvent, type Seed } from "@dhruv/shared";
-import { DEVICES, findBeat, NODES } from "@dhruv/seed";
+import { DEFAULT_SCENARIO, DEVICES, findBeat, NODES, scenarioById } from "@dhruv/seed";
 import { latestEventOf, nextSeq } from "../db/events.js";
-import { resetToStart } from "../db/seedData.js";
+import { activeScenario, resetToStart, setActiveScenario } from "../db/seedData.js";
 import { env } from "../env.js";
 import { sendError } from "../errors.js";
 import { approveDecision } from "../sync/decisions.js";
@@ -28,16 +28,33 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database.Database,
   };
   const guards = { preHandler: [app.requireAuth, requireHqOps] };
 
-  app.post("/admin/seed", guards, async () => {
+  // Reset to Start, optionally to another Director scenario ({ "scenario": "aurora2016" }).
+  app.post("/admin/seed", guards, async (request, reply) => {
+    const wanted = (request.body as { scenario?: unknown } | undefined)?.scenario;
+    if (wanted !== undefined) {
+      const scenario = typeof wanted === "string" ? scenarioById(wanted) : undefined;
+      if (!scenario) return sendError(reply, 404, "NOT_FOUND", `no scenario ${String(wanted)}`);
+      resetToStart(db, scenario.seed);
+      setActiveScenario(db, scenario.id);
+      return { ok: true, scenario: scenario.id };
+    }
     resetToStart(db, seed);
-    return { ok: true };
+    setActiveScenario(db, DEFAULT_SCENARIO);
+    return { ok: true, scenario: DEFAULT_SCENARIO };
+  });
+
+  app.get("/admin/scenario", guards, async () => {
+    const id = activeScenario(db);
+    return { scenario: id, title: scenarioById(id)?.title ?? id };
   });
 
   app.post("/admin/director/:beat", guards, async (request, reply) => {
     const { beat: beatId } = request.params as { beat: string };
-    const beat = findBeat(beatId);
-    if (!beat) return sendError(reply, 404, "NOT_FOUND", `no Director beat ${beatId}`);
-    if (beat.where !== "server") {
+    const scenario = activeScenario(db);
+    const beat = findBeat(beatId, scenario);
+    if (!beat) return sendError(reply, 404, "NOT_FOUND", `no Director beat ${beatId} in scenario ${scenario}`);
+    // An operator step the server can do itself (an approval) may run here as "do it for me".
+    if (beat.where !== "server" && !(beat.where === "operator" && beat.approve)) {
       return sendError(reply, 400, "INVALID_EVENT", `beat ${beatId} is ${beat.where}; run it from the Director panel on the device`);
     }
 

@@ -4,7 +4,7 @@ import { INCIDENT, SK2_CONFLICT } from "../data/demo";
 import { cx, Button, Checkbox, FreshnessChip, SectionHeader, Tag, PriorityTierBadge, Card } from "./primitives";
 import { LocalAreaMap, MapPanel } from "./map";
 
-export type Inc = Omit<typeof INCIDENT, "lastConfirmed"> & { lastConfirmed: (typeof INCIDENT)["lastConfirmed"] & { ageHours?: number } };
+export type Inc = Omit<typeof INCIDENT, "lastConfirmed"> & { lastConfirmed: (typeof INCIDENT)["lastConfirmed"] & { ageHours?: number }; /** Incidents that track no people (a ship aground) say what they are instead of "overdue". */ headline?: string };
 export interface SnapshotRow { k: string; v: React.ReactNode; age: string; tone?: "red" | "amber" }
 
 export function PositionCard({ inc }: { inc: Inc }) {
@@ -100,7 +100,7 @@ export function IncidentPanel({ inc = INCIDENT, conflictOpen, compact, onEscalat
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-bad/60 bg-bad-tint px-4 py-3" role="alert">
         <Siren size={20} className="text-bad" aria-hidden />
         <div>
-          <div className="font-mono text-sm font-bold tracking-wide text-fg">{inc.id} · {status ?? "OPEN"} · {inc.team} overdue</div>
+          <div className="font-mono text-sm font-bold tracking-wide text-fg">{inc.id} · {status ?? "OPEN"} · {inc.headline ?? `${inc.team} overdue`}</div>
           <div className="text-xs text-fg-2">Opened {inc.openedAt} by {inc.openedBy}. DHRUV does not send distress signals; it assembles the operational picture.</div>
         </div>
         <div className="ml-auto flex gap-2">

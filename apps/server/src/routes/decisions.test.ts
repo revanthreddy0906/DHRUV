@@ -180,7 +180,7 @@ describe("Director endpoints (section 15)", () => {
   it("POST /admin/seed resets to Start", async () => {
     const { app, hq } = await setup();
     const reset = await app.inject({ method: "POST", url: `${API}/admin/seed`, headers: auth(hq) });
-    expect(reset.json()).toEqual({ ok: true });
+    expect(reset.json()).toEqual({ ok: true, scenario: "season48" });
 
     const state = await app.inject({ method: "GET", url: `${API}/state`, headers: auth(hq) });
     expect(state.json()).toMatchObject({ events: [], cursor: 0 });

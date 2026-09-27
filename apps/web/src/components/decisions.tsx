@@ -23,7 +23,7 @@ export function DecisionCard({ d, onOpen, selected }: { d: QueueItem; onOpen?: (
         <div className="flex flex-col"><span className="text-[10px] uppercase tracking-wider text-fg-2">Best case</span><span className="flex items-center gap-1.5"><StateBadge state={d.best.state} size="sm" /><RatioDisplay value={d.best.ratio} size="sm" /></span></div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <CountdownChip date={d.deadline} daysLeft={d.daysLeft} label="Act by" />
+        {d.deadline === "no deadline" ? <Tag>No point of no return: every option stays open for now</Tag> : <CountdownChip date={d.deadline} daysLeft={d.daysLeft} label="Act by" />}
         {d.straddle && <Tag tone="amber"><TriangleAlert size={11} aria-hidden />{d.straddle}</Tag>}
       </div>
       {d.approveReason && <p className="mt-2 text-[11px] text-fg-2">{d.approveReason}</p>}

@@ -166,3 +166,15 @@ export function emptySeed(): Seed {
     link_state: [],
   };
 }
+
+/** GET /storage: row counts of the server's SQLite store (never rows). */
+export interface StorageResponse {
+  engine: "SQLite";
+  journal_mode: string;
+  file: string;
+  epoch: string;
+  cursor: number;
+  log: { table: "events"; rows: number; by_type: { type: string; n: number }[]; by_device: { device_id: string; n: number; last_seq: number }[] };
+  derived: { table: string; rows: number }[];
+  reference: { table: string; rows: number }[];
+}

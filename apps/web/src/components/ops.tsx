@@ -18,7 +18,7 @@ export function CutoffMarker({ date, label = "Vessel load cutoff" }: { date: str
   );
 }
 
-export function LegTimeline({ s, today = "24 Jan", originalEta }: { s: ShipmentView; today?: string; originalEta?: string }) {
+export function LegTimeline({ s, today = "24 Jan", originalEta, milestones }: { s: ShipmentView; today?: string; originalEta?: string; milestones?: React.ReactNode }) {
   const feasTone = s.feasible === "FEASIBLE" ? "green" : s.feasible === "EXCLUDED" ? "red" : "amber";
   return (
     <article className={cx("rounded-xl border bg-surface p-4", s.feasible === "EXCLUDED" ? "border-bad/60" : s.feasible === "UNCERTAIN" ? "border-warn/50" : "border-line")}>
@@ -65,6 +65,7 @@ export function LegTimeline({ s, today = "24 Jan", originalEta }: { s: ShipmentV
         </ul>
       </div>
       <div className="ml-[200px] mr-[120px] mt-5 flex justify-between font-mono text-[10px] text-fg-2"><span>{AX0}</span><span>1 Feb</span><span>15 Feb</span><span>{AX1}</span></div>
+      {milestones}
     </article>
   );
 }
