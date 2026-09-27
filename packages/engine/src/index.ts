@@ -125,6 +125,7 @@ export {
   type FoodRequirementResult,
   type ComputeFoodRequirementParams,
 } from "./rules/food.js";
+export * from "./robustness/index.js";
 
 /**
  * The pure engine (Build Bible section 7). No clock, no randomness: `now` is always passed in.
