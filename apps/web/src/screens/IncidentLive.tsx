@@ -88,7 +88,7 @@ export function LiveMapScreen() {
     <Frame moment="start" nav="map">
       <div className="space-y-4 p-5">
         <div>
-          <h1 className="text-xl font-semibold text-fg">Map</h1>
+          <h1 className="text-title font-semibold text-fg">Map</h1>
           <p className="mt-0.5 text-sm text-fg-2">Positions are always last known with their age. Nothing here is live. Tiles: NASA Blue Marble; the schematic is used when tiles are unavailable.</p>
         </div>
         <div className="grid grid-cols-[1.3fr_1fr] gap-4">
@@ -101,7 +101,7 @@ export function LiveMapScreen() {
             )}
             <Card>
               <SectionHeader title="Assets with a known position" />
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px]">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-xs">
                 {assets.map((a) => (
                   <li key={a.id} className="flex justify-between gap-2">
                     <span className="text-fg">{a.id}</span>
@@ -112,7 +112,7 @@ export function LiveMapScreen() {
             </Card>
             <Card>
               <SectionHeader title="Route legs" />
-              <ul className="font-mono text-[11px] text-fg-2">
+              <ul className="font-mono text-xs text-fg-2">
                 {all.routes.map((r) => (
                   <li key={r.leg_id} className="flex justify-between gap-2">
                     <span className="text-fg">{r.leg_id}</span>

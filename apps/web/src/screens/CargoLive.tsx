@@ -89,7 +89,7 @@ export function LiveCargoScreen() {
         <div className="flex h-full flex-col items-center justify-center p-8">
           <div className="flex flex-col items-center gap-3 text-fg-2">
             <div className="size-6 animate-spin rounded-full border-2 border-line-ctrl border-t-accent" />
-            <span className="font-mono text-xs tracking-wider">HYDRATING EXPEDITION STATE...</span>
+            <span className="text-xs">Loading this device's expedition state.</span>
           </div>
         </div>
       </Frame>
@@ -135,7 +135,7 @@ export function LiveCargoScreen() {
       <div className="space-y-4 p-5">
         <div className="flex items-end gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-fg">Cargo</h1>
+            <h1 className="text-title font-semibold text-fg">Cargo</h1>
             {vessel && (
               <p className="mt-0.5 text-sm text-fg-2">
                 Inbound to {[...new Set(seed.shipments.map((s) => nodeLabel(s.dest_node_id)))].join(" and ") || nodeLabel("MAITRI")} · {seed.vessels[0]!.name} load cutoff <span className="font-mono">{dayLabel(vessel.loadCutoff)}</span> · departs {dayLabel(vessel.departure)} · closing {dayLabel(vessel.stationClosingDate)}
@@ -143,7 +143,7 @@ export function LiveCargoScreen() {
             )}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-[12px] text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
+            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
             <Button icon={<PackagePlus size={14} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
             <Button icon={<Pencil size={14} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
           </div>
@@ -173,7 +173,7 @@ export function LiveCargoScreen() {
                 <input value={reasonInput} onChange={(e) => setReasonInput(e.target.value)} className="ml-2 h-8 w-56 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg" />
               </label>
               {preview?.before && preview.after && (
-                <div className="flex items-center gap-2 rounded-md border border-line-strong bg-bg px-3 py-1.5 text-[12px] text-fg">
+                <div className="flex items-center gap-2 rounded-md border border-line-strong bg-bg px-3 py-1.5 text-xs text-fg">
                   <TriangleAlert size={14} className={preview.after.state === "RED" ? "text-bad" : "text-fg-2"} aria-hidden />
                   Preview (engine, not recorded): Fuel {preview.before.ratio?.toFixed(4)} → <b className="font-mono">{preview.after.ratio?.toFixed(4)} {preview.after.state}</b>
                   {preview.pnr && ` · PNR ${dayLabel(preview.pnr)}`}
@@ -189,7 +189,7 @@ export function LiveCargoScreen() {
 
         {view.shipments.map((s) => { const ms = ops.milestones.find((x) => x.shipmentId === s.id); return <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} milestones={ms && <MilestoneStrip m={ms} />} />; })}
 
-        <p className="text-[11px] text-fg-2">
+        <p className="text-xs text-fg-2">
           Cargo-leg freshness is shown as a badge. When an ETA report is STALE or worse and slack ≤ 2 d, R17 marks the inbound UNCERTAIN and the band's low side excludes it.
         </p>
       </div>

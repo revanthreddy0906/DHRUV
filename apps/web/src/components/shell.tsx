@@ -12,7 +12,7 @@ import { ROLE_LABEL, SYNTHETIC_BANNER } from "../data/demo";
 
 export function SyntheticDataBanner() {
   return (
-    <div role="note" className="flex h-7 items-center justify-center gap-2 border-b border-line bg-elevated text-[12px] text-fg-2">
+    <div role="note" className="flex h-7 items-center justify-center gap-2 border-b border-line bg-elevated text-xs text-fg-2">
       <Info size={13} aria-hidden className="text-accent" />
       <span>{SYNTHETIC_BANNER}</span>
     </div>
@@ -24,12 +24,12 @@ export function SyntheticDataBanner() {
 export function DemoClock({ time, onJump, onReset }: { time: string; onJump?: (h: 1 | 6 | 30) => void; onReset?: () => void }) {
   return (
     <div className="flex items-center gap-1.5" aria-label="Demo clock">
-      <span className="rounded-md border border-line-strong bg-bg px-2 py-1 font-mono text-[13px] font-semibold tracking-wide text-fg" aria-live="polite">{time}</span>
+      <span className="rounded-md border border-line-strong bg-bg px-2 py-1 font-mono text-sm font-semibold text-fg" aria-live="polite">{time}</span>
       {([1, 6, 30] as const).map((h) => (
         <button key={h} type="button" onClick={() => onJump?.(h)}
-          className="h-7 rounded-md border border-line-strong px-1.5 font-mono text-[11px] text-fg-2 hover:border-accent/60 hover:text-fg">+{h} h</button>
+          className="h-7 rounded-md border border-line-strong px-1.5 font-mono text-xs text-fg-2 hover:border-accent/60 hover:text-fg">+{h} h</button>
       ))}
-      <button type="button" onClick={onReset} className="flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] text-fg-2 hover:text-fg" aria-label="Reset demo clock to 24 Jan 08:00">
+      <button type="button" onClick={onReset} className="flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-fg-2 hover:text-fg" aria-label="Reset demo clock to 24 Jan 08:00">
         <RotateCcw size={12} aria-hidden />Reset
       </button>
     </div>
@@ -52,13 +52,13 @@ export function LinkSwitch({ value, onChange }: { value: LinkStatus; onChange?: 
           const m = LINK_META[s]; const on = s === value;
           return (
             <button key={s} role="radio" aria-checked={on} type="button" onClick={() => onChange?.(s)}
-              className={cx("flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium", on ? cx("bg-elevated", m.cls) : "text-fg-2 hover:text-fg")}>
+              className={cx("flex h-6 items-center gap-1 rounded px-1.5 text-xs font-medium", on ? cx("bg-elevated", m.cls) : "text-fg-2 hover:text-fg")}>
               <m.Icon size={12} aria-hidden />{m.label}
             </button>
           );
         })}
       </div>
-      <span className="mt-0.5 text-[10px] uppercase tracking-wider text-fg-2">simulated link</span>
+      <span className="mt-0.5 text-xs text-fg-2">simulated link</span>
     </div>
   );
 }
@@ -89,14 +89,14 @@ export function LinkChip({ node, status, age }: { node: string; status?: LinkSta
 
 export function RoleSwitcher({ role, onChange }: { role: Role; onChange?: (r: Role) => void }) {
   return (
-    <label className="flex items-center gap-1.5 text-[11px] text-fg-2">
+    <label className="flex items-center gap-1.5 text-xs text-fg-2">
       <UserCog size={14} aria-hidden />
       <span className="sr-only">Role (demo)</span>
       <select value={role} onChange={(e) => onChange?.(e.target.value as Role)}
         className="h-7 rounded-md border border-line-strong bg-bg px-1.5 text-xs font-medium text-fg">
         {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
       </select>
-      <span className="text-[10px] uppercase tracking-wider text-fg-2">demo</span>
+      <span className="text-xs text-fg-2">demo</span>
     </label>
   );
 }
@@ -106,7 +106,7 @@ export function RoleSwitcher({ role, onChange }: { role: Role; onChange?: (r: Ro
 export function SyncIndicator({ count, oldest, onOpen }: { count: number; oldest?: string; onOpen?: () => void }) {
   return (
     <button type="button" onClick={onOpen} aria-label={`${count} events pending sync${oldest ? `, oldest ${oldest}` : ""}. Open sync drawer`}
-      className={cx("flex h-8 items-center gap-1.5 rounded-md border px-2 font-mono text-[12px]", count ? "border-warn/50 bg-warn-tint text-fg" : "border-line text-fg-2")}>
+      className={cx("flex h-8 items-center gap-1.5 rounded-md border px-2 font-mono text-xs", count ? "border-warn/50 bg-warn-tint text-fg" : "border-line text-fg-2")}>
       <CloudUpload size={14} className={count ? "text-warn" : "text-fg-2"} aria-hidden />
       <span className="font-semibold">SYNC {count}</span>
       {oldest && <span className="text-fg-2">· oldest {oldest}</span>}
@@ -126,7 +126,7 @@ export function TopBar({ phase = "CLOSING", role, link, clock, pending, onOpenSy
     <header className="flex h-14 items-center gap-4 border-b border-line bg-surface px-4">
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-[17px] font-bold tracking-[0.2em] text-fg">DHRUV</span>
-        <span className="font-mono text-[11px] font-medium tracking-wider text-fg-2">SEASON 48 · {phase}</span>
+        <span className="font-mono text-xs font-medium text-fg-2">SEASON 48 · {phase}</span>
       </div>
       <div className="ml-2 h-6 w-px bg-line" />
       <RoleSwitcher role={role} onChange={onRoleChange} />
@@ -170,14 +170,14 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
           return (
             <li key={n.key}>
               <button type="button" aria-current={on ? "page" : undefined} onClick={() => onNavigate?.(n.key)}
-                className={cx("flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] font-medium",
+                className={cx("flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-medium",
                   on ? "bg-accent-tint text-fg ring-1 ring-accent/50" : "text-fg-2 hover:bg-elevated hover:text-fg",
                   inc && "text-bad")}>
                 <n.Icon size={16} aria-hidden className={inc ? "text-bad" : on ? "text-accent" : ""} />
                 <span className="flex-1">{n.label}</span>
-                {n.key === "decisions" && decisionCount > 0 && <span className="rounded bg-bad-tint px-1.5 font-mono text-[11px] text-bad">{decisionCount}</span>}
-                {n.key === "audit" && conflictCount > 0 && <span className="rounded bg-warn-tint px-1.5 font-mono text-[11px] text-warn" title="Open conflicts">{conflictCount}</span>}
-                {inc && <span className="rounded border border-bad/60 px-1 text-[10px] font-bold">OPEN</span>}
+                {n.key === "decisions" && decisionCount > 0 && <span className="rounded bg-bad-tint px-1.5 font-mono text-xs text-bad">{decisionCount}</span>}
+                {n.key === "audit" && conflictCount > 0 && <span className="rounded bg-warn-tint px-1.5 font-mono text-xs text-warn" title="Open conflicts">{conflictCount}</span>}
+                {inc && <span className="rounded border border-bad/60 px-1 text-xs font-bold">OPEN</span>}
               </button>
             </li>
           );
@@ -185,12 +185,12 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
       </ul>
       {onDirector && (
         <div className="p-2">
-          <button type="button" onClick={onDirector} className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-warn/60 px-2.5 text-left text-[12px] font-medium text-warn hover:bg-warn-tint">
-            <Clapperboard size={15} aria-hidden /><span className="flex-1">Demo Director</span><span className="text-[10px] uppercase tracking-wider">demo</span>
+          <button type="button" onClick={onDirector} className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-warn/60 px-2.5 text-left text-xs font-medium text-warn hover:bg-warn-tint">
+            <Clapperboard size={15} aria-hidden /><span className="flex-1">Demo Director</span><span className="text-xs">demo</span>
           </button>
         </div>
       )}
-      <dl className="space-y-1 border-t border-line p-3 text-[11px]">
+      <dl className="space-y-1 border-t border-line p-3 text-xs">
         <div className="flex justify-between"><dt className="text-fg-2">Role</dt><dd className="font-medium text-fg">{ROLE_LABEL[role]}</dd></div>
         <div className="flex justify-between"><dt className="text-fg-2">Station</dt><dd className="text-fg">{station}</dd></div>
         <div className="flex justify-between"><dt className="text-fg-2">Device</dt><dd className="font-mono text-fg">{deviceId}</dd></div>
@@ -206,11 +206,11 @@ export function OfflineBanner({ node, pending, oldest, dataAge }: { node: string
   return (
     <div role="status" aria-live="polite" className="flex items-center gap-4 border-b border-warn/40 bg-warn-tint px-4 py-2">
       <WifiOff size={18} className="text-warn" aria-hidden />
-      <div className="font-mono text-[12px] leading-5">
-        <div className="font-bold tracking-wider text-warn">⚠ OFFLINE · {node.toUpperCase()}</div>
+      <div className="font-mono text-xs leading-5">
+        <div className="font-bold text-warn">⚠ OFFLINE · {node.toUpperCase()}</div>
         <div className="text-fg">LOCAL OPERATIONS ACTIVE</div>
       </div>
-      <div className="font-mono text-[12px] text-fg">{pending} EVENTS PENDING{oldest && <> · OLDEST {oldest}</>}</div>
+      <div className="font-mono text-xs text-fg">{pending} EVENTS PENDING{oldest && <> · OLDEST {oldest}</>}</div>
       {dataAge && <div className="ml-auto text-xs text-fg-2">Other nodes' data is as of last sync · {dataAge}</div>}
     </div>
   );
@@ -224,8 +224,8 @@ export function SimulationOverlay({ active, children }: { active: boolean; child
       {children}
       {active && (
         <div aria-hidden className="pointer-events-none absolute inset-0 z-30 dh-sim-stripes ring-2 ring-inset ring-accent/60">
-          <div className="absolute bottom-12 left-4 rounded-md border border-accent/70 bg-bg/90 px-3 py-1 font-mono text-[12px] font-bold tracking-[0.25em] text-accent">
-            <FlaskConical size={13} className="-mt-0.5 mr-1.5 inline" />SIMULATION · HYPOTHETICAL RESULTS
+          <div className="absolute bottom-12 left-4 rounded-md border border-accent/70 bg-surface px-3 py-1 text-sm font-semibold text-accent">
+            <FlaskConical size={13} className="-mt-0.5 mr-1.5 inline" />Simulation: hypothetical results
           </div>
         </div>
       )}
@@ -260,5 +260,5 @@ export function DhruvShell({ top, sidebar, banner, strip, children, drawer, simu
 }
 
 export function DeviceTag({ id, kind }: { id: string; kind: string }) {
-  return <span className="inline-flex items-center gap-1 font-mono text-[11px] text-fg-2"><TabletSmartphone size={12} aria-hidden />{id} · {kind}</span>;
+  return <span className="inline-flex items-center gap-1 font-mono text-xs text-fg-2"><TabletSmartphone size={12} aria-hidden />{id} · {kind}</span>;
 }

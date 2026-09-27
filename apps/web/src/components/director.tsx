@@ -9,10 +9,10 @@ import type { LinkStatus } from "../data/types";
 export function DirectorPanel({ done = 0, onBeat, onReset }: { done?: number; onBeat?: (n: number) => void; onReset?: () => void }) {
   const [links, setLinks] = React.useState<Record<string, LinkStatus>>({ Maitri: "ONLINE", Bharati: "ONLINE" });
   return (
-    <div className="w-[560px] border-2 border-dashed border-warn bg-bg p-4 font-mono text-[12px] text-fg">
+    <div className="w-[560px] border-2 border-dashed border-warn bg-bg p-4 font-mono text-xs text-fg">
       <div className="mb-3 flex items-center gap-2 border-b border-line pb-2">
         <Clapperboard size={15} className="text-warn" aria-hidden />
-        <span className="font-bold tracking-[0.2em] text-warn">DEMO CONTROL</span>
+        <span className="font-bold text-warn">DEMO CONTROL</span>
         <span className="text-fg-2">?director=1 · not part of the product</span>
         <button type="button" onClick={onReset} className="ml-auto flex items-center gap-1 border border-line-strong px-2 py-1 hover:border-warn"><RotateCcw size={12} />Reset to Start</button>
       </div>

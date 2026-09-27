@@ -99,7 +99,7 @@ export function LiveAuditScreen() {
     <Frame moment="start" nav="audit">
       <div className="space-y-4 p-5">
         <div>
-          <h1 className="text-xl font-semibold text-fg">Audit</h1>
+          <h1 className="text-title font-semibold text-fg">Audit</h1>
           <p className="mt-0.5 text-sm text-fg-2">
             Append-only event log as held by {identity.device_id}. Events are never edited; corrections are new events. recorded_at_server is real server time; observed_at is demo time.
           </p>
@@ -108,7 +108,7 @@ export function LiveAuditScreen() {
           <div className="space-y-3">
             <ReviewQueue conflicts={open.map(toCard)} onReview={(id) => setReviewing(id)} />
             {resolved.length > 0 && (
-              <ul className="space-y-1 text-[12px] text-fg-2">
+              <ul className="space-y-1 text-xs text-fg-2">
                 {resolved.map((c) => (
                   <li key={c.id} className="flex items-center gap-2"><CheckCircle2 size={13} className="text-ok" aria-hidden />
                     {c.entity_id} {c.field} resolved as <b className="font-mono text-fg">{String(c.resolved_value)}</b> by <span className="font-mono">{c.resolver}</span></li>

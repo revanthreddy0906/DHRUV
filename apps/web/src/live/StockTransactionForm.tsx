@@ -84,17 +84,17 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
     }
   };
 
-  const fieldError = (msg?: string) => (touched && msg ? <span className="mt-1 block text-[11px] text-bad">{msg}</span> : null);
+  const fieldError = (msg?: string) => (touched && msg ? <span className="mt-1 block text-xs text-bad">{msg}</span> : null);
 
   return (
     <Card>
-      <SectionHeader title="Stock transaction" meta={<span className="text-[11px] text-fg-2">Saved on this device first, then synced</span>} />
+      <SectionHeader title="Stock transaction" meta={<span className="text-xs text-fg-2">Saved on this device first, then synced</span>} />
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <label className="text-xs text-fg-2">Item
           <select aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} className={`${input} mt-1 block w-56`}>
             {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.id})</option>)}
           </select>
-          {row && <span className="mt-1 block text-[11px]">Current stock <span className="font-mono text-fg">{row.stock}</span></span>}
+          {row && <span className="mt-1 block text-xs">Current stock <span className="font-mono text-fg">{row.stock}</span></span>}
         </label>
         <label className="text-xs text-fg-2">Action
           <select aria-label="Action" value={action} onChange={(e) => setAction(e.target.value as StockType)} className={`${input} mt-1 block w-32`}>

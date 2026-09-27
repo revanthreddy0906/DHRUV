@@ -76,7 +76,7 @@ export function LiveGraphScreen() {
   const select = (id?: string) => setParams((p) => { const next = new URLSearchParams(p); if (id) next.set("focus", id); else next.delete("focus"); return next; }, { replace: true });
 
   if (!device || !ops || !graph || !node) {
-    return <Frame moment="start" nav="graph"><div className="p-8 text-center font-mono text-xs tracking-wider text-fg-2">BUILDING THE GRAPH...</div></Frame>;
+    return <Frame moment="start" nav="graph"><div className="p-8 text-center text-xs text-fg-2">Building the graph.</div></Frame>;
   }
 
   const { placed, width, height } = layout(graph.nodes);
@@ -94,7 +94,7 @@ export function LiveGraphScreen() {
       <div className="space-y-4 p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-fg">Connections · {ops.maitriStation.name}</h1>
+            <h1 className="text-title font-semibold text-fg">Connections · {ops.maitriStation.name}</h1>
             <p className="mt-0.5 max-w-[95ch] text-sm text-fg-2">
               Everything the station's readiness depends on, and why. {graph.nodes.length} records, {graph.edges.length} links: {counts.seed} from the season's data, {counts.rule} from the engine's rules, {counts.event} from the event log.
               Click a record to see its links and what a delay or shortage there would reach.
@@ -106,7 +106,7 @@ export function LiveGraphScreen() {
         <div className="grid gap-4 2xl:grid-cols-[1fr_380px]">
           <Card pad="none" className="overflow-x-auto">
             <svg role="img" aria-label={`Knowledge graph for ${ops.maitriStation.name}`} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMin meet" style={{ width: "100%", minWidth: 960, maxWidth: width }} className="block">
-              {COLUMN_TITLE.map((t, c) => <text key={t} x={PAD + c * COL} y={20} className="fill-fg-2 text-[10px] font-semibold uppercase tracking-wider">{t}</text>)}
+              {COLUMN_TITLE.map((t, c) => <text key={t} x={PAD + c * COL} y={20} className="fill-fg-2 text-xs font-semibold">{t}</text>)}
               <g fill="none">
                 {graph.edges.map((e, i) => {
                   const a = placed.get(e.from), b = placed.get(e.to);
@@ -128,8 +128,8 @@ export function LiveGraphScreen() {
                   <rect width={W} height={H} rx={6} strokeWidth={n.id === selected?.id ? 2.5 : reach.has(n.id) ? 2 : 1.25}
                     className={cx(n.type === "station" ? "fill-elevated" : "fill-surface", n.id === selected?.id ? "stroke-accent" : stroke(n.state))} />
                   {n.state && <rect x={0} y={0} width={4} height={H} rx={2} className={n.state === "RED" ? "fill-bad" : n.state === "AMBER" ? "fill-warn" : "fill-ok"} />}
-                  <text x={10} y={16} className="fill-fg text-[11.5px] font-medium">{n.label.length > 29 ? `${n.label.slice(0, 28)}…` : n.label}</text>
-                  <text x={10} y={31} className="fill-fg-2 font-mono text-[10px]">{(n.sub ?? TYPE_LABEL[n.type]).slice(0, 34)}</text>
+                  <text x={10} y={16} className="fill-fg text-xs font-medium">{n.label.length > 29 ? `${n.label.slice(0, 28)}…` : n.label}</text>
+                  <text x={10} y={31} className="fill-fg-2 font-mono text-xs">{(n.sub ?? TYPE_LABEL[n.type]).slice(0, 34)}</text>
                 </g>
               ))}
             </svg>
@@ -139,21 +139,21 @@ export function LiveGraphScreen() {
             {selected ? (
               <div className="space-y-3">
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-fg-2">{TYPE_LABEL[selected.type]}</div>
+                  <div className="text-xs text-fg-2">{TYPE_LABEL[selected.type]}</div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold text-fg">{selected.label}</h2>
+                    <h2 className="text-heading font-semibold text-fg">{selected.label}</h2>
                     {selected.state && <StateBadge state={selected.state} size="sm" />}
                   </div>
-                  {selected.sub && <div className="font-mono text-[12px] text-fg-2">{selected.sub}</div>}
+                  {selected.sub && <div className="font-mono text-xs text-fg-2">{selected.sub}</div>}
                 </div>
-                <ul className="space-y-1 text-[12px] text-fg-2">{selected.detail.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                <ul className="space-y-1 text-xs text-fg-2">{selected.detail.map((d, i) => <li key={i}>{d}</li>)}</ul>
                 <div>
                   <SectionHeader title="Links" />
                   <ul className="space-y-2">
                     {touching.map((e, i) => {
                       const other = placed.get(e.from === selected.id ? e.to : e.from);
                       return (
-                        <li key={i} className="rounded-md border border-line px-2.5 py-2 text-[12px]">
+                        <li key={i} className="rounded-md border border-line px-2.5 py-2 text-xs">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="text-fg-2">{e.from === selected.id ? "→" : "←"}</span>
                             <button type="button" className="font-medium text-fg underline decoration-line-strong underline-offset-2 hover:decoration-accent" onClick={() => select(other?.id)}>{other?.label}</button>
@@ -172,14 +172,14 @@ export function LiveGraphScreen() {
                   {reach.size ? (
                     <div className="flex flex-wrap gap-1.5">
                       {graph.nodes.filter((n) => reach.has(n.id)).map((n) => (
-                        <button key={n.id} type="button" onClick={() => select(n.id)} className={cx("rounded border px-1.5 py-0.5 text-[11px]", n.state === "RED" ? "border-bad/50 text-bad" : n.state === "AMBER" ? "border-warn/50 text-warn" : "border-line text-fg")}>{n.label}</button>
+                        <button key={n.id} type="button" onClick={() => select(n.id)} className={cx("rounded border px-1.5 py-0.5 text-xs", n.state === "RED" ? "border-bad/50 text-bad" : n.state === "AMBER" ? "border-warn/50 text-warn" : "border-line text-fg")}>{n.label}</button>
                       ))}
                     </div>
-                  ) : <p className="text-[12px] text-fg-2">Nothing downstream: this is a remedy or an end point.</p>}
+                  ) : <p className="text-xs text-fg-2">Nothing downstream: this is a remedy or an end point.</p>}
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 text-[12px] text-fg-2">
+              <div className="space-y-3 text-xs text-fg-2">
                 <SectionHeader title="How to read it" />
                 <p>Left to right is the supply chain: the vessel carries legs, legs make up shipments, shipments bring items, items feed a dimension, dimensions make the station's state.</p>
                 <p>Solid lines carry trouble forward: a late feeder leg reaches the shipment, the diesel, Fuel and the station. Dashed lines are remedies (levers, decisions) and context.</p>
@@ -187,7 +187,7 @@ export function LiveGraphScreen() {
                 <p>The coloured edge on each record is its live state from the engine, on this device's events.</p>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {["INV-DSL", "L2-C104", "F-27", `${node}.FUEL`].filter((id) => placed.has(id)).map((id) => (
-                    <button key={id} type="button" onClick={() => select(id)} className="rounded border border-line px-2 py-1 text-[11px] text-fg hover:border-accent">Try {placed.get(id)!.label}</button>
+                    <button key={id} type="button" onClick={() => select(id)} className="rounded border border-line px-2 py-1 text-xs text-fg hover:border-accent">Try {placed.get(id)!.label}</button>
                   ))}
                 </div>
               </div>

@@ -77,7 +77,7 @@ export function LiveMap({ model, view = "all", height = 360, compact = false, cl
       ) : (
         <div className="dhruv-schematic flex h-full w-full flex-col">
           {tilesFailed && (
-            <p role="status" className="flex items-center gap-1.5 border-b border-line px-3 py-1.5 text-[11px] text-fg-2">
+            <p role="status" className="flex items-center gap-1.5 border-b border-line px-3 py-1.5 text-xs text-fg-2">
               <MapPinOff size={12} aria-hidden />Map tiles unavailable. Operational state remains available. Using schematic map.
             </p>
           )}
@@ -86,7 +86,7 @@ export function LiveMap({ model, view = "all", height = 360, compact = false, cl
         </div>
       )}
       <button type="button" onClick={() => setMode(mode === "tiles" ? "schematic" : "tiles")}
-        className="absolute bottom-2 right-2 z-[500] flex items-center gap-1 rounded-md border border-line-strong bg-bg/90 px-2 py-1 text-[11px] text-fg-2 hover:text-fg"
+        className="absolute bottom-2 right-2 z-[500] flex items-center gap-1 rounded-md border border-line-strong bg-bg/90 px-2 py-1 text-xs text-fg-2 hover:text-fg"
         aria-label={mode === "tiles" ? "Show schematic map" : "Show map tiles"}>
         <Layers size={12} aria-hidden />{mode === "tiles" ? "Schematic" : "Tiles"}
       </button>

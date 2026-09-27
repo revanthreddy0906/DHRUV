@@ -9,8 +9,8 @@ const EMPTY: AuditFilterState = { device: "", role: "", type: "", entity: "", ti
 export function AuditFilters({ rows, value, onChange }: { rows: OpEventRow[]; value: AuditFilterState; onChange: (v: AuditFilterState) => void }) {
   const opts = (k: keyof OpEventRow) => Array.from(new Set(rows.map((r) => String(r[k])))).sort();
   const Sel = ({ k, label, src }: { k: keyof AuditFilterState; label: string; src: string[] }) => (
-    <label className="flex flex-col gap-0.5 text-[10px] uppercase tracking-wider text-fg-2">{label}
-      <select value={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.value })} className="h-8 min-w-32 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-xs normal-case tracking-normal text-fg">
+    <label className="flex flex-col gap-0.5 text-xs text-fg-2">{label}
+      <select value={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.value })} className="h-8 min-w-32 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-xs normal-case text-fg">
         <option value="">all</option>{src.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
@@ -35,8 +35,8 @@ export function AuditTable({ rows, initialFilter = EMPTY }: { rows: OpEventRow[]
     <div className="space-y-3">
       <AuditFilters rows={rows} value={f} onChange={setF} />
       <div className="overflow-hidden rounded-lg border border-line">
-        <table className="w-full text-[12px]">
-          <thead className="bg-elevated text-left text-[10px] uppercase tracking-wider text-fg-2">
+        <table className="w-full text-xs">
+          <thead className="bg-elevated text-left text-xs text-fg-2">
             <tr>{["Device · seq", "Type", "Entity", "Actor", "P", "observed_at", "recorded_at_server", "Summary"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>
           </thead>
           <tbody>

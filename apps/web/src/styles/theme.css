@@ -71,6 +71,19 @@
   --radius-lg: 8px;
 
   --shadow-drawer: var(--drawer-shadow);
+
+  /* Type scale (section 4): five sizes, nothing below 12 px. Tailwind's other sizes are unset. */
+  --text-*: initial;
+  --text-xs: 12px;               /* small / meta */
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;               /* body */
+  --text-sm--line-height: 20px;
+  --text-heading: 15px;          /* section heading, 600 */
+  --text-heading--line-height: 22px;
+  --text-title: 20px;            /* screen title, 600 */
+  --text-title--line-height: 28px;
+  --text-headline: 28px;         /* headline number, mono 600 */
+  --text-headline--line-height: 34px;
 }
 
 @layer base {

@@ -92,13 +92,13 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
 
   return (
     <Card>
-      <SectionHeader title="Personnel action" meta={<span className="text-[11px] text-fg-2">Saved on this device first, then synced</span>} />
+      <SectionHeader title="Personnel action" meta={<span className="text-xs text-fg-2">Saved on this device first, then synced</span>} />
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <label className="text-xs text-fg-2">Person
           <select aria-label="Person" value={person.id} onChange={(e) => { setPersonId(e.target.value); setStatus(undefined); }} className={`${field} mt-1 block w-60`}>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role.replace(/_/g, " ").toLowerCase()}</option>)}
           </select>
-          <span className="mt-1 block text-[11px]">Now <span className="font-mono text-fg">{person.status}</span> at {nodeLabel(person.nodeId)}</span>
+          <span className="mt-1 block text-xs">Now <span className="font-mono text-fg">{person.status}</span> at {nodeLabel(person.nodeId)}</span>
         </label>
         <label className="text-xs text-fg-2">Action
           <select aria-label="Personnel action" value={action} onChange={(e) => setAction(e.target.value as PersonType)} className={`${field} mt-1 block w-48`}>
@@ -110,7 +110,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
             <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className={`${field} mt-1 block w-40 font-mono`}>
               {PERSON_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            {touched && errors.status && <span className="mt-1 block text-[11px] text-bad">{errors.status}</span>}
+            {touched && errors.status && <span className="mt-1 block text-xs text-bad">{errors.status}</span>}
           </label>
         ) : (
           <>
@@ -121,7 +121,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
             </label>
             <label className="text-xs text-fg-2">Arrives (optional)
               <input aria-label="Arrives" value={arrive} onChange={(e) => setArrive(e.target.value)} placeholder="now" className={`${field} mt-1 block w-28 font-mono`} />
-              {touched && errors.arrive && <span className="mt-1 block text-[11px] text-bad">{errors.arrive}</span>}
+              {touched && errors.arrive && <span className="mt-1 block text-xs text-bad">{errors.arrive}</span>}
             </label>
           </>
         )}

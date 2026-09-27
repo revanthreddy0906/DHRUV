@@ -186,7 +186,7 @@ function DecisionLinks({ decisions }: { decisions: ReturnType<typeof decisionsVi
         {decisions.map((d) => (
           <li key={d.id}>
             <Link to={`/decisions/${d.id}`} className="font-mono text-accent hover:underline">{d.id}</Link>
-            <span className="ml-2 text-[12px]">{nodeLabel(d.node_id)} · {d.status.toLowerCase()}</span>
+            <span className="ml-2 text-xs">{nodeLabel(d.node_id)} · {d.status.toLowerCase()}</span>
           </li>
         ))}
       </ul>

@@ -15,7 +15,7 @@ import { formatAge } from "../live/format";
 import { Frame } from "./Frame";
 
 const Loading = ({ nav }: { nav: "inventory" | "personnel" }) => (
-  <Frame moment="start" nav={nav}><div className="p-8 text-center font-mono text-xs tracking-wider text-fg-2">HYDRATING EXPEDITION STATE...</div></Frame>
+  <Frame moment="start" nav={nav}><div className="p-8 text-center text-xs text-fg-2">Loading this device's expedition state.</div></Frame>
 );
 
 /**
@@ -35,18 +35,18 @@ export function LiveInventoryScreen() {
       <div className="space-y-4 p-5">
         <div className="flex items-end gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-fg">Inventory · {ops.maitriStation.name}</h1>
+            <h1 className="text-title font-semibold text-fg">Inventory · {ops.maitriStation.name}</h1>
             <p className="mt-0.5 text-sm text-fg-2">Ratio = (stock + feasible inbound) / requirement to the next resupply with reserve. Evaluated on this device at its own clock.</p>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <Link to={`/graph?station=${node}&focus=${rows[0]?.id ?? ""}`} className="flex items-center gap-1 text-[12px] text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
+            <Link to={`/graph?station=${node}&focus=${rows[0]?.id ?? ""}`} className="flex items-center gap-1 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
             <StationContext role={role} node={node} onChange={setFocus} />
           </div>
         </div>
         <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} />
         <Card pad="none" className="overflow-hidden">
           <table className="w-full">
-            <thead className="bg-elevated text-left text-[10px] uppercase tracking-wider text-fg-2">
+            <thead className="bg-elevated text-left text-xs text-fg-2">
               <tr>{["Item", "Stock", "Inbound (feasible)", "Required", "Ratio", "Days of cover", "Count freshness"].map((h, i) => <th key={h} className={cx("px-3 py-2 font-semibold", i === 1 || i === 3 ? "text-right" : "")}>{h}</th>)}</tr>
             </thead>
             <tbody className="[&_td:first-child]:pl-3">
@@ -87,7 +87,7 @@ export function LivePersonnelScreen() {
       <div className="space-y-4 p-5">
         <div className="flex items-end gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-fg">Personnel and Missions · {ops.maitriStation.name}</h1>
+            <h1 className="text-title font-semibold text-fg">Personnel and Missions · {ops.maitriStation.name}</h1>
             <p className="mt-0.5 text-sm text-fg-2">{people.length} people at {ops.maitriStation.name} now. Role coverage: GREEN needs need + 1; AMBER at need; RED below need (R05).</p>
           </div>
           <div className="ml-auto"><StationContext role={role} node={node} onChange={setFocus} /></div>
@@ -103,13 +103,13 @@ export function LivePersonnelScreen() {
             {ops.maitriStation.missions.length === 0 && <p className="p-4 text-sm text-fg-2">No missions for this station in the seed.</p>}
           </Card>
           <Card pad="none" className="overflow-hidden">
-            <div className="px-4 pt-3"><SectionHeader title="People (live)" meta={<span className="text-[11px] text-fg-2">status · last update</span>} /></div>
-            <ul className="max-h-96 divide-y divide-line overflow-y-auto px-4 text-[13px]">
+            <div className="px-4 pt-3"><SectionHeader title="People (live)" meta={<span className="text-xs text-fg-2">status · last update</span>} /></div>
+            <ul className="max-h-96 divide-y divide-line overflow-y-auto px-4 text-sm">
               {people.map((p) => (
                 <li key={p.id} className="flex items-center gap-2 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-fg">{p.name}<span className="ml-1.5 text-[11px] text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
+                  <span className="min-w-0 flex-1 truncate text-fg">{p.name}<span className="ml-1.5 text-xs text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
                   <Tag tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status.replace("_", " ")}</Tag>
-                  <span className="w-14 text-right font-mono text-[11px] text-fg-2">{formatAge(p.lastObservedAt, ops.now)}</span>
+                  <span className="w-14 text-right font-mono text-xs text-fg-2">{formatAge(p.lastObservedAt, ops.now)}</span>
                 </li>
               ))}
             </ul>

@@ -14,7 +14,7 @@ export const NAV_PATH: Record<NavKey, string> = {
 
 function LiveStatus({ live }: { live: LiveChrome }) {
   return (
-    <div className="flex items-center gap-2 text-[11px] text-fg-2">
+    <div className="flex items-center gap-2 text-xs text-fg-2">
       {live.stalled ? <span className="font-semibold text-bad">SYNC STALLED</span> : live.lastSync && <span className="font-mono">synced {live.lastSync}</span>}
       <button type="button" onClick={live.signOut} className="flex h-7 items-center gap-1 rounded-md px-1.5 hover:text-fg" aria-label={`Sign out ${live.deviceId}`}>
         <LogOut size={13} aria-hidden />Sign out
@@ -24,7 +24,7 @@ function LiveStatus({ live }: { live: LiveChrome }) {
 }
 
 const PreviewTag = () => (
-  <span className="flex items-center gap-1 rounded border border-line-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-2" title="Not signed in: design fixtures, not live data">
+  <span className="flex items-center gap-1 rounded border border-line-strong px-1.5 py-0.5 text-xs font-semibold text-fg-2" title="Not signed in: design fixtures, not live data">
     <Eye size={12} aria-hidden />Preview · not signed in
   </span>
 );

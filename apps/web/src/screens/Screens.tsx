@@ -21,7 +21,7 @@ import type { Role } from "../data/types";
 
 const Page = ({ title, sub, actions, children }: { title: string; sub?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) => (
   <div className="space-y-4 p-5">
-    <div className="flex items-end gap-3"><div><h1 className="text-xl font-semibold text-fg">{title}</h1>{sub && <p className="mt-0.5 text-sm text-fg-2">{sub}</p>}</div><div className="ml-auto flex gap-2">{actions}</div></div>
+    <div className="flex items-end gap-3"><div><h1 className="text-title font-semibold text-fg">{title}</h1>{sub && <p className="mt-0.5 text-sm text-fg-2">{sub}</p>}</div><div className="ml-auto flex gap-2">{actions}</div></div>
     {children}
   </div>
 );
@@ -59,7 +59,7 @@ export function CargoScreen({ state = "slip" }: { state?: "start" | "slip" | "un
             <div className="flex flex-wrap items-center gap-4">
               <label className="text-xs text-fg-2">New ETA <input defaultValue="7 Feb" className="ml-2 h-8 w-24 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-sm text-fg" /></label>
               <label className="text-xs text-fg-2">Reason <input defaultValue="feeder vessel delayed" className="ml-2 h-8 w-56 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg" /></label>
-              <div className="flex items-center gap-2 rounded-md border border-bad/50 bg-bad-tint px-3 py-1.5 text-[12px] text-fg">
+              <div className="flex items-center gap-2 rounded-md border border-bad/50 bg-bad-tint px-3 py-1.5 text-xs text-fg">
                 <TriangleAlert size={14} className="text-bad" aria-hidden />Preview: 7 Feb &gt; cutoff 4 Feb · C-104 excluded · Maitri Fuel 1.0606 → <b className="font-mono text-bad">0.697 RED</b> · PNR 3 Feb
               </div>
               <Button variant="primary">Record LEG_DELAYED</Button><Button variant="ghost" onClick={() => setEdit(false)}>Cancel</Button>
@@ -67,7 +67,7 @@ export function CargoScreen({ state = "slip" }: { state?: "start" | "slip" | "un
           </Card>
         )}
         {data.map((s) => <LegTimeline key={s.id} s={s} today={state === "uncertain" ? "26 Jan" : "24 Jan"} originalEta={s.id === "C-104" ? "2 Feb" : undefined} />)}
-        <p className="text-[11px] text-fg-2">Cargo-leg freshness is shown as a badge. When an ETA report is STALE or worse and slack ≤ 2 d, R17 marks the inbound UNCERTAIN and the band's low side excludes it.</p>
+        <p className="text-xs text-fg-2">Cargo-leg freshness is shown as a badge. When an ETA report is STALE or worse and slack ≤ 2 d, R17 marks the inbound UNCERTAIN and the band's low side excludes it.</p>
       </Page>
     </Frame>
   );
@@ -87,7 +87,7 @@ export function InventoryScreen({ state = "slip", role = "STATION_LEADER" }: { s
         </>}>
         <Card pad="none" className="overflow-hidden">
           <table className="w-full">
-            <thead className="bg-elevated text-left text-[10px] uppercase tracking-wider text-fg-2">
+            <thead className="bg-elevated text-left text-xs text-fg-2">
               <tr>{["Item", "Stock", "Inbound (feasible)", "Required", "Ratio", "Days of cover", "Count freshness"].map((h, i) => <th key={h} className={cx("px-3 py-2 font-semibold", i === 1 || i === 3 ? "text-right" : "")}>{h}</th>)}</tr>
             </thead>
             <tbody className="[&_td:first-child]:pl-3">
@@ -118,11 +118,11 @@ export function PersonnelScreen({ state = "slip", role = "STATION_LEADER" }: { s
           </Card>
           <Card>
             <SectionHeader title="Named people (seed)" />
-            <ul className="divide-y divide-line text-[13px]">{NAMED_PEOPLE.map((p) => <li key={p.name} className="flex justify-between py-1.5"><span className="text-fg">{p.name}</span><span className="text-fg-2">{p.role}</span></li>)}</ul>
-            <p className="mt-2 text-[11px] text-fg-2">Other winterers are generated in the seed and not named here.</p>
+            <ul className="divide-y divide-line text-sm">{NAMED_PEOPLE.map((p) => <li key={p.name} className="flex justify-between py-1.5"><span className="text-fg">{p.name}</span><span className="text-fg-2">{p.role}</span></li>)}</ul>
+            <p className="mt-2 text-xs text-fg-2">Other winterers are generated in the seed and not named here.</p>
           </Card>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-fg-2"><Tag tone="amber">double-assigned</Tag>badge appears when a person is assigned to overlapping missions; dependent decisions are blocked until resolved in the Review queue.</div>
+        <div className="flex items-center gap-2 text-xs text-fg-2"><Tag tone="amber">double-assigned</Tag>badge appears when a person is assigned to overlapping missions; dependent decisions are blocked until resolved in the Review queue.</div>
       </Page>
     </Frame>
   );
@@ -141,14 +141,14 @@ export function MapScreen({ moment = "maitri-2501600" }: { moment?: MomentId }) 
             <MapPanel><LocalAreaMap /></MapPanel>
             <Card>
               <SectionHeader title="Assets · Maitri" />
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px]">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-xs">
                 {ASSETS.map((a) => {
                   const down = a.id === "SK-2" && moment === "maitri-2501600";
                   return <li key={a.id} className="flex justify-between"><span className="text-fg">{a.id}</span><span className={down ? "font-bold text-bad" : "text-fg-2"}>{down ? "DOWN · track fault" : a.type}</span></li>;
                 })}
               </ul>
             </Card>
-            <Card><SectionHeader title="Route distances" /><ul className="font-mono text-[11px] text-fg-2">{Object.entries(ROUTE_DISTANCES).map(([k, v]) => <li key={k} className="flex justify-between"><span>{k}</span><span className="text-fg">{v}</span></li>)}</ul></Card>
+            <Card><SectionHeader title="Route distances" /><ul className="font-mono text-xs text-fg-2">{Object.entries(ROUTE_DISTANCES).map(([k, v]) => <li key={k} className="flex justify-between"><span>{k}</span><span className="text-fg">{v}</span></li>)}</ul></Card>
           </div>
         </div>
       </Page>
@@ -259,11 +259,11 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg text-fg">
-      <div role="note" className="flex h-7 items-center justify-center border-b border-line bg-elevated text-[12px] text-fg-2">{SYNTHETIC_BANNER}</div>
+      <div role="note" className="flex h-7 items-center justify-center border-b border-line bg-elevated text-xs text-fg-2">{SYNTHETIC_BANNER}</div>
       <div className="flex flex-1 items-center justify-center">
         <form className="w-[760px]" onSubmit={submit}>
           <div className="mb-8">
-            <div className="font-mono text-2xl font-bold tracking-[0.25em]">DHRUV</div>
+            <div className="font-mono text-title font-bold tracking-[0.25em]">DHRUV</div>
             <p className="mt-2 text-sm text-fg-2">Know what a delay breaks, by when to act, and how far to trust the data.</p>
           </div>
           <div role="radiogroup" aria-label="Role" className="grid grid-cols-3 gap-3">
@@ -274,9 +274,9 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
                 <button key={d.id} role="radio" aria-checked={on} type="button" onClick={() => pick(d.role)}
                   className={cx("rounded-lg border p-4 text-left", on ? "border-accent bg-accent-tint ring-1 ring-accent/50" : "border-line bg-surface hover:border-line-strong")}>
                   <Icon size={20} className={on ? "text-accent" : "text-fg-2"} aria-hidden />
-                  <div className="mt-3 text-base font-semibold">{d.roleLabel}</div>
+                  <div className="mt-3 text-heading font-semibold">{d.roleLabel}</div>
                   <div className="text-xs text-fg-2">{d.node} · {d.device}</div>
-                  <div className="mt-2 font-mono text-[11px] text-fg-2">{d.id}</div>
+                  <div className="mt-2 font-mono text-xs text-fg-2">{d.id}</div>
                 </button>
               );
             })}
@@ -299,7 +299,7 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
             <Button type="submit" variant="primary" size="md" icon={<KeyRound size={15} />} className="h-10" disabled={busy || !onSubmit}>{busy ? "Signing in…" : "Enter"}</Button>
           </div>
           {failure && <p role="alert" className="mt-3 flex items-center gap-2 text-sm text-fg"><TriangleAlert size={15} className="text-bad" aria-hidden />{failure}</p>}
-          <p className="mt-6 text-[11px] text-fg-2">Demo login: role, device ID and a fixed PIN per station. Each browser tab is one device with its own local store. Production would need real authentication.</p>
+          <p className="mt-6 text-xs text-fg-2">Demo login: role, device ID and a fixed PIN per station. Each browser tab is one device with its own local store. Production would need real authentication.</p>
         </form>
       </div>
     </div>

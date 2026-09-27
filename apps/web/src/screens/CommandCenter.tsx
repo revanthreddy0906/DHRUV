@@ -26,8 +26,8 @@ const LINK_TEXT = { ONLINE: "text-ok", DEGRADED: "text-warn", OFFLINE: "text-bad
 /** Comms and sync strip from this tab's device: own link and outbox; other stations by last contact. */
 function LiveBottomStrip({ live }: { live: LiveChrome }) {
   return (
-    <div className="flex h-9 shrink-0 items-center gap-5 border-t border-line bg-surface px-5 font-mono text-[11px] text-fg-2">
-      <span className="flex items-center gap-1.5"><RadioTower size={12} aria-hidden />COMMS</span>
+    <div className="flex h-9 shrink-0 items-center gap-5 border-t border-line bg-surface px-5 font-mono text-xs text-fg-2">
+      <span className="flex items-center gap-1.5"><RadioTower size={12} aria-hidden />Comms</span>
       {live.stations.map((s) => s.own ? (
         <span key={s.node}>{s.label} link <b className={LINK_TEXT[s.status]}>{s.status}</b> <span className="text-fg-2">(simulated)</span></span>
       ) : (
@@ -45,8 +45,8 @@ function BottomStrip({ moment }: { moment: MomentId }) {
   const m = MOMENTS[moment];
   const maitri = m.stations[0];
   return (
-    <div className="flex h-9 shrink-0 items-center gap-5 border-t border-line bg-surface px-5 font-mono text-[11px] text-fg-2">
-      <span className="flex items-center gap-1.5"><RadioTower size={12} aria-hidden />COMMS</span>
+    <div className="flex h-9 shrink-0 items-center gap-5 border-t border-line bg-surface px-5 font-mono text-xs text-fg-2">
+      <span className="flex items-center gap-1.5"><RadioTower size={12} aria-hidden />Comms</span>
       <span>Maitri VSAT-1 OK · IRD-1 OK · link <b className={maitri.link.status === "ONLINE" ? "text-ok" : "text-bad"}>{maitri.link.status}</b>{maitri.link.status !== "ONLINE" && ` · last contact ${maitri.link.lastContact}`}</span>
       <span>Bharati link <b className="text-ok">ONLINE</b></span>
       <span className="ml-auto flex items-center gap-1.5"><CloudUpload size={12} aria-hidden />{m.viewer.id} · {m.pending.count} pending{m.pending.oldest && ` · oldest ${m.pending.oldest}`}</span>
@@ -77,7 +77,7 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
         <div className="flex h-full flex-col items-center justify-center p-8">
           <div className="flex flex-col items-center gap-3 text-fg-2">
             <div className="size-6 animate-spin rounded-full border-2 border-line-ctrl border-t-accent" />
-            <span className="font-mono text-xs tracking-wider">HYDRATING EXPEDITION STATE...</span>
+            <span className="text-xs">Loading this device's expedition state.</span>
           </div>
         </div>
       </Frame>
@@ -116,9 +116,9 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
       {incidentStrip && (
         <div role="alert" className="flex items-center gap-3 border-b border-bad/60 bg-bad-tint px-5 py-2">
           <Siren size={16} className="text-bad" aria-hidden />
-          <span className="font-mono text-[12px] font-bold text-fg">{incidentStrip}</span>
-          {(ops ? ops.emergency : true) && <span className="rounded border border-bad/60 px-1.5 text-[10px] font-bold uppercase tracking-wider text-bad">Emergency mode</span>}
-          {(ops ? ops.emergency : true) && <button type="button" onClick={() => setShowStations((s) => !s)} className="ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold text-accent hover:bg-accent-tint">
+          <span className="font-mono text-xs font-bold text-fg">{incidentStrip}</span>
+          {(ops ? ops.emergency : true) && <span className="rounded border border-bad/60 px-1.5 text-xs font-bold text-bad">Emergency mode</span>}
+          {(ops ? ops.emergency : true) && <button type="button" onClick={() => setShowStations((s) => !s)} className="ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-accent hover:bg-accent-tint">
             <LayoutGrid size={13} aria-hidden />{showStations ? "Show incident snapshot" : "Show station cards"}
           </button>}
         </div>

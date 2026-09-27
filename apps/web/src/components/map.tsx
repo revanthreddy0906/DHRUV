@@ -97,7 +97,7 @@ export function MapPanel({ tiles = "unavailable", children, className }: { tiles
   return (
     <div className={cx("overflow-hidden rounded-lg border border-line bg-surface", className)}>
       {tiles === "unavailable" && (
-        <div role="status" className="flex items-center gap-2 border-b border-line bg-elevated px-3 py-1.5 text-[11px] text-fg-2">
+        <div role="status" className="flex items-center gap-2 border-b border-line bg-elevated px-3 py-1.5 text-xs text-fg-2">
           <MapPinOff size={13} aria-hidden className="text-warn" />Map tiles unavailable. Operational state remains available. Using schematic map.
         </div>
       )}

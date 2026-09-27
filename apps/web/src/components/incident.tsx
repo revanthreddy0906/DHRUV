@@ -11,8 +11,8 @@ export function PositionCard({ inc }: { inc: Inc }) {
   const p = inc.lastConfirmed;
   return (
     <div className="rounded-lg border border-warn/50 bg-surface p-4">
-      <div className="flex items-center gap-2"><MapPin size={15} className="text-warn" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wider text-fg-2">Last confirmed position</span></div>
-      <p className="mt-2 text-2xl font-semibold text-fg">Last confirmed {p.age} ago</p>
+      <div className="flex items-center gap-2"><MapPin size={15} className="text-warn" aria-hidden /><span className="text-xs font-semibold text-fg-2">Last confirmed position</span></div>
+      <p className="mt-2 text-title font-semibold text-fg">Last confirmed {p.age} ago</p>
       <p className="mt-1 font-mono text-sm text-fg">{p.lat}, {p.lon} · {p.at} · {p.distance}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <FreshnessChip cls={p.freshness} label={`Position ${p.age} old`} />
@@ -36,8 +36,8 @@ export function ResponderRow({ r, conflictOpen }: { r: Inc["responders"][number]
           <Tag tone="red" className="ml-auto"><Ban size={11} aria-hidden />{conflictOpen ? "CONFLICT · kept DOWN · excluded" : `${r.status} · excluded`}</Tag>
         ) : <span className="ml-auto font-mono text-xs text-fg">{r.distance} · {r.eta}</span>}
       </div>
-      <p className="mt-1.5 text-[12px] text-fg-2">{conflictOpen && excluded ? `Excluded while the ${r.id} status conflict is open (conservative value kept). Resolve in the Review queue.` : r.autonomy}</p>
-      {!excluded && <p className="mt-0.5 font-mono text-[10px] text-fg-2">asset status age: unknown until verified · verify before dispatch</p>}
+      <p className="mt-1.5 text-xs text-fg-2">{conflictOpen && excluded ? `Excluded while the ${r.id} status conflict is open (conservative value kept). Resolve in the Review queue.` : r.autonomy}</p>
+      {!excluded && <p className="mt-0.5 text-xs text-fg-2">Asset status age unknown until verified. Verify before dispatch.</p>}
     </li>
   );
 }
@@ -46,7 +46,7 @@ export function VerifyChecklist({ items, onChange }: { items: string[]; onChange
   const [done, setDone] = React.useState(items.map(() => false));
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
-      <SectionHeader title="Verify before dispatch" meta={<span className="font-mono text-[11px] text-fg-2">{done.filter(Boolean).length}/{items.length} · checklist on this device</span>} />
+      <SectionHeader title="Verify before dispatch" meta={<span className="text-xs tabular-nums text-fg-2">{done.filter(Boolean).length} of {items.length} checked on this device</span>} />
       <div className="space-y-2">
         {items.map((it, i) => <Checkbox key={it} checked={done[i]} label={it} onChange={(v) => { const n = [...done]; n[i] = v; setDone(n); onChange?.(n); }} />)}
       </div>
@@ -66,15 +66,15 @@ export function SnapshotTable({ inc, conflictOpen, rows: liveRows }: { inc: Inc;
     { k: "Mission state", v: "F-27 AT_RISK (Fuel RED)", age: "engine · now" },
   ];
   return (
-    <table className="w-full text-[12.5px]">
+    <table className="w-full text-sm">
       <caption className="sr-only">Incident snapshot. Every line shows its age.</caption>
-      <thead><tr className="text-left text-[10px] uppercase tracking-wider text-fg-2"><th className="pb-1.5 font-semibold">Element</th><th className="pb-1.5 font-semibold">Value</th><th className="pb-1.5 text-right font-semibold">Age</th></tr></thead>
+      <thead><tr className="text-left text-xs text-fg-2"><th className="pb-1.5 font-semibold">Element</th><th className="pb-1.5 font-semibold">Value</th><th className="pb-1.5 text-right font-semibold">Age</th></tr></thead>
       <tbody>
         {rows.map((r, i) => (
           <tr key={i} className={cx("border-t border-line align-top", r.tone === "amber" && "dh-stale not-italic", r.tone === "red" && "bg-bad-tint/60")}>
             <td className="w-36 py-1.5 pr-3 text-fg-2">{r.k}</td>
             <td className="py-1.5 pr-3 text-fg" style={{ fontStyle: "normal" }}>{r.v}</td>
-            <td className={cx("whitespace-nowrap py-1.5 text-right font-mono text-[11px]", r.tone === "red" ? "text-bad" : r.tone === "amber" ? "text-warn" : "text-fg-2")} style={{ fontStyle: "normal" }}>{r.age}</td>
+            <td className={cx("whitespace-nowrap py-1.5 text-right font-mono text-xs", r.tone === "red" ? "text-bad" : r.tone === "amber" ? "text-warn" : "text-fg-2")} style={{ fontStyle: "normal" }}>{r.age}</td>
           </tr>
         ))}
       </tbody>
@@ -100,7 +100,7 @@ export function IncidentPanel({ inc = INCIDENT, conflictOpen, compact, onEscalat
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bad/60 bg-bad-tint px-4 py-3" role="alert">
         <Siren size={20} className="text-bad" aria-hidden />
         <div>
-          <div className="font-mono text-sm font-bold tracking-wide text-fg">{inc.id} · {status ?? "OPEN"} · {inc.headline ?? `${inc.team} overdue`}</div>
+          <div className="font-mono text-sm font-bold text-fg">{inc.id} · {status ?? "OPEN"} · {inc.headline ?? `${inc.team} overdue`}</div>
           <div className="text-xs text-fg-2">Opened {inc.openedAt} by {inc.openedBy}. DHRUV does not send distress signals; it assembles the operational picture.</div>
         </div>
         <div className="ml-auto flex gap-2">
@@ -130,7 +130,7 @@ export function IncidentPanel({ inc = INCIDENT, conflictOpen, compact, onEscalat
             <Card>
               <SectionHeader title="Incident timeline" meta={<ListChecks size={13} className="text-fg-2" />} />
               <ul className="space-y-1.5">{inc.timeline.map((t) => (
-                <li key={t.at + t.text} className="flex items-center gap-2 text-[12px]"><PriorityTierBadge tier={t.tier} /><span className="font-mono text-fg-2">{t.at}</span><span className="text-fg">{t.text}</span></li>
+                <li key={t.at + t.text} className="flex items-center gap-2 text-xs"><PriorityTierBadge tier={t.tier} /><span className="font-mono text-fg-2">{t.at}</span><span className="text-fg">{t.text}</span></li>
               ))}</ul>
             </Card>
           )}
