@@ -64,8 +64,8 @@ export function StationsTable({ rows, className }: { rows: StationRowView[]; cla
             <th scope="col" className="w-36 px-4 py-2 font-semibold">Station</th>
             <th scope="col" className="w-28 px-3 py-2 font-semibold">State</th>
             <th scope="col" className="px-3 py-2 font-semibold">Reason</th>
-            <th scope="col" className="w-52 px-3 py-2 font-semibold">Deadline</th>
-            <th scope="col" className="w-40 px-3 py-2 font-semibold">Link</th>
+            <th scope="col" className="w-48 px-3 py-2 font-semibold">Deadline</th>
+            <th scope="col" className="w-56 px-3 py-2 font-semibold">Link</th>
             <th scope="col" className="w-12 px-3 py-2"><span className="sr-only">Open</span></th>
           </tr>
         </thead>

@@ -59,7 +59,8 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
   const pct = (k: string) => marks.find((m) => m.key === k)?.pct ?? 0;
 
   return {
-    status: statusLine({ stations: evaluation.stations, names, decisionDeadlines: ops.openDecisions.map((d) => d.pnr ?? undefined), nextCutoff: w?.loadCutoff, now }),
+    // An open incident is the first thing wrong, whatever the stations' readiness says.
+    status: `${ops.incident ? `${ops.incident.title} is open. ` : ""}${statusLine({ stations: evaluation.stations, names, decisionDeadlines: ops.openDecisions.map((d) => d.pnr ?? undefined), nextCutoff: w?.loadCutoff, now })}`,
     allClear: isAllClear(evaluation.stations, ops.openDecisions.length),
     incident: ops.incident && { title: ops.incident.title, confirmed: `Last confirmed ${formatAgo(ops.incident.lastConfirmedAt, now)}.` },
     rows,
