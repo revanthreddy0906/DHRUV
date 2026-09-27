@@ -71,8 +71,8 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
 
   const offline = chrome.link === "OFFLINE";
   const offlineBanner = live
-    ? <OfflineBanner node={live.station} pending={live.pending.count} oldest={live.pending.oldest} dataAge={live.othersAsOf ? `newest from other devices ${live.othersAsOf}` : "nothing received from other devices yet"} />
-    : <OfflineBanner node={m.viewer.node} pending={m.pending.count} oldest={m.pending.oldest} dataAge="HQ data as of 24 Jan 09:00" />;
+    ? <OfflineBanner node={live.station} pending={live.pending.count} oldest={live.pending.oldest} dataAge={live.othersAsOf ? `as of ${live.othersAsOf}` : "nothing received yet"} />
+    : <OfflineBanner node={m.viewer.node} pending={m.pending.count} oldest={m.pending.oldest} dataAge="as of 24 Jan 09:00" />;
 
   return (
     <>

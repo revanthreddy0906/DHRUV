@@ -235,16 +235,19 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
 
 /* ---------- Offline banner ---------- */
 
-export function OfflineBanner({ node, pending, oldest, dataAge }: { node: string; pending: number; oldest?: string; dataAge?: string }) {
+/**
+ * One amber line when this device is Offline (section 7.5): "Offline. Local operations active.
+ * 5 events pending, oldest 6 h 50 m." How current other devices' data is sits at the right.
+ */
+export function OfflineBanner({ pending, oldest, dataAge }: { node?: string; pending: number; oldest?: string; dataAge?: string }) {
   return (
-    <div role="status" aria-live="polite" className="flex items-center gap-4 border-b border-warn/40 bg-warn-tint px-4 py-2">
-      <WifiOff size={18} className="text-warn" aria-hidden />
-      <div className="font-mono text-xs leading-5">
-        <div className="font-bold text-warn">⚠ OFFLINE · {node.toUpperCase()}</div>
-        <div className="text-fg">LOCAL OPERATIONS ACTIVE</div>
-      </div>
-      <div className="font-mono text-xs text-fg">{pending} EVENTS PENDING{oldest && <> · OLDEST {oldest}</>}</div>
-      {dataAge && <div className="ml-auto text-xs text-fg-2">Other nodes' data is as of last sync · {dataAge}</div>}
+    <div role="status" aria-live="polite" className="flex h-8 shrink-0 items-center gap-2 border-b border-warn/40 bg-warn-tint px-4 text-sm text-fg">
+      <WifiOff size={16} strokeWidth={1.75} className="text-warn" aria-hidden />
+      <span>
+        <span className="font-semibold text-warn">Offline.</span> Local operations active.
+        {pending > 0 && <> {pending} {pending === 1 ? "event" : "events"} pending{oldest && <>, oldest <span className="tabular-nums">{oldest}</span></>}.</>}
+      </span>
+      {dataAge && <span className="ml-auto text-xs text-fg-2">Other devices' data: {dataAge}</span>}
     </div>
   );
 }
