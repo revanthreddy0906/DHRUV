@@ -1,5 +1,5 @@
 import * as React from "react";
-import { EVENT_RULES, config, stockBalance, type OpEvent } from "@dhruv/shared";
+import { EVENT_RULES, config, stockBalance, withCreatedShipments, type OpEvent } from "@dhruv/shared";
 import { buildMapModel, haversineKm, type MapModel } from "@dhruv/map";
 import { reduceOrder, type ConflictView, type IncidentView } from "@dhruv/store";
 import { evaluate } from "@dhruv/engine";
@@ -39,7 +39,7 @@ export function useFactEvents(): OpEvent[] | null {
 export function useLiveMapModel(incidentId?: string): MapModel | null {
   const snap = useDevice()?.snapshot;
   const events = useFactEvents();
-  return React.useMemo(() => (snap?.seed && events ? buildMapModel({ seed: snap.seed, events, now: snap.now, incidentId }) : null), [snap?.seed, snap?.now, events, incidentId]);
+  return React.useMemo(() => (snap?.seed && events ? buildMapModel({ seed: withCreatedShipments(snap.seed, events), events, now: snap.now, incidentId }) : null), [snap?.seed, snap?.now, events, incidentId]);
 }
 
 /**

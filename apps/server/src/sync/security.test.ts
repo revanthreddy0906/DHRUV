@@ -297,3 +297,56 @@ describe("Vuln 3: synced DECISION_APPROVED goes through the same rules as the ap
 function listDecisionStatus(db: ReturnType<typeof makeApp>["db"], id: string): string | undefined {
   return (db.prepare(`SELECT status FROM decisions WHERE id = ?`).get(id) as { status: string } | undefined)?.status;
 }
+
+describe("SHIPMENT_CREATED: HQ Ops creates a shipment once", () => {
+  async function withSeed() {
+    const ctx = makeApp({ seed: season48 });
+    const hq = await login(ctx.app, "HQ-WEB-01", "HQ_OPS", "HQ");
+    const maitri = await login(ctx.app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI");
+    const field = await login(ctx.app, "FT3-TAB-01", "FIELD_LEAD", "MAITRI");
+    return { ...ctx, hq, maitri, field };
+  }
+  const shipment = (id: string, over: Record<string, unknown> = {}) => ({
+    shipment_id: id,
+    name: "Diesel 10 kL",
+    priority: "HIGH",
+    dest_node_id: "MAITRI",
+    legs: [
+      { leg_id: `L2-${id}`, seq: 2, from_node: "MUMBAI", to_node: "CAPE_TOWN", etd: null, eta: "2027-01-30T00:00:00.000Z", vessel_id: null },
+      { leg_id: `L3-${id}`, seq: 3, from_node: "CAPE_TOWN", to_node: "MAITRI", etd: "2027-02-06T00:00:00.000Z", eta: "2027-02-24T00:00:00.000Z", vessel_id: "V-ICE-STAR" },
+    ],
+    cargo: [{ inventory_item_id: "INV-DSL", qty: 10 }],
+    ...over,
+  });
+  const create = (d: Device, payload: ReturnType<typeof shipment>, at = t(24, "09:00"), node = "HQ") =>
+    makeEvent(d, "SHIPMENT_CREATED", { entity_type: "shipment", entity_id: payload.shipment_id }, payload, at, { node_id: node });
+
+  it("is accepted from HQ Ops and refused for station roles", async () => {
+    const { app, hq, maitri, field } = await withSeed();
+    const ok = create(hq, shipment("C-120"));
+    expect((await push(app, hq, [ok])).accepted).toEqual([ok.event_id]);
+    expect((await push(app, maitri, [create(maitri, shipment("C-121"), t(24, "09:05"), "MAITRI")])).rejected.map((r) => r.code)).toEqual(["ROLE_FORBIDDEN"]);
+    expect((await push(app, field, [create(field, shipment("C-122"), t(24, "09:05"), "MAITRI")])).rejected.map((r) => r.code)).toEqual(["ROLE_FORBIDDEN"]);
+  });
+
+  it("refuses a shipment or leg id that already exists, in the seed or from an earlier event", async () => {
+    const { app, hq } = await withSeed();
+    await push(app, hq, [create(hq, shipment("C-120"))]);
+    const res = await push(app, hq, [
+      create(hq, shipment("C-104"), t(24, "09:10")),
+      create(hq, shipment("C-120"), t(24, "09:11")),
+      create(hq, shipment("C-130", { legs: [{ leg_id: "L2-C-120", seq: 2, from_node: "MUMBAI", to_node: "CAPE_TOWN", eta: "2027-01-30T00:00:00.000Z" }] }), t(24, "09:12")),
+    ]);
+    expect(res.accepted).toEqual([]);
+    expect(res.rejected.map((r) => r.code)).toEqual(["INVALID_EVENT", "INVALID_EVENT", "INVALID_EVENT"]);
+  });
+
+  it("refuses a non-station destination and cargo the destination does not hold", async () => {
+    const { app, hq } = await withSeed();
+    const res = await push(app, hq, [
+      create(hq, shipment("C-140", { dest_node_id: "CAPE_TOWN" })),
+      create(hq, shipment("C-141", { cargo: [{ inventory_item_id: "INV-BH-DSL", qty: 5 }] }), t(24, "09:01")),
+    ]);
+    expect(res.rejected.map((r) => r.code)).toEqual(["INVALID_EVENT", "INVALID_EVENT"]);
+  });
+});

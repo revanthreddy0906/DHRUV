@@ -168,7 +168,7 @@ Idempotency: `(device_id, seq)` is unique — re-sending an event is always safe
 | 0 | Incident / SOS | INCIDENT_OPENED, INCIDENT_UPDATED |
 | 1 | Personnel and medical status | PERSON_STATUS_SET, CHECKIN_RECORDED, PERSON_MOVED |
 | 2 | Fuel and critical stock | STOCK_ISSUED, STOCK_RECEIVED, STOCK_COUNTED (fuel, medical, spares) |
-| 3 | Cargo | LEG_DELAYED, LEG_UPDATED, CARGO_STATUS_SET |
+| 3 | Cargo | SHIPMENT_CREATED, LEG_DELAYED, LEG_UPDATED, CARGO_STATUS_SET |
 | 4 | Routine | Task notes, mission edits, non-critical stock |
 | 5 | Attachments | Photos, reports (chunked, resumable) |
 
@@ -180,6 +180,7 @@ Idempotency: `(device_id, seq)` is unique — re-sending an event is always safe
 | STOCK_ISSUED | item_id, qty (positive), reason, mission_id? | Station Leader |
 | STOCK_RECEIVED | item_id, qty, shipment_id? | Station Leader |
 | BURN_RATE_CHANGED | item_id, phase, new_rate or uplift_pct | Station Leader, HQ |
+| **SHIPMENT_CREATED** | shipment_id, name, priority, dest_node_id, legs[] (leg_id, seq, from_node, to_node, etd?, eta, vessel_id?), cargo[] (inventory_item_id, qty) | HQ |
 | LEG_UPDATED | leg_id, etd?, eta?, status | HQ |
 | LEG_DELAYED | leg_id, new_eta, reason | HQ |
 | VESSEL_UPDATED | vessel_id, departure?, load_cutoff?, eta_station? | HQ |
@@ -198,6 +199,8 @@ Idempotency: `(device_id, seq)` is unique — re-sending an event is always safe
 | CONFLICT_FLAGGED | entity_id, field, contenders[], conservative_value | SYSTEM |
 | CONFLICT_RESOLVED | conflict_id, chosen_value, resolver | HQ, Station Leader |
 | CLOCK_ADVANCED | absolute target time (see section 9) | DEMO only |
+
+**SHIPMENT_CREATED** is a DHRUV addition to the locked list (data management, Sep 2026): no event could create a shipment, so shipments existed only in the seed. It is merge class A (a shipment is created once), priority 3, HQ only. The server refuses a shipment or leg id that already exists, a destination that is not a station, and a cargo line for an item the destination does not hold. `withCreatedShipments(seed, events)` (packages/shared) folds these events into the seed's shipments, legs and cargo lines in reduce order, so the engine counts the cargo as inbound (R02) and LEG_UPDATED / LEG_DELAYED work on its legs like any seeded one.
 
 **Reducer contract.** `reduce(seed: Seed, events: OpEvent[]): State` is pure. (This corrects an earlier version of this doc, which had the wrong argument order and mislabeled the seed parameter's type.) Two devices holding the same set of events, in any arrival order, must produce identical state (test T-SYNC-01).
 

@@ -1,6 +1,6 @@
 // packages/engine — pure deterministic engine (Paridhi v2 §2.3, §7)
 // No Date.now(), no Math.random(), no fetch, no runtime deps. Enforced by lint later.
-import { config, type OpEvent, type Seed } from "@dhruv/shared";
+import { config, withCreatedShipments, type OpEvent, type Seed } from "@dhruv/shared";
 import { reduce } from "./reduce.js";
 import { computeRequirement, type PhaseBoundaries } from "./rules/requirement.js";
 import { checkFeasibility } from "./rules/feasibility.js";
@@ -562,7 +562,9 @@ function evaluateStation(input: EngineInput, state: State, nodeId: string, now: 
   };
 }
 
-export function evaluate(input: EngineInput, now: string): Evaluation {
+export function evaluate(raw: EngineInput, now: string): Evaluation {
+  // Shipments created by events count as inbound exactly like the seed's (feasibleInbound).
+  const input: EngineInput = { ...raw, seed: withCreatedShipments(raw.seed, raw.events) };
   const state = reduce(input.seed, input.events);
   const stations: StationEval[] = [];
   for (const node of input.seed.nodes.filter((n) => n.type === "STATION")) {

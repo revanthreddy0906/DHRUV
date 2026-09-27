@@ -1,5 +1,5 @@
 import * as React from "react";
-import { EVENT_RULES } from "@dhruv/shared";
+import { EVENT_RULES, withCreatedShipments } from "@dhruv/shared";
 import { LEVER_ACTIONS, NODES, season48 } from "@dhruv/seed";
 import { evaluate, reduce, type Evaluation, type StationEval as EngineStationEval } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
@@ -103,7 +103,9 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
     const openConflicts = conflicts.filter((c) => c.status === "OPEN");
     const openIncidents = incidentsView(events).filter((i) => i.open);
 
-    const seed = snap.seed ?? season48;
+    // Shipments HQ created (SHIPMENT_CREATED) join the seed's, so every view that lists shipments,
+    // legs or cargo lines sees them without a second model.
+    const seed = withCreatedShipments(snap.seed ?? season48, events);
     const realEvaluation = evaluate({ seed, events }, now);
     const evaluated = (n: string | undefined) => !!n && realEvaluation.stations.some((s) => s.nodeId === n);
     const focus = evaluated(identity.node_id)

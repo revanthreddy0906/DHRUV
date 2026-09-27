@@ -29,6 +29,11 @@ export function describeEvent(e: OpEvent): string {
       const x = p as PayloadOf<"LEG_DELAYED">;
       return `${x.leg_id} ETA → ${dayLabel(x.new_eta)} · ${x.reason}`;
     }
+    case "SHIPMENT_CREATED": {
+      const x = p as PayloadOf<"SHIPMENT_CREATED">;
+      const cargo = x.cargo.map((c) => `${c.inventory_item_id} ${c.qty}`).join(", ");
+      return `${x.shipment_id} created → ${x.dest_node_id} · ${x.name}${cargo ? ` · ${cargo}` : ""} · ${x.legs.length} leg${x.legs.length === 1 ? "" : "s"}`;
+    }
     case "LEG_UPDATED": {
       const x = p as PayloadOf<"LEG_UPDATED">;
       return [x.leg_id, x.etd && `ETD ${dayLabel(x.etd)}`, x.eta && `ETA ${dayLabel(x.eta)}`, x.status].filter(Boolean).join(" · ");
