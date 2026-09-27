@@ -7,6 +7,7 @@ import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDataScreen } from "../screens/DataLive";
 import { LiveGraphScreen } from "../screens/GraphLive";
 import { LiveDirector } from "../screens/DirectorLive";
+import { LiveStationScreen, StationsIndex } from "../screens/StationLive";
 import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
@@ -281,6 +282,8 @@ export function App() {
         <Route path="/command" element={<CommandRoute />} />
         <Route path="/decisions" element={<DecisionsIndexRoute />} />
         <Route path="/decisions/:decisionId" element={<DecisionRoute />} />
+        <Route path="/stations" element={device ? <StationsIndex /> : <SignedOut what="The Station page evaluates this device's own events" />} />
+        <Route path="/stations/:nodeId" element={device ? <LiveStationScreen /> : <SignedOut what="The Station page evaluates this device's own events" />} />
         <Route path="/cargo" element={<CargoRoute />} />
         <Route path="/inventory" element={<InventoryRoute />} />
         <Route path="/personnel" element={<PersonnelRoute />} />

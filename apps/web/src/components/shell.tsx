@@ -2,7 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import {
   Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Wifi, WifiOff, Signal,
-  FlaskConical, TabletSmartphone, RadioTower, Database, Network, LogOut,
+  FlaskConical, TabletSmartphone, RadioTower, Database, Network, LogOut, Building2,
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
@@ -185,11 +185,12 @@ export function TopBar({ scope, pnr, sync, clock, user }: {
 
 /* ---------- Sidebar ---------- */
 
-export type NavKey = "command" | "decisions" | "cargo" | "inventory" | "personnel" | "map" | "incident" | "audit" | "data" | "graph";
+export type NavKey = "command" | "decisions" | "stations" | "cargo" | "inventory" | "personnel" | "map" | "incident" | "audit" | "data" | "graph";
 const NAV: { key: NavKey; label: string; Icon: typeof Radar }[] = [
   { key: "command", label: "Command", Icon: Radar },
   { key: "incident", label: "Incident", Icon: Siren },
   { key: "decisions", label: "Decisions", Icon: Scale },
+  { key: "stations", label: "Stations", Icon: Building2 },
   { key: "cargo", label: "Cargo", Icon: Ship },
   { key: "inventory", label: "Inventory", Icon: Package },
   { key: "personnel", label: "Personnel", Icon: Users },
