@@ -4,6 +4,7 @@ import { LiveCargoScreen } from "../screens/CargoLive";
 import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
+import { LiveDataScreen } from "../screens/DataLive";
 import { LiveDirector } from "../screens/DirectorLive";
 import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
@@ -264,6 +265,7 @@ export function App() {
         <Route path="/map" element={<MapRoute />} />
         <Route path="/incident" element={<IncidentRoute />} />
         <Route path="/audit" element={<AuditRoute />} />
+        <Route path="/data" element={device ? <LiveDataScreen /> : <Navigate to="/login" replace />} />
         <Route path="/sync" element={<SyncRoute />} />
         <Route path="/what-if" element={<Navigate to="/command?moment=hq-2501620&whatif=1" replace />} />
         <Route path="/field" element={<FieldRoute />} />

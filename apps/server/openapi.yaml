@@ -105,6 +105,33 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
 
+  /storage:
+    get:
+      summary: Row counts of the server store (events log, projections, seed tables); never rows
+      responses:
+        "200":
+          description: Storage summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [engine, journal_mode, file, epoch, cursor, log, derived, reference]
+                properties:
+                  engine: { type: string, enum: [SQLite] }
+                  journal_mode: { type: string }
+                  file: { type: string }
+                  epoch: { type: string }
+                  cursor: { type: integer }
+                  log:
+                    type: object
+                    properties:
+                      table: { type: string }
+                      rows: { type: integer }
+                      by_type: { type: array, items: { type: object, properties: { type: { type: string }, n: { type: integer } } } }
+                      by_device: { type: array, items: { type: object, properties: { device_id: { type: string }, n: { type: integer }, last_seq: { type: integer } } } }
+                  derived: { type: array, items: { type: object, properties: { table: { type: string }, rows: { type: integer } } } }
+                  reference: { type: array, items: { type: object, properties: { table: { type: string }, rows: { type: integer } } } }
+        "401": { $ref: "#/components/responses/Error" }
   /events:
     post:
       summary: Single online write (thin wrapper over push)

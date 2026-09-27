@@ -46,6 +46,21 @@ The Director lists the open device tabs and says which tab each beat needs. Pres
 
 Beat 7 also records FT-3's check-in on the Maitri tablet (radio relay), so the offline station has the position at 1:40–1:50.
 
+## Operational transactions (after the beats, or on their own)
+
+These are done by hand in the forms, not by the Director. Each one writes one event and syncs like any other.
+
+| Tab | Screen | Do | Check |
+|---|---|---|---|
+| Maitri | Inventory | Issue 2.5 kL diesel, reason "generator refuel" | Diesel stock drops by 2.5; the form says "saved locally", then "accepted by the server" |
+| Maitri | Inventory | Receive 1 kL, then Count 88 | Stock rises by 1, then reads 88.0 |
+| Bharati | Inventory | Open the Item list | Only Bharati's five items |
+| Field Lead | Inventory, then Personnel | Inventory is read only; set a person's status | The person's status changes in "People (live)" |
+| HQ | Inventory | Actions list | Count only; the station switch shows Bharati's stock |
+| HQ | Cargo | New shipment: 10 kL diesel to Maitri | C-113 appears; Maitri diesel inbound rises by 10 |
+| HQ | Personnel | Move a person Maitri → Bharati | They appear under Bharati |
+| any | Where data lives | Pick the event you just wrote | Local → outbox → server log, with the envelope and the server's row counts |
+
 ## If something is off
 
 - **A beat says "no response from ..."**: that device's tab is not open or not signed in.

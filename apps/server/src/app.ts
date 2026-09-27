@@ -10,6 +10,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerDecisionRoutes } from "./routes/decisions.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerScenarioRoutes } from "./routes/scenarios.js";
+import { registerStorageRoutes } from "./routes/storage.js";
 import { registerSyncRoutes } from "./routes/sync.js";
 
 const OPENAPI = readFileSync(new URL("../openapi.yaml", import.meta.url), "utf8");
@@ -50,6 +51,7 @@ export function buildApp(db: Database.Database, options: AppOptions = {}): Fasti
       registerEventRoutes(api, db);
       registerDecisionRoutes(api, db);
       registerScenarioRoutes(api, db);
+      registerStorageRoutes(api, db);
       registerAdminRoutes(api, db, options.seed, options.demoMode ?? env.demoMode);
     },
     { prefix: API_BASE },
