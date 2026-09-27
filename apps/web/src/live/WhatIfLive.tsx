@@ -58,7 +58,7 @@ export function LiveWhatIfDrawer({ ops, role, onClose }: { ops: LiveOps; role: s
   const r4 = (n: number | null | undefined) => Math.round((n ?? 0) * 10000) / 10000;
 
   return (
-    <aside role="dialog" aria-label="What-if" className="absolute inset-y-0 right-0 z-40 flex w-[480px] flex-col border-l-2 border-accent bg-surface shadow-[-12px_0_32px_rgba(0,0,0,.4)]">
+    <aside role="dialog" aria-label="What-if" className="absolute inset-y-0 right-0 z-40 flex w-[480px] flex-col border-l-2 border-accent bg-surface shadow-drawer">
       <header className="flex items-center gap-2 border-b border-line px-5 py-4">
         <FlaskConical size={17} className="text-accent" aria-hidden />
         <h2 className="flex-1 text-base font-semibold">What-if · {nodeLabel(node)}</h2>
@@ -78,12 +78,12 @@ export function LiveWhatIfDrawer({ ops, role, onClose }: { ops: LiveOps; role: s
         {scenario === "burn" ? (
           <label className="block text-[12px] text-fg-2">
             <span className="flex justify-between"><span>Burn rate change</span><span className="font-mono font-semibold text-fg">{burnPct >= 0 ? "+" : ""}{burnPct} %</span></span>
-            <input type="range" min={-20} max={30} value={burnPct} onChange={(e) => setBurnPct(Number(e.target.value))} aria-label="Burn rate change percent" className="mt-1 w-full accent-[var(--accent)]" />
+            <input type="range" min={-20} max={30} value={burnPct} onChange={(e) => setBurnPct(Number(e.target.value))} aria-label="Burn rate change percent" className="mt-1 w-full accent-accent" />
           </label>
         ) : (
           <label className="block text-[12px] text-fg-2">
             <span className="flex justify-between"><span>Feeder delay</span><span className="font-mono font-semibold text-fg">+{delayDays} d</span></span>
-            <input type="range" min={1} max={20} value={delayDays} onChange={(e) => setDelayDays(Number(e.target.value))} aria-label="Feeder delay days" className="mt-1 w-full accent-[var(--accent)]" />
+            <input type="range" min={1} max={20} value={delayDays} onChange={(e) => setDelayDays(Number(e.target.value))} aria-label="Feeder delay days" className="mt-1 w-full accent-accent" />
           </label>
         )}
         {result?.fuelBefore && result.fuelAfter ? (

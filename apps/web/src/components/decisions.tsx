@@ -11,7 +11,7 @@ export interface QueueItem { id: string; title: string; station: string; deadlin
 export function DecisionCard({ d, onOpen, selected }: { d: QueueItem; onOpen?: () => void; selected?: boolean }) {
   return (
     <button type="button" onClick={onOpen}
-      className={cx("w-full rounded-xl border bg-surface p-4 text-left transition-colors duration-150 hover:border-accent/60", selected ? "border-accent ring-1 ring-accent/40" : "border-bad/50")}>
+      className={cx("w-full rounded-lg border bg-surface p-4 text-left transition-colors duration-150 hover:border-accent/60", selected ? "border-accent ring-1 ring-accent/40" : "border-bad/50")}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[11px] font-semibold text-fg-2">{d.id} · {d.station}</span>
         <span className="inline-flex items-center gap-1 rounded bg-bad-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bad">Decision required</span>
@@ -36,7 +36,7 @@ export function DecisionQueue({ items, onOpen }: { items: QueueItem[]; onOpen?: 
     <section aria-label="Decision queue">
       <SectionHeader title="Decision queue" meta={<span className="font-mono text-[11px] text-fg-2">{items.length}</span>} />
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-line-strong p-4 text-sm text-fg-2">
+        <div className="rounded-lg border border-dashed border-line-strong p-4 text-sm text-fg-2">
           <CircleCheck size={16} className="mb-1 text-ok" aria-hidden />
           No active decisions. All monitored stations are within their thresholds.
         </div>
@@ -56,7 +56,7 @@ export function LeverWindow({ levers, today = "24 Jan", pnr = "3 Feb", end = "1 
   const x = (d: string) => `${(dayIdx(d) / span) * 100}%`;
   const ticks = ["24 Jan", "31 Jan", "7 Feb", "14 Feb", "21 Feb", "28 Feb"];
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <SectionHeader title="Decision windows · per lever" meta={<span className="text-[11px] text-fg-2">deadline = cutoff − lead</span>} />
       <div className="relative ml-[152px] mt-2 h-4 font-mono text-[10px] text-fg-2">
         {ticks.map((t) => <span key={t} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: x(t) }}>{t}</span>)}
@@ -105,7 +105,7 @@ export function OptionCard({ o, selected, onSelect }: { o: OptionEval; selected?
   return (
     <div role="radio" aria-checked={selected} aria-disabled={expired} tabIndex={expired ? -1 : 0} onClick={() => !expired && onSelect?.()}
       onKeyDown={(e) => { if (!expired && (e.key === " " || e.key === "Enter")) { e.preventDefault(); onSelect?.(); } }}
-      className={cx("flex flex-col rounded-xl border bg-surface p-4 transition-colors duration-150",
+      className={cx("flex flex-col rounded-lg border bg-surface p-4 transition-colors duration-150",
         expired ? "cursor-not-allowed border-dashed border-line opacity-50 grayscale" : "cursor-pointer hover:border-accent/60",
         selected ? "border-accent ring-1 ring-accent/50" : !expired && "border-line")}>
       <div className="flex items-center justify-between">

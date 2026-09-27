@@ -254,7 +254,7 @@ function Gallery() {
 function DuplicateDevice({ deviceId, onSignOut }: { deviceId: string; onSignOut: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-8 text-fg">
-      <div role="alert" className="max-w-lg rounded-xl border border-warn/60 bg-surface p-6">
+      <div role="alert" className="max-w-lg rounded-lg border border-warn/60 bg-surface p-6">
         <p className="font-mono text-sm font-bold tracking-wider text-warn">{deviceId} IS OPEN IN ANOTHER TAB</p>
         <p className="mt-2 text-sm text-fg-2">
           One tab is one device. This tab is not syncing and does not answer the Director, so nothing is written twice. Use the other tab, or sign out here and sign in as another device.

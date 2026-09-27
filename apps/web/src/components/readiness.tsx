@@ -69,7 +69,7 @@ export function StationCard({ station, link, onShowMath, onOpenDimension, compac
   const fuel = station.dimensions.find((d) => d.key === "FUEL");
   return (
     <article aria-labelledby={`st-${station.nodeId}`}
-      className={cx("rounded-xl border bg-surface p-5", station.state === "RED" ? "border-bad/60" : station.state === "AMBER" ? "border-warn/50" : "border-line")}>
+      className={cx("rounded-lg border bg-surface p-5", station.state === "RED" ? "border-bad/60" : station.state === "AMBER" ? "border-warn/50" : "border-line")}>
       <header className="mb-3 flex flex-wrap items-center gap-3">
         <h2 id={`st-${station.nodeId}`} className="text-lg font-semibold text-fg">{station.name}</h2>
         <StateBadge state={station.state} context={ctx} size={compact ? "md" : "lg"} className={animateIndex !== undefined ? "dh-cascade-in" : undefined} />

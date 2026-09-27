@@ -272,7 +272,7 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
               const on = d.role === role;
               return (
                 <button key={d.id} role="radio" aria-checked={on} type="button" onClick={() => pick(d.role)}
-                  className={cx("rounded-xl border p-4 text-left", on ? "border-accent bg-accent-tint ring-1 ring-accent/50" : "border-line bg-surface hover:border-line-strong")}>
+                  className={cx("rounded-lg border p-4 text-left", on ? "border-accent bg-accent-tint ring-1 ring-accent/50" : "border-line bg-surface hover:border-line-strong")}>
                   <Icon size={20} className={on ? "text-accent" : "text-fg-2"} aria-hidden />
                   <div className="mt-3 text-base font-semibold">{d.roleLabel}</div>
                   <div className="text-xs text-fg-2">{d.node} · {d.device}</div>

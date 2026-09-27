@@ -10,7 +10,7 @@ export interface SnapshotRow { k: string; v: React.ReactNode; age: string; tone?
 export function PositionCard({ inc }: { inc: Inc }) {
   const p = inc.lastConfirmed;
   return (
-    <div className="rounded-xl border border-warn/50 bg-surface p-4">
+    <div className="rounded-lg border border-warn/50 bg-surface p-4">
       <div className="flex items-center gap-2"><MapPin size={15} className="text-warn" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wider text-fg-2">Last confirmed position</span></div>
       <p className="mt-2 text-2xl font-semibold text-fg">Last confirmed {p.age} ago</p>
       <p className="mt-1 font-mono text-sm text-fg">{p.lat}, {p.lon} · {p.at} · {p.distance}</p>
@@ -45,7 +45,7 @@ export function ResponderRow({ r, conflictOpen }: { r: Inc["responders"][number]
 export function VerifyChecklist({ items, onChange }: { items: string[]; onChange?: (done: boolean[]) => void }) {
   const [done, setDone] = React.useState(items.map(() => false));
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <SectionHeader title="Verify before dispatch" meta={<span className="font-mono text-[11px] text-fg-2">{done.filter(Boolean).length}/{items.length} · checklist on this device</span>} />
       <div className="space-y-2">
         {items.map((it, i) => <Checkbox key={it} checked={done[i]} label={it} onChange={(v) => { const n = [...done]; n[i] = v; setDone(n); onChange?.(n); }} />)}
@@ -97,7 +97,7 @@ export function IncidentPanel({ inc = INCIDENT, conflictOpen, compact, onEscalat
   const conflictLines = conflicts ?? (conflictOpen ? [`${SK2_CONFLICT.entity} status ${SK2_CONFLICT.contenders.map((c) => `${c.value} (${c.device})`).join(" vs ")} · ${SK2_CONFLICT.kept} kept`] : []);
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-bad/60 bg-bad-tint px-4 py-3" role="alert">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bad/60 bg-bad-tint px-4 py-3" role="alert">
         <Siren size={20} className="text-bad" aria-hidden />
         <div>
           <div className="font-mono text-sm font-bold tracking-wide text-fg">{inc.id} · {status ?? "OPEN"} · {inc.headline ?? `${inc.team} overdue`}</div>

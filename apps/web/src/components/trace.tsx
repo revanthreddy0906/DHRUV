@@ -65,7 +65,7 @@ export function TraceDrawer({ title, subtitle, steps, open = true, animate, onCl
   if (!open) return null;
   return (
     <aside role="dialog" aria-label={`Show the math: ${title}`}
-      className={cx("absolute inset-y-0 right-0 z-20 flex w-[520px] flex-col border-l border-line-strong bg-surface shadow-[-12px_0_32px_rgba(0,0,0,.35)]", className)}>
+      className={cx("absolute inset-y-0 right-0 z-20 flex w-[520px] flex-col border-l border-line-strong bg-surface shadow-drawer", className)}>
       <header className="flex items-start gap-3 border-b border-line px-5 py-4">
         <Sigma size={18} className="mt-0.5 text-accent" aria-hidden />
         <div className="flex-1">

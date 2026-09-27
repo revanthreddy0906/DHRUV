@@ -20,7 +20,7 @@ export function LiveIncidentPanel({ compact = false }: { compact?: boolean }) {
   const [error, setError] = React.useState<string>();
   if (!device || !live) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-dashed border-line-strong p-5 text-sm text-fg-2">
+      <div className="flex items-center gap-2 rounded-lg border border-dashed border-line-strong p-5 text-sm text-fg-2">
         <ShieldCheck size={16} className="text-ok" aria-hidden />No open incident on this device.
       </div>
     );

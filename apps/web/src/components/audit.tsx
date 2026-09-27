@@ -34,7 +34,7 @@ export function AuditTable({ rows, initialFilter = EMPTY }: { rows: OpEventRow[]
   return (
     <div className="space-y-3">
       <AuditFilters rows={rows} value={f} onChange={setF} />
-      <div className="overflow-hidden rounded-xl border border-line">
+      <div className="overflow-hidden rounded-lg border border-line">
         <table className="w-full text-[12px]">
           <thead className="bg-elevated text-left text-[10px] uppercase tracking-wider text-fg-2">
             <tr>{["Device · seq", "Type", "Entity", "Actor", "P", "observed_at", "recorded_at_server", "Summary"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>

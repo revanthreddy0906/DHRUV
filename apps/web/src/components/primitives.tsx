@@ -128,7 +128,7 @@ export function UnknownValue({ what }: { what: string }) {
 
 export function Card({ children, className, pad = "md", as: As = "section", ...rest }: { children: React.ReactNode; className?: string; pad?: "none" | "sm" | "md" | "lg"; as?: any } & React.HTMLAttributes<HTMLElement>) {
   const p = { none: "", sm: "p-3", md: "p-4", lg: "p-5" }[pad];
-  return <As className={cx("rounded-xl border border-line bg-surface", p, className)} {...rest}>{children}</As>;
+  return <As className={cx("rounded-lg border border-line bg-surface", p, className)} {...rest}>{children}</As>;
 }
 
 export function SectionHeader({ title, meta, action, className }: { title: string; meta?: React.ReactNode; action?: React.ReactNode; className?: string }) {

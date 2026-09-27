@@ -92,7 +92,7 @@ export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange,
   React.useEffect(() => { if (!autoDrain) return; const t = setTimeout(drain, 1200); return () => clearTimeout(t); /* eslint-disable-next-line */ }, [autoDrain]);
 
   return (
-    <aside role="dialog" aria-label="Sync" className="absolute inset-y-0 right-0 z-20 flex w-[440px] flex-col border-l border-line-strong bg-surface shadow-[-12px_0_32px_rgba(0,0,0,.35)]">
+    <aside role="dialog" aria-label="Sync" className="absolute inset-y-0 right-0 z-20 flex w-[440px] flex-col border-l border-line-strong bg-surface shadow-drawer">
       <header className="flex items-center gap-2 border-b border-line px-5 py-4">
         <RefreshCw size={16} className="text-accent" aria-hidden />
         <h2 className="flex-1 text-base font-semibold">Sync · <span className="font-mono text-sm text-fg-2">{device}</span></h2>
@@ -139,7 +139,7 @@ export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange,
 
 export function ConflictCard({ c, onReview }: { c: Conflict; onReview?: () => void }) {
   return (
-    <article className="rounded-xl border border-warn/50 bg-surface p-4" aria-label={`Conflict on ${c.entity}`}>
+    <article className="rounded-lg border border-warn/50 bg-surface p-4" aria-label={`Conflict on ${c.entity}`}>
       <header className="flex items-center gap-2">
         <GitMerge size={15} className="text-warn" aria-hidden />
         <h3 className="font-mono text-[13px] font-bold tracking-wide text-fg">CONFLICT · {c.entity} {c.field} <span className="font-sans font-normal text-fg-2">({c.entityKind})</span></h3>
@@ -172,7 +172,7 @@ export function ConflictResolver({ c, onResolve, role = "HQ_OPS", disabledReason
   const canResolve = role !== "FIELD_LEAD";
   const blocked = disabledReason ?? (!canResolve ? "Field Leads cannot resolve conflicts" : undefined);
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <SectionHeader title={`Resolve ${c.entity} ${c.field}`} />
       <p className="mb-3 text-xs text-fg-2">Choose the value confirmed on the ground. Resolving emits CONFLICT_RESOLVED and is recorded in the audit log.</p>
       <div role="radiogroup" className="grid grid-cols-2 gap-2">

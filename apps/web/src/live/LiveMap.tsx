@@ -71,7 +71,7 @@ export function LiveMap({ model, view = "all", height = 360, compact = false, cl
   const width = compact ? 320 : 720;
   return (
     // `isolate` keeps Leaflet's own z-indexes (400+) inside the map, under drawers and overlays.
-    <div className={cx("relative isolate overflow-hidden rounded-xl border border-line bg-bg", className)} style={{ height }}>
+    <div className={cx("relative isolate overflow-hidden rounded-lg border border-line bg-bg", className)} style={{ height }}>
       {mode === "tiles" ? (
         <div ref={el} className="dhruv-map h-full w-full" role="region" aria-label="Map" />
       ) : (
