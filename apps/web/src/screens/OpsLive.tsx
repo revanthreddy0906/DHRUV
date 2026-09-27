@@ -1,20 +1,27 @@
-import { ClipboardCheck, Plus } from "lucide-react";
+import * as React from "react";
 import { InventoryRow, MissionRow, RoleCoverage } from "../components/ops";
-import { Button, Card, SectionHeader, cx } from "../components/primitives";
+import { Card, SectionHeader, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
+import { StationContext } from "../live/StationContext";
+import { StockTransactionForm } from "../live/StockTransactionForm";
 import { Frame } from "./Frame";
 
 const Loading = ({ nav }: { nav: "inventory" | "personnel" }) => (
   <Frame moment="start" nav={nav}><div className="p-8 text-center font-mono text-xs tracking-wider text-fg-2">HYDRATING EXPEDITION STATE...</div></Frame>
 );
 
-/** Inventory for this viewer's station (HQ: Maitri): every line is the engine's R01-R03 / R19 on this device's events. */
+/**
+ * Inventory for this viewer's station (HQ: either station): every line is the engine's R01-R03 / R19
+ * on this device's events, and the transaction card above it writes STOCK_* events.
+ */
 export function LiveInventoryScreen() {
   const device = useDevice();
-  const ops = useLiveOps();
+  const [focus, setFocus] = React.useState<string>();
+  const ops = useLiveOps(focus);
   if (!device || !ops) return <Loading nav="inventory" />;
-  const sl = device.session.identity.role === "STATION_LEADER";
+  const { role } = device.session.identity;
+  const node = ops.maitriStation.nodeId;
   const rows = ops.inventory;
   return (
     <Frame moment="start" nav="inventory">
@@ -24,11 +31,9 @@ export function LiveInventoryScreen() {
             <h1 className="text-xl font-semibold text-fg">Inventory · {ops.maitriStation.name}</h1>
             <p className="mt-0.5 text-sm text-fg-2">Ratio = (stock + feasible inbound) / requirement to the next resupply with reserve. Evaluated on this device at its own clock.</p>
           </div>
-          <div className="ml-auto flex gap-2">
-            <Button icon={<ClipboardCheck size={14} />} disabledReason={sl ? "Counts are recorded from the Field or Director flow in this build" : "Stock counts are recorded by the Station Leader"}>Record count</Button>
-            <Button icon={<Plus size={14} />} disabledReason={sl ? "Issues are recorded from the Field or Director flow in this build" : "Stock issues are recorded by the Station Leader"}>Record issue</Button>
-          </div>
+          <div className="ml-auto"><StationContext role={role} node={node} onChange={setFocus} /></div>
         </div>
+        <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} />
         <Card pad="none" className="overflow-hidden">
           <table className="w-full">
             <thead className="bg-elevated text-left text-[10px] uppercase tracking-wider text-fg-2">
