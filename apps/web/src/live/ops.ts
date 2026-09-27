@@ -14,6 +14,7 @@ import { exceptionsOf, forViewer, type OpsException } from "./exceptions";
 import { nodeLabel } from "./chrome";
 import { coords, dayLabel, describeEvent, incidentTypeLabel } from "./describe";
 import { formatAge } from "./format";
+import { formatAgo } from "../format";
 
 /**
  * Operational records for this device, from the events it holds (F2): open decisions with their
@@ -165,10 +166,10 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       incidentStrip = tracked
         ? [
             `${incident.id} · ${incident.team_id ?? incident.person_ids.join(", ")} ${incidentTypeLabel(incident.type)}`,
-            `last confirmed ${formatAge(incident.last_confirmed_at, now)} ago${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
+            `last confirmed ${formatAgo(incident.last_confirmed_at, now)}${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
             radius !== null ? `circle ${Math.round(radius)} km` : "position fresh",
           ].join(" · ")
-        : `${incident.id} · ${incidentTypeLabel(incident.type)} at ${nodeLabel(incident.node_id)} · opened ${formatAge(incident.opened_at, now)} ago`;
+        : `${incident.id} · ${incidentTypeLabel(incident.type)} at ${nodeLabel(incident.node_id)} · opened ${formatAgo(incident.opened_at, now)}`;
     }
 
     const rows = timeline(events).map((e) => ({
