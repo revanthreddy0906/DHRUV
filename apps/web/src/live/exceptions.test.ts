@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluate, legMilestones } from "@dhruv/engine";
 import type { OpEvent } from "@dhruv/shared";
 import { season48 } from "@dhruv/seed";
-import { exceptionsOf, forViewer } from "./exceptions";
+import { exceptionsOf, forViewer, rankForAttention } from "./exceptions";
 
 const AT = "2027-01-24T08:10:00.000Z";
 const slip: OpEvent = {
@@ -33,5 +33,20 @@ describe("exception queue", () => {
     expect(bharati.every((e) => e.node === "BHARATI" || e.node === "HQ")).toBe(true);
     const hq = forViewer(run([slip]), "HQ_OPS", "HQ");
     expect(hq[0]!.owners).toContain("HQ_OPS");
+  });
+});
+
+describe("needs attention order", () => {
+  it("pending decisions first, then RED, AMBER, stale", () => {
+    const decision = { id: "DEC-01", status: "PROPOSED", node_id: "MAITRI", pnr: "2027-02-03T00:00:00.000Z", options: [{}, {}, {}] } as never;
+    const list = rankForAttention(forViewer(exceptionsOf({
+      evaluation: evaluate({ seed: season48, events: [slip] }, AT), milestones: legMilestones({ seed: season48, events: [slip] }, AT),
+      decisions: [decision], conflicts: [], incidents: [], refused: 0, now: AT,
+    }), "HQ_OPS", "HQ"));
+    expect(list[0]!.id).toBe("dec:DEC-01");
+    expect(list[0]!.link.label).toBe("Review decision");
+    const groups = list.map((e) => (e.id.startsWith("dec:") ? 0 : e.id.startsWith("fresh:") ? 3 : e.severity === "RED" ? 1 : 2));
+    expect([...groups].sort((a, b) => a - b)).toEqual(groups);
+    expect(list.find((e) => e.id === "dim:MAITRI:FUEL")?.why).toBe("Fuel below requirement: 92.0 of 132.0 kL. Cargo excluded by vessel cutoff.");
   });
 });

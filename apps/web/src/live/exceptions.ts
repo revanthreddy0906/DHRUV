@@ -1,6 +1,7 @@
 import type { Evaluation, ShipmentMilestones } from "@dhruv/engine";
 import type { ConflictView, DecisionView, IncidentView } from "@dhruv/store";
 import { dayLabel } from "./describe";
+import { DIMENSION_LABEL, dimensionReason } from "../format";
 
 /**
  * The exception queue (the control-tower pattern): every rule breach becomes one line with a
@@ -20,8 +21,10 @@ export interface OpsException {
   why: string;
   /** Steps in order, each short enough to act on. */
   playbook: string[];
-  /** The screen where the first step is done. */
+  /** The screen where the first step is done; the label is the action ("Review decision"). */
   link: { to: string; label: string };
+  /** When it must be acted on (point of no return, latest milestone date), as ISO. */
+  deadline?: string;
 }
 
 export interface ExceptionInputs {
@@ -40,7 +43,7 @@ const name = (n: string) => NODE_NAME[n] ?? n;
 const DIMENSION_PLAYBOOK: Record<string, { label: string; owners: OwnerRole[]; steps: string[]; link: { to: string; label: string } }> = {
   FUEL: {
     label: "Fuel", owners: ["STATION_LEADER", "HQ_OPS"], link: { to: "/inventory", label: "Inventory" },
-    steps: ["Count the diesel tanks so the ratio rests on a fresh figure.", "Check the Γ robustness panel for how much margin is left.", "Open the proposed decision: hold the vessel, airlift, conserve or defer a mission."],
+    steps: ["Count the diesel tanks so the ratio rests on a fresh figure.", "Check the Γ robustness panel (Station page, Analysis) for how much margin is left.", "Open the proposed decision: hold the vessel, airlift, conserve or defer a mission."],
   },
   FOOD: {
     label: "Food", owners: ["STATION_LEADER", "HQ_OPS"], link: { to: "/personnel", label: "Personnel" },
@@ -72,21 +75,23 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
       if (d.state === "GREEN") continue;
       const p = DIMENSION_PLAYBOOK[d.key];
       if (!p) continue;
+      const coverage = d.key === "PERSONNEL" || d.key === "COMMS";
       out.push({
         id: `dim:${st.nodeId}:${d.key}`, severity: d.state, node: st.nodeId, owners: p.owners,
-        title: `${name(st.nodeId)} ${p.label} ${d.state}${d.ratio !== null ? ` · ratio ${d.ratio.toFixed(4)}` : ""}`,
-        why: d.trace.find((t) => t.rule === "R03" || t.rule === "R19" || t.rule === "R05" || t.rule === "R06")?.text ?? "Below its threshold.",
-        playbook: p.steps, link: p.link,
+        title: `${name(st.nodeId)} ${(DIMENSION_LABEL[d.key] ?? p.label).toLowerCase()} ${d.state === "RED" ? (coverage ? "below need" : "below requirement") : coverage ? "at need with no spare" : "close to requirement"}`,
+        why: dimensionReason(d),
+        playbook: p.steps, link: { to: `/stations/${st.nodeId}`, label: "Open station" },
+        deadline: d.key === "FUEL" ? st.pnr?.pnrDate ?? undefined : undefined,
       });
     }
     for (const d of st.dimensions) {
       if (d.freshness !== "STALE" && d.freshness !== "CRITICAL") continue;
       out.push({
         id: `fresh:${st.nodeId}:${d.key}`, severity: d.freshness === "CRITICAL" ? "RED" : "AMBER", node: st.nodeId, owners: ["STATION_LEADER"],
-        title: `${name(st.nodeId)} ${DIMENSION_PLAYBOOK[d.key]?.label ?? d.key} count ${d.freshness}`,
-        why: d.observedAt ? `Last count ${dayLabel(d.observedAt)}: the ratio rests on an old figure.` : "No recent count.",
-        playbook: ["Count it: Inventory → Count.", "The ratio and its confidence band update as soon as the count is recorded."],
-        link: { to: "/inventory", label: "Inventory" },
+        title: `${name(st.nodeId)} ${(DIMENSION_LABEL[d.key] ?? d.key).toLowerCase()} count ${d.freshness === "CRITICAL" ? "critically old" : "stale"}`,
+        why: d.observedAt ? `Last counted ${dayLabel(d.observedAt)}, so the ratio rests on an old figure. Verify before acting.` : "No recent count. Verify before acting.",
+        playbook: ["Count it: Inventory, action Count.", "The ratio and its confidence band update as soon as the count is recorded."],
+        link: { to: `/inventory?station=${st.nodeId}`, label: "Record count" },
       });
     }
   }
@@ -101,7 +106,8 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
         playbook: m.key === "ON_STATION"
           ? ["Confirm the vessel's schedule.", "Decide what can wait for next season and what must go by air."]
           : ["Confirm the leg's ETA with the forwarder (an old report is uncertain, R17).", "Record it on Cargo (Edit ETA) so every device sees it.", "If it misses the cut-off, weigh holding the vessel against an airlift."],
-        link: { to: "/cargo", label: "Cargo" },
+        link: { to: "/cargo", label: "Open cargo" },
+        deadline: m.latest ?? undefined,
       });
     }
   }
@@ -110,10 +116,11 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
     const left = d.pnr ? Math.ceil((Date.parse(d.pnr) - Date.parse(input.now)) / 86_400_000) : undefined;
     out.push({
       id: `dec:${d.id}`, severity: left !== undefined && left <= 3 ? "RED" : "AMBER", node: d.node_id, owners: ["HQ_OPS", "STATION_LEADER"],
-      title: `${d.id} waiting for a decision${left !== undefined ? ` · ${left} d to point of no return` : ""}`,
-      why: `${d.options.length} options proposed by the engine.`,
+      title: `Decision required: ${name(d.node_id)} ${d.id}`,
+      why: `${d.options.length} options proposed by the engine${left !== undefined ? `; ${left} ${left === 1 ? "day" : "days"} to the point of no return` : ""}.`,
       playbook: ["Open the decision and compare the options.", "Tick 'verified' for inputs that are uncertain, then approve one."],
-      link: { to: `/decisions/${d.id}`, label: "Decision" },
+      link: { to: `/decisions/${d.id}`, label: "Review decision" },
+      deadline: d.pnr ?? undefined,
     });
   }
 
@@ -121,9 +128,9 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
     out.push({
       id: `inc:${i.id}`, severity: "RED", node: i.node_id, owners: ["STATION_LEADER", "HQ_OPS"],
       title: `${i.id} ${i.type.replace(/_/g, " ").toLowerCase()} open`,
-      why: `Last confirmed ${dayLabel(i.last_confirmed_at)}; ${i.person_ids.length} people involved.`,
+      why: `Last confirmed ${dayLabel(i.last_confirmed_at)}. ${i.person_ids.length} ${i.person_ids.length === 1 ? "person" : "people"} involved.`,
       playbook: ["Open the Incident screen: last position and uncertainty circle.", "Send the nearest capable asset.", "Update or close the incident as news comes in."],
-      link: { to: "/incident", label: "Incident" },
+      link: { to: "/incident", label: "Open incident" },
     });
   }
 
@@ -131,9 +138,9 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
     out.push({
       id: `conf:${c.id}`, severity: "AMBER", node: c.node_id, owners: ["STATION_LEADER", "HQ_OPS"],
       title: `Conflicting reports on ${c.entity_id} ${c.field}`,
-      why: `Devices disagreed; the conservative value ${String(c.conservative_value)} is kept until someone decides.`,
+      why: `Devices disagreed. The conservative value ${String(c.conservative_value)} is kept until someone decides.`,
       playbook: ["Open the Review queue on Audit.", "Pick the value that is true on the ground."],
-      link: { to: "/audit", label: "Audit" },
+      link: { to: "/audit", label: "Review conflict" },
     });
   }
 
@@ -143,12 +150,21 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
       title: `${input.refused} event${input.refused === 1 ? "" : "s"} from this device refused by the server`,
       why: "They are not counted in any view.",
       playbook: ["Open the sync drawer or Where data lives to see the server's reason.", "Record the correct action again."],
-      link: { to: "/data", label: "Where data lives" },
+      link: { to: "/data", label: "See why" },
     });
   }
 
   const rank = { RED: 0, AMBER: 1 } as const;
   return out.sort((a, b) => rank[a.severity] - rank[b.severity] || a.node.localeCompare(b.node) || a.id.localeCompare(b.id));
+}
+
+/**
+ * Needs-attention order (section 8): pending decisions first, then RED, then AMBER, then stale
+ * counts. Stable, so a viewer's own items keep their place within each group.
+ */
+export function rankForAttention(list: OpsException[]): OpsException[] {
+  const group = (e: OpsException) => (e.id.startsWith("dec:") ? 0 : e.id.startsWith("fresh:") ? 3 : e.severity === "RED" ? 1 : 2);
+  return list.map((e, i) => ({ e, i })).sort((a, b) => group(a.e) - group(b.e) || a.i - b.i).map((x) => x.e);
 }
 
 /** Station roles see their station and expedition-wide items; HQ sees everything. Their own first. */

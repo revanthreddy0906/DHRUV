@@ -6,4 +6,5 @@ export { UNKNOWN, decimalsFor, formatQty } from "./number";
 export { formatRatio } from "./ratio";
 export { formatHaveNeed, formatMargin } from "./margin";
 export { ALL_CLEAR, DIMENSION_LABEL, dimensionHeadline, dimensionReason, drivingDimension, drivingItem, isAllClear, stationReason, statusLine } from "./status";
+export { timelinePositions } from "./timeline";
 export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallTime } from "./time";

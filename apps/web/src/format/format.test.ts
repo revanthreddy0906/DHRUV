@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatHaveNeed, formatMargin, formatQty, formatRatio, formatSimClock,
+  formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatHaveNeed, formatMargin, formatQty, formatRatio, formatSimClock, timelinePositions,
 } from "./index";
 
 describe("formatRatio", () => {
@@ -81,5 +81,19 @@ describe("dates", () => {
     expect(formatDate("2027-02-03T00:00:00.000Z")).toBe("3 Feb");
     expect(formatDateTime("2027-01-24T08:00:00.000Z")).toBe("24 Jan 08:00");
     expect(formatSimClock("2027-01-24T08:00:00.000Z")).toBe("24 Jan 2027, 08:00");
+  });
+});
+
+describe("timelinePositions", () => {
+  it("orders points on one span with now included", () => {
+    const p = timelinePositions([
+      { key: "cutoff", at: "2027-02-04T00:00:00.000Z" },
+      { key: "closing", at: "2027-02-28T00:00:00.000Z" },
+    ], "2027-01-24T08:00:00.000Z");
+    const at = (k: string) => p.find((x) => x.key === k)!.pct;
+    expect(at("now")).toBeGreaterThan(0);
+    expect(at("now")).toBeLessThan(at("cutoff"));
+    expect(at("cutoff")).toBeLessThan(at("closing"));
+    expect(at("closing")).toBeLessThan(100);
   });
 });
