@@ -40,7 +40,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
   const actions = personActionsFor(role);
   const [personId, setPersonId] = React.useState(people[0]?.id ?? "");
   const [action, setAction] = React.useState<PersonType>(actions[0]?.type ?? "PERSON_STATUS_SET");
-  const [status, setStatus] = React.useState<string>("ON_STATION");
+  const [chosenStatus, setStatus] = React.useState<string>();
   const [toNode, setToNode] = React.useState<string>("");
   const [arrive, setArrive] = React.useState("");
   const [touched, setTouched] = React.useState(false);
@@ -56,6 +56,8 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
   }
 
   const person = people.find((p) => p.id === personId) ?? people[0]!;
+  // Until the operator picks one, offer a status other than the person's current one.
+  const status = chosenStatus ?? PERSON_STATUSES.find((s) => s !== person.status)!;
   const targets = MOVE_TARGETS.filter((n) => n !== person.nodeId);
   const to = targets.includes(toNode as (typeof targets)[number]) ? toNode : targets[0]!;
   // Arrival defaults to now (an internal move); a typed date must not be before departure.
@@ -84,6 +86,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
     if (ok) {
       setTouched(false);
       setArrive("");
+      setStatus(undefined);
     }
   };
 
@@ -92,7 +95,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
       <SectionHeader title="Personnel action" meta={<span className="text-[11px] text-fg-2">Saved on this device first, then synced</span>} />
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <label className="text-xs text-fg-2">Person
-          <select aria-label="Person" value={person.id} onChange={(e) => setPersonId(e.target.value)} className={`${field} mt-1 block w-60`}>
+          <select aria-label="Person" value={person.id} onChange={(e) => { setPersonId(e.target.value); setStatus(undefined); }} className={`${field} mt-1 block w-60`}>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role.replace(/_/g, " ").toLowerCase()}</option>)}
           </select>
           <span className="mt-1 block text-[11px]">Now <span className="font-mono text-fg">{person.status}</span> at {nodeLabel(person.nodeId)}</span>
