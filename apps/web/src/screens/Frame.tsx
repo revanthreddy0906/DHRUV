@@ -9,7 +9,7 @@ import { LiveSyncDrawer } from "../live/SyncLive";
 
 export const NAV_PATH: Record<NavKey, string> = {
   command: "/command", decisions: "/decisions/DEC-01", cargo: "/cargo", inventory: "/inventory",
-  personnel: "/personnel", map: "/map", incident: "/incident", audit: "/audit", data: "/data",
+  personnel: "/personnel", map: "/map", incident: "/incident", audit: "/audit", data: "/data", graph: "/graph",
 };
 
 function LiveStatus({ live }: { live: LiveChrome }) {

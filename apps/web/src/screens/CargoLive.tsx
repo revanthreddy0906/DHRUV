@@ -1,5 +1,6 @@
 import * as React from "react";
-import { PackagePlus, Pencil, TriangleAlert } from "lucide-react";
+import { Network, PackagePlus, Pencil, TriangleAlert } from "lucide-react";
+import { Link } from "react-router-dom";
 import { checkCargoFeasibilityConfidence, classifyFreshness, evaluate, reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
 import type { LegView, ShipmentView } from "../data/demo";
@@ -140,7 +141,8 @@ export function LiveCargoScreen() {
               </p>
             )}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex items-center gap-2">
+            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-[12px] text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
             <Button icon={<PackagePlus size={14} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
             <Button icon={<Pencil size={14} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
           </div>

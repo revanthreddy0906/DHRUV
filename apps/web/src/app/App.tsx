@@ -5,6 +5,7 @@ import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDataScreen } from "../screens/DataLive";
+import { LiveGraphScreen } from "../screens/GraphLive";
 import { LiveDirector } from "../screens/DirectorLive";
 import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
@@ -88,6 +89,18 @@ function PersonnelRoute() {
 }
 
 /** Signed out, the Director cannot reach any device: say so, and keep the design mock below for reference. */
+/** A live-only screen opened without a device (yet): it renders as soon as the tab's session is restored. */
+function SignedOut({ what }: { what: string }) {
+  return (
+    <div className="min-h-screen bg-bg">
+      <div role="alert" className="flex items-center gap-3 border-b border-warn/60 bg-warn-tint px-6 py-3 text-sm text-fg">
+        <b>This tab is not signed in.</b> {what}, so it needs a signed-in device.
+        <Link to="/login" className="ml-auto rounded-md border border-accent px-3 py-1 font-semibold text-accent hover:bg-accent-tint">Sign in</Link>
+      </div>
+    </div>
+  );
+}
+
 function DirectorSignedOut() {
   return (
     <div className="min-h-screen bg-bg">
@@ -265,7 +278,8 @@ export function App() {
         <Route path="/map" element={<MapRoute />} />
         <Route path="/incident" element={<IncidentRoute />} />
         <Route path="/audit" element={<AuditRoute />} />
-        <Route path="/data" element={device ? <LiveDataScreen /> : <Navigate to="/login" replace />} />
+        <Route path="/graph" element={device ? <LiveGraphScreen /> : <SignedOut what="Connections shows the links behind this device's own data" />} />
+        <Route path="/data" element={device ? <LiveDataScreen /> : <SignedOut what="Where data lives reads this device's own store" />} />
         <Route path="/sync" element={<SyncRoute />} />
         <Route path="/what-if" element={<Navigate to="/command?moment=hq-2501620&whatif=1" replace />} />
         <Route path="/field" element={<FieldRoute />} />
