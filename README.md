@@ -91,6 +91,7 @@ packages/
 docs/
   demo-run.md       Step-by-step demo runbook with the expected result of every beat
   data-storage.md   How data is stored: device IndexedDB, outbox, server SQLite log, what is computed
+  logistics-landscape.md  How other logistics platforms work, with sources, and what DHRUV adopted
 .github/workflows/ci.yml   Node 20: frozen install, typecheck, test, web build
 ```
 

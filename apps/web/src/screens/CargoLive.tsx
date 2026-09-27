@@ -9,6 +9,7 @@ import { Button, Card, SectionHeader } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { ShipmentForm } from "../live/ShipmentForm";
+import { MilestoneStrip } from "../live/MilestoneStrip";
 import { nodeLabel } from "../live/chrome";
 import { dayLabel } from "../live/describe";
 import { formatAge, parseEtaInput } from "../live/format";
@@ -186,7 +187,7 @@ export function LiveCargoScreen() {
           </Card>
         )}
 
-        {view.shipments.map((s) => <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} />)}
+        {view.shipments.map((s) => { const ms = ops.milestones.find((x) => x.shipmentId === s.id); return <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} milestones={ms && <MilestoneStrip m={ms} />} />; })}
 
         <p className="text-[11px] text-fg-2">
           Cargo-leg freshness is shown as a badge. When an ETA report is STALE or worse and slack ≤ 2 d, R17 marks the inbound UNCERTAIN and the band's low side excludes it.
