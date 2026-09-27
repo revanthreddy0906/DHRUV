@@ -4,17 +4,17 @@ import {
 } from "./index";
 
 describe("formatRatio", () => {
-  it("shows 3 decimals truncated toward zero", () => {
-    expect(formatRatio(0.697)).toBe("0.697");
-    expect(formatRatio(0.6970)).toBe("0.697");
-    expect(formatRatio(1.0606)).toBe("1.060");
+  it("rounds half up to 3 decimals", () => {
+    expect(formatRatio(0.69697)).toBe("0.697");
+    expect(formatRatio(92 / 132)).toBe("0.697");
+    expect(formatRatio(1.0606)).toBe("1.061");
     expect(formatRatio(1.0334)).toBe("1.033");
-    expect(formatRatio(1.1785)).toBe("1.178");
-  });
-  it("never crosses a threshold the state does not", () => {
-    expect(formatRatio(1.04996)).toBe("1.049");
-    expect(formatRatio(0.94999)).toBe("0.949");
     expect(formatRatio(1.05)).toBe("1.050");
+    expect(formatRatio(1.0605)).toBe("1.061");
+  });
+  it("truncates instead when rounding would cross into another band", () => {
+    expect(formatRatio(1.04996)).toBe("1.049");
+    expect(formatRatio(0.94996)).toBe("0.949");
     expect(formatRatio(0.95)).toBe("0.950");
   });
   it("says unknown for a missing ratio", () => {

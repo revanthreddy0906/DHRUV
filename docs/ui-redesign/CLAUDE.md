@@ -182,10 +182,11 @@ Create `apps/web/src/format/` with unit tests (`*.test.ts`) and route all displa
 through it.
 
 **`formatRatio(r)`**
-- 3 decimals, **truncated toward zero**, so a displayed ratio never crosses a threshold its state
-  does not (1.04996 shows 1.049, not 1.050).
-- 0.6970 → `0.697`, 1.0606 → `1.060`, 1.0334 → `1.033`.
-- The trace drawer shows the engine's full precision unchanged.
+- Round to 3 decimals (half up). If the rounded value falls in a different band than the engine
+  value (bands: < 0.95, 0.95 to < 1.05, >= 1.05), truncate to 3 decimals instead. The trace
+  drawer shows full engine precision.
+- 0.69697 → `0.697`, 1.0606 → `1.061`, 1.04996 → `1.049`, 0.94996 → `0.949`, 1.05 → `1.050`,
+  1.0334 → `1.033`.
 
 **`formatMargin(available, required, unit)`**
 - The headline number for stock dimensions, from the engine's own available and required
