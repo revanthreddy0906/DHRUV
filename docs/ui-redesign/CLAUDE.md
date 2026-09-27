@@ -425,7 +425,7 @@ Changes:
 - Keep the fields and `useEventWriter`.
 - Add the unit inside the quantity field as a suffix ("kL", "person-days", "kits").
 - **Consequence preview.** When item, action and quantity are valid, show one line under the
-  form before Submit: "Diesel 92.0 → 89.5 kL · fuel ratio 1.060 → 1.041 · stays GREEN" (or
+  form before Submit: "Diesel 92.0 → 91.0 kL · fuel ratio 1.061 → 1.053 · stays GREEN" (or
   "turns AMBER" in amber).
   - Compute it by running the existing client-side engine with the draft as a hypothetical
     overlay event. Use whatever the what-if drawer / `/scenarios/run` path already uses locally.
@@ -593,8 +593,9 @@ revert to the last green commit instead.
 - Demo dock clock jumps apply to this device only; the group is labelled "Clock (this device)".
   The Director remains the way to move all tabs.
 - Screenshots use `playwright-core` from a scratch directory, never added to the repo.
-- `docs/ui-redesign/` is committed: design README, tokens, `PHASE-n.md`, `before-*.png` and only
-  the final `after-*` screenshots, plus a copy of this file at `docs/ui-redesign/CLAUDE.md`.
+- `docs/ui-redesign/` is committed: design README, tokens, `PHASE-n.md`, and a copy of this file
+  at `docs/ui-redesign/CLAUDE.md`, kept identical to the root file. Screenshots are gitignored
+  (`docs/ui-redesign/**/*.png|jpg|jpeg|webp`) and kept on disk only.
 
 ## 13. Every screen must handle
 
