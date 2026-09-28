@@ -14,7 +14,10 @@ import { IncidentPanel } from "../components/incident";
 import { AuditTable } from "../components/audit";
 import { ReviewQueue, ConflictResolver, SyncDrawer } from "../components/sync";
 import { Button, Card, SectionHeader, Tag, cx, FreshnessChip, StateBadge } from "../components/primitives";
-import { FieldHome } from "../components/field";
+import { config } from "@dhruv/shared";
+import { FieldFrame, FieldView, type FieldModel } from "../components/field";
+import { checkInStatus, fieldLinkLine } from "../format";
+import { CHECKIN_DUE_SOON_MINUTES } from "../ui-config";
 import { DirectorPanel } from "../components/director";
 import { CommandCenter } from "./CommandCenter";
 import type { Role } from "../data/types";
@@ -316,8 +319,22 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
 
 /* ---------- Field & Director ---------- */
 
+/** Static Field Lead preview for the /screens gallery: FT-3 just after its 07:00 check-in. */
 export function FieldScreen({ offline = false }: { offline?: boolean }) {
-  return <div className="flex gap-6 bg-bg p-6"><FieldHome offline={offline} pending={offline ? 1 : 0} oldest={offline ? "0 m" : undefined} /></div>;
+  const at = "2027-01-25T07:00:00.000Z";
+  const model: FieldModel = {
+    team: "FT-3", station: "Maitri", clock: { date: "25 Jan", time: "07:00" },
+    link: { status: offline ? "OFFLINE" : "ONLINE", text: fieldLinkLine(offline ? "OFFLINE" : "ONLINE", "Maitri", offline ? 1 : 0, "07:02") },
+    checkIn: {
+      status: checkInStatus(at, at, { intervalHours: config.season.checkInIntervalHours, graceHours: config.season.checkInGraceHours, dueSoonMinutes: CHECKIN_DUE_SOON_MINUTES }),
+      waiting: offline ? ["07:00"] : [],
+      feedback: offline ? { kind: "pending", text: "Check-in saved on this device. Waiting to send." } : { kind: "synced", text: "Check-in sent." },
+    },
+    mission: { id: "F-27", name: "Ice-core traverse support", dates: "3–10 Feb", vehicle: "SK-4", people: ["Dr A. Verma", "R. Nair"] },
+    position: { coords: "−70.62, 12.10", age: "just now" },
+    incident: { types: [{ id: "SOS", label: "SOS" }, { id: "MEDICAL", label: "Medical" }, { id: "INJURY", label: "Injury" }] },
+  };
+  return <FieldFrame><FieldView model={model} /></FieldFrame>;
 }
 
 export function DirectorScreen() {
