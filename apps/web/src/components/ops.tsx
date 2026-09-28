@@ -1,8 +1,8 @@
 import * as React from "react";
-import { Ship, TriangleAlert, Users, UserX } from "lucide-react";
+import { OctagonAlert, TriangleAlert, Users, UserX } from "lucide-react";
 import type { MissionEval } from "../data/types";
 import type { ShipmentView, InventoryView } from "../data/demo";
-import { cx, STATE_META, StateBadge, RatioDisplay, SlackBadge, Tag, FreshnessChip, FRESH_META, Button } from "./primitives";
+import { cx, STATE_META, StateBadge, RatioDisplay, Tag, FreshnessChip, FRESH_META, Button } from "./primitives";
 import { dayIdx } from "./decisions";
 
 /* ---------- Cargo ---------- */
@@ -10,53 +10,85 @@ import { dayIdx } from "./decisions";
 const AX0 = "10 Jan", AX1 = "1 Mar";
 const pos = (d: string) => ((dayIdx(d) - dayIdx(AX0)) / (dayIdx(AX1) - dayIdx(AX0))) * 100;
 
-export function CutoffMarker({ date, label = "Vessel load cutoff" }: { date: string; label?: string }) {
+/** The visual anchor of a shipment (section 9.5): one plain vertical line, "Vessel cutoff 4 Feb". */
+export function CutoffMarker({ date, label = "Vessel cutoff" }: { date: string; label?: string }) {
   return (
-    <div className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-warn" style={{ left: `${pos(date)}%` }}>
-      <span className="absolute -top-5 left-1 whitespace-nowrap text-xs font-semibold tabular-nums text-warn">{label} {date}</span>
+    <div className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-fg" style={{ left: `${pos(date)}%` }}>
+      <span className="absolute -top-5 left-1 whitespace-nowrap text-xs font-semibold tabular-nums text-fg">{label} {date}</span>
     </div>
   );
 }
 
-export function LegTimeline({ s, today = "24 Jan", originalEta, milestones }: { s: ShipmentView; today?: string; originalEta?: string; milestones?: React.ReactNode }) {
-  const feasTone = s.feasible === "FEASIBLE" ? "green" : s.feasible === "EXCLUDED" ? "red" : "amber";
+const PRIORITY: Record<ShipmentView["priority"], string> = { CRITICAL: "Critical priority", HIGH: "High priority", NORMAL: "Normal priority" };
+
+/** "2 d slack" as text: amber at 0–2 d, red when negative (section 9.5). Nothing when there is no feeder slack. */
+export function SlackText({ slack, state }: { slack: string; state: ShipmentView["slackState"] }) {
+  if (!slack || slack === "—") return null;
+  return <span className={cx("text-sm tabular-nums", state === "RED" ? "font-semibold text-bad" : state === "AMBER" ? "font-semibold text-warn" : "text-fg-2")}>{slack} slack</span>;
+}
+
+/** Inbound feasibility as a word; only uncertain or excluded cargo is coloured. */
+export function Feasibility({ value }: { value: ShipmentView["feasible"] }) {
+  if (value === "FEASIBLE") return <span className="text-sm text-fg-2">Feasible</span>;
+  const red = value === "EXCLUDED";
+  const Icon = red ? OctagonAlert : TriangleAlert;
+  return <span className={cx("inline-flex items-center gap-1 text-sm font-semibold", red ? "text-bad" : "text-warn")}><Icon size={16} strokeWidth={1.75} aria-hidden />{red ? "Excluded" : "Uncertain"}</span>;
+}
+
+const LEG_STATUS: Record<string, string> = { PLANNED: "Planned", IN_TRANSIT: "In transit", DELAYED: "Delayed", DONE: "Done" };
+
+/** A shipment with nothing at risk, collapsed to one row: id, name, priority, slack, state. */
+export function ShipmentRow({ s, onExpand }: { s: ShipmentView; onExpand?: () => void }) {
+  return (
+    <li className="flex h-12 items-center gap-4 px-4">
+      <span className="w-16 font-mono text-sm font-semibold text-fg">{s.id}</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-fg">{s.contents}</span>
+      <span className="w-32 text-sm text-fg-2">{PRIORITY[s.priority]}</span>
+      <span className="w-24"><SlackText slack={s.slack} state={s.slackState} /></span>
+      <span className="w-24"><Feasibility value={s.feasible} /></span>
+      {onExpand && <button type="button" onClick={onExpand} className="text-sm font-semibold text-accent hover:underline" aria-label={`Show legs of ${s.id}`}>Legs</button>}
+    </li>
+  );
+}
+
+export function LegTimeline({ s, today = "24 Jan", originalEta, milestones, onCollapse }: { s: ShipmentView; today?: string; originalEta?: string; milestones?: React.ReactNode; onCollapse?: () => void }) {
   return (
     <article className={cx("rounded-lg border bg-surface p-4", s.feasible === "EXCLUDED" ? "border-bad/60" : s.feasible === "UNCERTAIN" ? "border-warn/50" : "border-line")}>
-      <header className="flex flex-wrap items-center gap-2">
-        <Ship size={15} className="text-fg-2" aria-hidden />
-        <h3 className="font-mono text-sm font-bold text-fg">{s.id}</h3>
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <h3 className="font-mono text-heading font-semibold text-fg">{s.id}</h3>
         <span className="text-sm text-fg">{s.contents}</span>
-        <Tag tone={s.priority === "CRITICAL" ? "red" : s.priority === "HIGH" ? "amber" : "neutral"}>{s.priority}</Tag>
-        <span className="ml-auto flex items-center gap-2">
-          <SlackBadge slack={s.slack} state={s.slackState} />
-          <Tag tone={feasTone as any}>{s.feasible}</Tag>
+        <span className="text-sm text-fg-2">{PRIORITY[s.priority]}</span>
+        <span className="ml-auto flex items-center gap-4">
+          <SlackText slack={s.slack} state={s.slackState} />
+          <Feasibility value={s.feasible} />
+          {onCollapse && <button type="button" onClick={onCollapse} className="text-sm font-semibold text-accent hover:underline">Collapse</button>}
         </span>
       </header>
-      {s.note && <p className={cx("mt-2 flex items-center gap-1.5 text-xs font-medium", s.feasible === "EXCLUDED" ? "text-bad" : "text-warn")}><TriangleAlert size={13} aria-hidden />{s.note}</p>}
-      <div className="relative mt-6">
-        <div className="pointer-events-none absolute inset-y-0 left-[200px] right-[120px]">
+      {s.note && <p className={cx("mt-2 text-sm font-medium", s.feasible === "EXCLUDED" ? "text-bad" : "text-warn")}>{s.note}</p>}
+      <div className="relative mt-7">
+        <div className="pointer-events-none absolute inset-y-0 left-[220px] right-[120px]">
           <CutoffMarker date={s.cutoff} />
-          <div className="absolute inset-y-0 w-px bg-accent/80" style={{ left: `${pos(today)}%` }}><span className="absolute -bottom-4 left-1 font-mono text-xs text-accent">now</span></div>
+          <div className="absolute inset-y-0 w-px bg-accent" style={{ left: `${pos(today)}%` }}><span className="absolute -bottom-5 left-1 text-xs font-semibold text-accent">Now</span></div>
         </div>
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {s.legs.map((l) => {
             const start = l.etd ? pos(l.etd) : 0;
             const end = pos(l.eta);
             const delayed = l.status === "DELAYED";
             return (
               <li key={l.id} className="flex items-center gap-0">
-                <div className="w-[200px] shrink-0 pr-3">
-                  <div className="font-mono text-xs text-fg"><b>{l.id}</b> {l.from} → {l.to}</div>
-                  <div className="font-mono text-xs text-fg-2">{l.vessel ? "MV Ice Star · " : ""}{l.status}{l.etd ? ` · ETD ${l.etd}` : " · ETD not in seed"}</div>
-                  {l.freshness && <FreshnessChip cls={l.freshness.cls} label={`ETA report ${l.freshness.age}`} className="-ml-1.5 mt-0.5" />}
+                <div className="w-[220px] shrink-0 pr-3">
+                  <div className="text-sm text-fg"><span className="font-mono text-fg-2">{l.id}</span> {l.from} → {l.to}</div>
+                  <div className="text-xs text-fg-2">{l.vessel ? "MV Ice Star, " : ""}{(LEG_STATUS[l.status] ?? l.status).toLowerCase()}{l.etd ? `, departs ${l.etd}` : ""}</div>
+                  {l.freshness && l.freshness.cls !== "FRESH" && <FreshnessChip cls={l.freshness.cls} label={`ETA report ${l.freshness.age} old`} className="mt-0.5" />}
                 </div>
-                <div className="relative h-6 flex-1 rounded bg-bg">
+                <div className="relative h-6 flex-1 rounded-sm bg-bg">
                   <div className={cx("absolute inset-y-1 rounded-sm border",
-                    l.status === "DONE" ? "border-line-strong bg-fg-3/30" : delayed ? "border-bad bg-bad/35" : l.vessel ? "border-accent/60 bg-accent/20" : "border-line-strong bg-elevated",
+                    l.status === "DONE" ? "border-line-strong bg-elevated" : delayed ? "border-bad bg-bad-tint" : l.vessel ? "border-accent/60 bg-accent-tint" : "border-line-strong bg-elevated",
                     !l.etd && "border-dashed")} style={{ left: `${start}%`, width: `${Math.max(1, end - start)}%` }} />
                   {delayed && originalEta && <div className="absolute inset-y-0.5 w-px border-l border-dashed border-fg-2" style={{ left: `${pos(originalEta)}%` }} title={`Original ETA ${originalEta}`} />}
                 </div>
-                <div className={cx("w-[120px] shrink-0 pl-3 font-mono text-xs", delayed ? "font-bold text-bad" : "text-fg-2")}>
+                <div className={cx("w-[120px] shrink-0 pl-3 text-sm tabular-nums", delayed ? "font-semibold text-bad" : "text-fg-2")}>
                   ETA {l.eta}{delayed && originalEta && <span className="block text-xs font-normal text-fg-2">was {originalEta}</span>}
                 </div>
               </li>
@@ -64,7 +96,7 @@ export function LegTimeline({ s, today = "24 Jan", originalEta, milestones }: { 
           })}
         </ul>
       </div>
-      <div className="ml-[200px] mr-[120px] mt-5 flex justify-between font-mono text-xs text-fg-2"><span>{AX0}</span><span>1 Feb</span><span>15 Feb</span><span>{AX1}</span></div>
+      <div className="ml-[220px] mr-[120px] mt-6 flex justify-between text-xs tabular-nums text-fg-2"><span>{AX0}</span><span>1 Feb</span><span>15 Feb</span><span>{AX1}</span></div>
       {milestones}
     </article>
   );
