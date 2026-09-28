@@ -52,6 +52,16 @@ is a calm, professional operations product.
    `/graph` and the Aurora scenario.
 8. **Playwright / e2e selectors.** Before moving or renaming controls, grep the tests for their
    selectors and update them in the same commit.
+9. **Git: commit only, never push, never touch develop.**
+   - Never run `git push` in any form (including `--force`, `--force-with-lease`, or pushing tags).
+     Pushing is always done by the human. When work is ready, say so and stop.
+   - Commit only on the current working branch (`ui/polar-light`). Before every commit, run
+     `git branch --show-current` and stop if it is `develop` or `main`.
+   - Never check out, commit to, merge into, rebase, reset or rewrite `develop` or `main`.
+     Reading them (`git log develop..HEAD`, `git diff develop`) is fine.
+   - Do not create, delete or switch branches unless asked. A backup branch the human requested is
+     the only exception.
+   - Never change git config, remotes or hooks.
 
 ## 3. Design principles (apply in this order)
 
