@@ -101,7 +101,7 @@ export function LiveAuditScreen() {
         <div>
           <h1 className="text-title font-semibold text-fg">Audit</h1>
           <p className="mt-0.5 text-sm text-fg-2">
-            Append-only event log as held by {identity.device_id}. Events are never edited; corrections are new events. recorded_at_server is real server time; observed_at is demo time.
+            Append-only event log as held by {identity.device_id}. Events are never edited; corrections are new events. Observed times are demo time; recorded-at-server times are the server's real clock.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">

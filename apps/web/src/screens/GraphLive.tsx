@@ -23,7 +23,8 @@ const TYPE_LABEL: Record<GraphNodeType, string> = {
 };
 const W = 196, H = 40, GAP = 10, COL = 236, TOP = 34, PAD = 12;
 
-const stroke = (s?: string) => (s === "RED" ? "stroke-bad" : s === "AMBER" ? "stroke-warn" : s === "GREEN" ? "stroke-ok" : "stroke-line-strong");
+// GREEN is quiet (section 3.1): only AMBER and RED records get a coloured outline.
+const stroke = (s?: string) => (s === "RED" ? "stroke-bad" : s === "AMBER" ? "stroke-warn" : "stroke-line-strong");
 
 interface Placed extends GraphNode { x: number; y: number }
 
@@ -126,7 +127,6 @@ export function LiveGraphScreen() {
                   onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(n.id); } }}>
                   <rect width={W} height={H} rx={6} strokeWidth={n.id === selected?.id ? 2.5 : reach.has(n.id) ? 2 : 1.25}
                     className={cx(n.type === "station" ? "fill-elevated" : "fill-surface", n.id === selected?.id ? "stroke-accent" : stroke(n.state))} />
-                  {n.state && <rect x={0} y={0} width={4} height={H} rx={2} className={n.state === "RED" ? "fill-bad" : n.state === "AMBER" ? "fill-warn" : "fill-ok"} />}
                   <text x={10} y={16} className="fill-fg text-xs font-medium">{n.label.length > 29 ? `${n.label.slice(0, 28)}…` : n.label}</text>
                   <text x={10} y={31} className="fill-fg-2 font-mono text-xs">{(n.sub ?? TYPE_LABEL[n.type]).slice(0, 34)}</text>
                 </g>

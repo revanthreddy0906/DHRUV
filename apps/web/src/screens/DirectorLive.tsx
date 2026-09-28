@@ -72,7 +72,7 @@ export function LiveDirector() {
 
   if (!device || !isHq || !director) {
     return (
-      <div className="min-h-screen bg-bg p-8 font-mono text-xs text-fg">
+      <div className="min-h-screen bg-bg p-8 text-sm text-fg">
         <div className="max-w-xl border-2 border-dashed border-warn p-4">
           <p className="font-bold text-warn">Demo control</p>
           <p className="mt-2">The Director needs an HQ Ops session in this tab (the admin endpoints are HQ Ops only).</p>
@@ -116,7 +116,7 @@ export function LiveDirector() {
 
   return (
     <div className="min-h-screen bg-bg p-6">
-      <div className="w-[920px] max-w-full border-2 border-dashed border-warn bg-bg p-4 font-mono text-xs text-fg">
+      <div className="w-[920px] max-w-full rounded-lg border-2 border-dashed border-line-strong bg-surface p-4 text-sm text-fg">
         <div className="mb-3 flex items-center gap-2 border-b border-line pb-2">
           <Clapperboard size={15} className="text-warn" aria-hidden />
           <span className="font-bold text-warn">Demo control</span>

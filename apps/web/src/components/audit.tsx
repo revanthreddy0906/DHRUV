@@ -23,7 +23,7 @@ export function AuditFilters({ rows, value, onChange }: { rows: OpEventRow[]; va
       <Sel k="type" label="Type" src={opts("type")} />
       <Sel k="entity" label="Entity" src={opts("entity")} />
       <Sel k="tier" label="Priority" src={["0", "1", "2", "3", "4", "5"]} />
-      <Button size="sm" variant="ghost" onClick={() => onChange(EMPTY)}>Clear</Button>
+      <button type="button" onClick={() => onChange(EMPTY)} className="self-end pb-2 text-sm font-semibold text-accent hover:underline">Clear filters</button>
     </div>
   );
 }
@@ -37,12 +37,12 @@ export function AuditTable({ rows, initialFilter = EMPTY }: { rows: OpEventRow[]
       <div className="overflow-hidden rounded-lg border border-line">
         <table className="w-full text-xs">
           <thead className="bg-elevated text-left text-xs text-fg-2">
-            <tr>{["Device · seq", "Type", "Entity", "Actor", "P", "observed_at", "recorded_at_server", "Summary"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>
+            <tr>{["Device and sequence", "Type", "Entity", "Actor", "Priority", "Observed (demo time)", "Recorded at server", "Summary"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>
           </thead>
           <tbody>
             {shown.map((r, i) => (
               <tr key={i} className={cx("border-t border-line", r.type === "CONFLICT_FLAGGED" && "bg-warn-tint/60")}>
-                <td className="whitespace-nowrap px-3 py-2 font-mono text-fg-2">{r.deviceSeq}</td>
+                <td className="h-10 whitespace-nowrap px-3 py-2 font-mono text-fg-2">{r.deviceSeq}</td>
                 <td className="px-3 py-2 font-mono font-semibold text-fg">{r.type}</td>
                 <td className="px-3 py-2 font-mono text-fg">{r.entity}</td>
                 <td className="px-3 py-2 font-mono text-fg-2">{r.actor}</td>
