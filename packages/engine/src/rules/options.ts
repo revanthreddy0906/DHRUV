@@ -98,6 +98,8 @@ export function generateOptions(params: GenerateOptionsParams): GeneratedOption[
 
     let addedAvailability = 0;
     let savedRaw = 0;
+    // A lever that changes the burn rate (conserving) scales the requirement for this option.
+    let upliftDelta = 0;
     let cost = 0;
     let costUnit = "INR";
     let slackDays: number | null = null;
@@ -108,6 +110,9 @@ export function generateOptions(params: GenerateOptionsParams): GeneratedOption[
       }
       if (l.effect.saveRawKl) {
         savedRaw += l.effect.saveRawKl;
+      }
+      if (l.effect.burnRateUplift) {
+        upliftDelta += l.effect.burnRateUplift;
       }
       if (l.costAmount) {
         cost += l.costAmount;
@@ -123,7 +128,7 @@ export function generateOptions(params: GenerateOptionsParams): GeneratedOption[
 
     const availability = baseStock + inboundFeasibleQty + addedAvailability;
     const rawRequirement = Math.max(0, baseRawRequirement - savedRaw);
-    const requirement = rawRequirement * (1 + burnUplift) * (1 + reservePct);
+    const requirement = rawRequirement * (1 + burnUplift + upliftDelta) * (1 + reservePct);
     const ratio = requirement > 0 ? availability / requirement : Infinity;
 
     const state: "GREEN" | "AMBER" | "RED" =
