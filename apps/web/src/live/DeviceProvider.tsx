@@ -12,6 +12,12 @@ import { loadSession, saveSession, type Session } from "./session";
 /** Section 9: one sync cycle every 3 s; failures back off per syncOnce. */
 export const SYNC_INTERVAL_MS = 3000;
 
+/**
+ * UI only: the longest screens wait for this device's first sync to confirm that its local data
+ * belongs to the server's current run (epoch) before showing it anyway.
+ */
+export const DATA_CONFIRM_TIMEOUT_MS = 1500;
+
 export interface DeviceSnapshot {
   /** This device's demo clock (local CLOCK_ADVANCED, v2 C5). */
   now: string;
@@ -54,17 +60,29 @@ export interface LiveDevice {
   resetClock(): Promise<void>;
   setLink(status: LinkStatus): Promise<void>;
   signOut(): void;
+  /**
+   * False until this device's local data is known to belong to the server's current run: the first
+   * sync cycle finished (other than with a reset), a bootstrap finished, the link is Offline or
+   * Degraded, or DATA_CONFIRM_TIMEOUT_MS passed. Screens show "Checking this device's data…" until then.
+   */
+  dataConfirmed: boolean;
+  /** A server reset cleared this device's store and the reload (bootstrap) has not landed yet. */
+  refreshing: boolean;
+  /** This tab saw a server reset clear its store since it opened. */
+  resetSeen: boolean;
 }
 
 interface DeviceContextValue {
   device: LiveDevice | null;
   /** Another tab already acts as this tab's device: this tab must not sync or answer the Director. */
   duplicateOf: string | null;
+  /** A saved session is being restored (this tab is still acquiring the device): not signed out. */
+  restoring: boolean;
   signIn(session: Session): Promise<void>;
   signOut(): void;
 }
 
-const DeviceContext = React.createContext<DeviceContextValue>({ device: null, duplicateOf: null, signIn: async () => {}, signOut: () => {} });
+const DeviceContext = React.createContext<DeviceContextValue>({ device: null, duplicateOf: null, restoring: false, signIn: async () => {}, signOut: () => {} });
 
 const lockName = (deviceId: string) => `dhruv-device-${deviceId}`;
 
@@ -121,6 +139,14 @@ export function useSignIn(): (session: Session) => Promise<void> {
   return React.useContext(DeviceContext).signIn;
 }
 
+/**
+ * True while a saved session is restoring. useDevice() is still null then, so screens must not fall
+ * back to their signed-out design fixtures or redirect to /login.
+ */
+export function useSessionRestoring(): boolean {
+  return React.useContext(DeviceContext).restoring;
+}
+
 /** The device id when another tab already acts as this tab's device, else null. */
 export function useDuplicateDevice(): { deviceId: string | null; signOut(): void } {
   const ctx = React.useContext(DeviceContext);
@@ -159,6 +185,23 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = React.useState<DeviceSnapshot | null>(null);
   const [lastSync, setLastSync] = React.useState<LastSync | null>(null);
   const kick = React.useRef<() => void>(() => {});
+  const [confirmed, setConfirmed] = React.useState(false);
+  const [lastResetAt, setLastResetAt] = React.useState<number | null>(null);
+  /** signIn bootstraps before the session is set, so that store is already current. */
+  const bootstrappedAtSignIn = React.useRef(false);
+
+  // Epoch-confirmation gate, per device session: starts closed (unless signIn just bootstrapped)
+  // and opens after DATA_CONFIRM_TIMEOUT_MS at the latest, so a slow or absent server never blocks.
+  React.useEffect(() => {
+    if (!db || !session) return;
+    setConfirmed(bootstrappedAtSignIn.current);
+    bootstrappedAtSignIn.current = false;
+    setLastResetAt(null);
+    const timer = setTimeout(() => setConfirmed(true), DATA_CONFIRM_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [db, session]);
+
+
 
   const signOut = React.useCallback(() => {
     saveSession(null);
@@ -174,6 +217,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     const nextDb = openDeviceDb(next.identity.device_id);
     await bootstrap(nextDb, next.identity, createApiCall("", () => next.token));
     nextDb.close();
+    bootstrappedAtSignIn.current = true;
     saveSession(next);
     setSession(next);
   }, []);
@@ -181,7 +225,18 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   // Live view of the local store: re-reads whenever events, outbox or meta change.
   React.useEffect(() => {
     if (!db || !session) return;
-    const subscription = liveQuery(() => readSnapshot(db, session)).subscribe({ next: setSnapshot, error: (err) => console.error(err) });
+    // A store that had a seed and lost it was cleared by a reset (a sync that found a new epoch, or
+    // the Director's Reset to Start in this browser). Both updates land in the same render, so no
+    // screen ever sees the empty store without knowing why.
+    let hadSeed = false;
+    const subscription = liveQuery(() => readSnapshot(db, session)).subscribe({
+      next: (next) => {
+        if (hadSeed && !next.seed) setLastResetAt(Date.now());
+        hadSeed = !!next.seed;
+        setSnapshot(next);
+      },
+      error: (err) => console.error(err),
+    });
     return () => subscription.unsubscribe();
   }, [db, session]);
 
@@ -200,6 +255,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     let stopped = false;
     let running = false;
     let again = false;
+    let first = true;
 
     const cycle = async () => {
       // One cycle at a time: a syncNow() during a cycle runs another right after it.
@@ -209,10 +265,13 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       }
       running = true;
       let delay = SYNC_INTERVAL_MS;
+      // The first cycle confirms this device's data unless it found a reset (then the bootstrap does).
+      let reset = false;
       try {
         // A Director reset clears the local store, seed included: reload it while the link is up.
         if (!(await cachedSeed(db)) && (await linkStatus(db, session.identity.node_id)) !== "OFFLINE") {
           await bootstrap(db, session.identity, call);
+          if (!stopped) setConfirmed(true);
         }
         const outcome = await syncOnce(db, session.identity, api, { cycleSeconds: SYNC_INTERVAL_MS / 1000 });
         if (stopped) return;
@@ -220,11 +279,19 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         if (isAuthError(outcome)) return signOut();
         if (!outcome.ok && "retryInSeconds" in outcome) delay = outcome.retryInSeconds * 1000;
         // The server was reset to Start: the store was cleared, so reload it right away.
-        if (!outcome.ok && "reset" in outcome) delay = 0;
+        if (!outcome.ok && "reset" in outcome) {
+          reset = true;
+          setLastResetAt(Date.now());
+          delay = 0;
+        }
       } catch (err) {
         console.error(err);
       } finally {
         running = false;
+        if (first && !stopped) {
+          first = false;
+          if (!reset) setConfirmed(true);
+        }
       }
       if (stopped) return;
       clearTimeout(timer);
@@ -273,10 +340,15 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         await setLinkStatus(db, session.identity, status, await now(db));
       },
       signOut,
+      // Offline or Degraded, the local data is what this device works from: never hold it back.
+      dataConfirmed: confirmed || (!!snapshot && snapshot.link !== "ONLINE"),
+      refreshing: !!snapshot && !snapshot.seed && lastResetAt !== null,
+      resetSeen: lastResetAt !== null,
     };
-  }, [session, db, snapshot, lastSync, signOut]);
+  }, [session, db, snapshot, lastSync, signOut, confirmed, lastResetAt]);
 
   const duplicateOf = session && owned === false ? session.identity.device_id : null;
-  const value = React.useMemo(() => ({ device, duplicateOf, signIn, signOut }), [device, duplicateOf, signIn, signOut]);
+  const restoring = !!session && owned === null;
+  const value = React.useMemo(() => ({ device, duplicateOf, restoring, signIn, signOut }), [device, duplicateOf, restoring, signIn, signOut]);
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;
 }

@@ -7,6 +7,7 @@ import { MOMENTS, type MomentId } from "../data/demo";
 import { formatDate } from "../format";
 import { nodeLabel, useLiveChrome } from "../live/chrome";
 import { useLiveOps, type LiveOps } from "../live/ops";
+import { useDevice } from "../live/DeviceProvider";
 import { useStationFocus } from "../live/stationFocus";
 import { LiveSyncDrawer } from "../live/SyncLive";
 
@@ -32,6 +33,14 @@ function pnrPill(ops: LiveOps, role: string, node: string): { date: string; days
   return undefined;
 }
 
+/** One quiet status line in place of a screen's content (no spinner, no skeleton). */
+export function QuietLine({ children }: { children: React.ReactNode }) {
+  return <p role="status" className="p-8 text-sm text-fg-2">{children}</p>;
+}
+
+/** Shown where a record is looked up while a server reset's reload has not landed yet. */
+export const REFRESHING_AFTER_RESET = "Refreshing after a server reset…";
+
 /**
  * Persistent chrome for any screen. Signed in, the top bar, sidebar and offline banner come from
  * this tab's device (clock, link, outbox). Not signed in, they show the design fixture for `moment`.
@@ -42,8 +51,13 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
 }) {
   const m = MOMENTS[moment];
   const live = useLiveChrome();
+  const device = useDevice();
   const [focus, setFocus] = useStationFocus();
-  const ops = useLiveOps(focus);
+  // Until this device's data is confirmed as the server's current run, nothing from it is shown:
+  // not the screen, not the PNR pill, not the sidebar counts (they could be from a previous run).
+  const checking = !!device && !device.dataConfirmed;
+  const liveOps = useLiveOps(focus);
+  const ops = checking ? null : liveOps;
   const [link, setLink] = React.useState(m.link);
   const [role, setRole] = React.useState(m.viewer.role);
   const navigate = useNavigate();
@@ -65,8 +79,8 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
     ? { kind: "select", value: focus, options: STATION_NODES.map((n) => ({ id: n, label: nodeLabel(n) })), onChange: setFocus }
     : { kind: "fixed", label: chrome.station };
 
-  const pnr = live && ops
-    ? pnrPill(ops, live.role, ops.maitriStation.nodeId)
+  const pnr = live
+    ? ops ? pnrPill(ops, live.role, ops.maitriStation.nodeId) : undefined
     : m.stations[0]?.pnr && { date: m.stations[0].pnr.date.replace(/ \d{4}$/, ""), daysLeft: m.stations[0].pnr.daysLeft, href: `/decisions/${m.decisions[0]?.id ?? "DEC-01"}?moment=${moment}` };
 
   const offline = chrome.link === "OFFLINE";
@@ -83,13 +97,13 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
           user={live ? { role: live.role, station: live.station, deviceId: live.deviceId, onSignOut: live.signOut } : undefined} />}
         banner={banner ?? (offline ? offlineBanner : undefined)}
         sidebar={<Sidebar active={nav}
-          incidentOpen={ops ? ops.openIncidents.length > 0 : !!m.incident || moment === "hq-2501620" || moment === "hq-2501610"}
-          decisionCount={ops ? ops.openDecisions.length : m.decisions.length} conflictCount={ops ? ops.openConflicts.length : conflictCount}
+          incidentOpen={ops ? ops.openIncidents.length > 0 : live ? false : !!m.incident || moment === "hq-2501620" || moment === "hq-2501610"}
+          decisionCount={ops ? ops.openDecisions.length : live ? 0 : m.decisions.length} conflictCount={ops ? ops.openConflicts.length : live ? 0 : conflictCount}
           onNavigate={onNavigate} />}
         strip={strip}
         drawer={<>{drawer}{live && syncOpen && <LiveSyncDrawer onClose={() => setSyncOpen(false)} />}</>}
       >
-        {children}
+        {checking ? <QuietLine>Checking this device's data…</QuietLine> : children}
       </DhruvShell>
       <DemoDock role={chrome.role} link={chrome.link}
         onRoleChange={live ? live.onRoleChange : setRole} onLinkChange={live ? live.onLinkChange : setLink}

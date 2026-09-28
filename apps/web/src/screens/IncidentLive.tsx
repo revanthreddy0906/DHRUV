@@ -9,7 +9,7 @@ import { LiveMap } from "../live/LiveMap";
 import { nodeLabel } from "../live/chrome";
 import { useLiveIncident, useLiveMapModel } from "../live/incident";
 import { useLiveOps } from "../live/ops";
-import { Frame } from "./Frame";
+import { Frame, REFRESHING_AFTER_RESET } from "./Frame";
 
 /**
  * Emergency-mode panel for the signed-in device (F4): the section 10 snapshot as this device knows
@@ -20,6 +20,9 @@ export function LiveIncidentPanel({ compact = false }: { compact?: boolean }) {
   const device = useDevice();
   const live = useLiveIncident();
   const [error, setError] = React.useState<string>();
+  if (device?.refreshing) {
+    return <div role="status" className="rounded-lg border border-dashed border-line-strong p-5 text-sm text-fg-2">{REFRESHING_AFTER_RESET}</div>;
+  }
   if (!device || !live) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-dashed border-line-strong p-5 text-sm text-fg-2">
