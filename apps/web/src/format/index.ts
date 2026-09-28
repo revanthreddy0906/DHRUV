@@ -12,3 +12,4 @@ export { timelinePositions } from "./timeline";
 export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallTime } from "./time";
 export { GRAPH_COLUMNS, TYPE_COLUMN, defaultFocus, downstreamOf, focusView, isAbnormal, linkToPath, upstreamOf, type Collapsed, type FocusEdge, type FocusRole, type FocusView } from "./graphFocus";
 export { TYPE_LABEL, numberRuns, readableDates, recordAction, recordDetail, recordLabel, recordReason, sourceNote } from "./graphText";
+export { checkInStatus, fieldLinkLine, formatDateRange, type CheckInState, type CheckInStatus } from "./checkin";
