@@ -10,3 +10,5 @@ export { RULE_TITLE, TRACE_GROUPS, b0Line, groupTrace, traceGroup, traceSentence
 export { consequenceLine, countPlausibility, type ConsequenceInput } from "./consequence";
 export { timelinePositions } from "./timeline";
 export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallTime } from "./time";
+export { GRAPH_COLUMNS, TYPE_COLUMN, defaultFocus, downstreamOf, focusView, isAbnormal, linkToPath, upstreamOf, type Collapsed, type FocusEdge, type FocusRole, type FocusView } from "./graphFocus";
+export { TYPE_LABEL, numberRuns, readableDates, recordAction, recordDetail, recordReason, sourceNote } from "./graphText";
