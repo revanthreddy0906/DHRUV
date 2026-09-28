@@ -6,7 +6,9 @@ import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDataScreen } from "../screens/DataLive";
 import { LiveGraphScreen } from "../screens/GraphLive";
+import { LiveFieldScreen } from "../screens/FieldLive";
 import { LiveDirector } from "../screens/DirectorLive";
+import { LiveStationScreen, StationsIndex } from "../screens/StationLive";
 import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
@@ -173,8 +175,11 @@ function Home() {
   return <Navigate to={useDevice() ? "/command" : "/login"} replace />;
 }
 
+/** A signed-in Field Lead device gets the live screen; otherwise the static preview for the gallery. */
 function FieldRoute() {
   const [params] = useSearchParams();
+  const device = useDevice();
+  if (device?.session.identity.role === "FIELD_LEAD") return <LiveFieldScreen />;
   return <FieldScreen offline={flag(params, "offline")} />;
 }
 
@@ -232,12 +237,12 @@ const GALLERY: { group: string; links: [string, string][] }[] = [
 function Gallery() {
   return (
     <div className="min-h-screen bg-bg p-8 text-fg">
-      <h1 className="font-mono text-xl font-bold tracking-[0.2em]">DHRUV · screens</h1>
+      <h1 className="font-mono text-title font-bold tracking-[0.2em]">DHRUV · screens</h1>
       <p className="mt-1 text-sm text-fg-2">Design import: every screen at each demo moment. Values are frozen fixtures until the engine and live sync are wired.</p>
       <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
         {GALLERY.map((g) => (
           <section key={g.group}>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-2">{g.group}</h2>
+            <h2 className="mb-2 text-xs font-semibold text-fg-2">{g.group}</h2>
             <ul className="space-y-1">
               {g.links.map(([label, to]) => (
                 <li key={to}><Link to={to} className="text-sm text-accent hover:underline">{label}</Link></li>
@@ -254,8 +259,8 @@ function Gallery() {
 function DuplicateDevice({ deviceId, onSignOut }: { deviceId: string; onSignOut: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-8 text-fg">
-      <div role="alert" className="max-w-lg rounded-xl border border-warn/60 bg-surface p-6">
-        <p className="font-mono text-sm font-bold tracking-wider text-warn">{deviceId} IS OPEN IN ANOTHER TAB</p>
+      <div role="alert" className="max-w-lg rounded-lg border border-warn/60 bg-surface p-6">
+        <p className="text-sm font-semibold text-warn"><span className="font-mono">{deviceId}</span> is open in another tab</p>
         <p className="mt-2 text-sm text-fg-2">
           One tab is one device. This tab is not syncing and does not answer the Director, so nothing is written twice. Use the other tab, or sign out here and sign in as another device.
         </p>
@@ -281,6 +286,8 @@ export function App() {
         <Route path="/command" element={<CommandRoute />} />
         <Route path="/decisions" element={<DecisionsIndexRoute />} />
         <Route path="/decisions/:decisionId" element={<DecisionRoute />} />
+        <Route path="/stations" element={device ? <StationsIndex /> : <SignedOut what="The Station page evaluates this device's own events" />} />
+        <Route path="/stations/:nodeId" element={device ? <LiveStationScreen /> : <SignedOut what="The Station page evaluates this device's own events" />} />
         <Route path="/cargo" element={<CargoRoute />} />
         <Route path="/inventory" element={<InventoryRoute />} />
         <Route path="/personnel" element={<PersonnelRoute />} />

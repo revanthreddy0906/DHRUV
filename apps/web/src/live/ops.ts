@@ -14,6 +14,7 @@ import { exceptionsOf, forViewer, type OpsException } from "./exceptions";
 import { nodeLabel } from "./chrome";
 import { coords, dayLabel, describeEvent, incidentTypeLabel } from "./describe";
 import { formatAge } from "./format";
+import { formatAgo } from "../format";
 
 /**
  * Operational records for this device, from the events it holds (F2): open decisions with their
@@ -46,6 +47,10 @@ export interface LiveOps {
   /** Exception queue for this viewer: their station, their role's items first. */
   exceptions: OpsException[];
   vessel?: { name: string; loadCutoff: string; departs: string; eta: string; closing: string };
+  /** The same vessel window as ISO times, for the Season timeline. */
+  vesselWindow?: { name: string; loadCutoff: string; departure: string; etaStation: string; closing: string };
+  /** The first open incident, for the Command strip: title and when its position was last confirmed. */
+  incident?: { id: string; title: string; lastConfirmedAt: string };
   inventory: InventoryView[];
   roles: ReturnType<typeof roleRows>;
   levers: Lever[];
@@ -121,6 +126,7 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
     const reduced = reduce(seed, events);
     const v = seed.vessels[0] ? reduced.vessels.get(seed.vessels[0].id) : undefined;
     const vessel = v && { name: seed.vessels[0]!.name, loadCutoff: dayLabel(v.loadCutoff), departs: dayLabel(v.departure), eta: dayLabel(v.etaStation), closing: dayLabel(v.stationClosingDate) };
+    const vesselWindow = v && { name: seed.vessels[0]!.name, loadCutoff: v.loadCutoff, departure: v.departure, etaStation: v.etaStation, closing: v.stationClosingDate };
 
     // The queue shows decisions that were really proposed (DECISION_PROPOSED events, options from
     // the engine on the server). Nothing is invented here: an unproposed decision could not be approved.
@@ -165,10 +171,10 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       incidentStrip = tracked
         ? [
             `${incident.id} · ${incident.team_id ?? incident.person_ids.join(", ")} ${incidentTypeLabel(incident.type)}`,
-            `last confirmed ${formatAge(incident.last_confirmed_at, now)} ago${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
+            `last confirmed ${formatAgo(incident.last_confirmed_at, now)}${position ? ` at ${coords(position.lat, position.lon)}` : ""}`,
             radius !== null ? `circle ${Math.round(radius)} km` : "position fresh",
           ].join(" · ")
-        : `${incident.id} · ${incidentTypeLabel(incident.type)} at ${nodeLabel(incident.node_id)} · opened ${formatAge(incident.opened_at, now)} ago`;
+        : `${incident.id} · ${incidentTypeLabel(incident.type)} at ${nodeLabel(incident.node_id)} · opened ${formatAgo(incident.opened_at, now)}`;
     }
 
     const rows = timeline(events).map((e) => ({
@@ -213,6 +219,12 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
       milestones,
       exceptions,
       vessel,
+      vesselWindow,
+      incident: incident && {
+        id: incident.id,
+        title: `${incident.id}: ${incident.team_id ?? (incident.person_ids.join(", ") || nodeLabel(incident.node_id))} ${incidentTypeLabel(incident.type)}`,
+        lastConfirmedAt: incident.last_confirmed_at,
+      },
       inventory: inventoryRows(focusEval, seed, now),
       roles: roleRows(focusEval, seed),
       levers: leverViews(focusEval, now),

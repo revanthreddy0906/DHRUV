@@ -1,11 +1,12 @@
 import * as React from "react";
-import { Network, PackagePlus, Pencil, TriangleAlert } from "lucide-react";
+import { Network, PackagePlus, Pencil } from "lucide-react";
 import { Link } from "react-router-dom";
 import { checkCargoFeasibilityConfidence, classifyFreshness, evaluate, reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
 import type { LegView, ShipmentView } from "../data/demo";
-import { LegTimeline } from "../components/ops";
-import { Button, Card, SectionHeader } from "../components/primitives";
+import { LegTimeline, ShipmentRow } from "../components/ops";
+import { Button, Card, SectionHeader, cx } from "../components/primitives";
+import { formatRatio } from "../format";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { ShipmentForm } from "../live/ShipmentForm";
@@ -45,8 +46,8 @@ function shipmentsOf(seed: Seed, events: OpEvent[], now: string): { shipments: S
       slack = `${conf.slackDays < 0 ? "−" : ""}${Math.abs(conf.slackDays)} d`;
       slackState = conf.slackDays < 0 ? "RED" : conf.slackDays <= 2 ? "AMBER" : "GREEN";
       feasible = !conf.feasible ? "EXCLUDED" : conf.uncertain ? "UNCERTAIN" : "FEASIBLE";
-      if (!conf.feasible) note = "Cargo excluded by vessel cutoff (window cliff)";
-      else if (conf.uncertain) note = `ETA report ${fresh.freshness}, slack ${conf.slackDays} d: verify before relying on it (R17)`;
+      if (!conf.feasible) note = "Cargo excluded by vessel cutoff.";
+      else if (conf.uncertain) note = `ETA report ${formatAge(reportedAt(events, feederState.legId) ?? feederState.eta, now)} old · verify`;
       if (feederState.eta !== feeder!.eta) original[sh.id] = dayLabel(feeder!.eta);
     }
 
@@ -80,6 +81,9 @@ export function LiveCargoScreen() {
   const [reasonInput, setReasonInput] = React.useState("feeder vessel delayed");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string>();
+  // Shipments the operator opened or closed by hand; the default is open exactly when something is at risk.
+  const [toggled, setToggled] = React.useState<Set<string>>(new Set());
+  const toggle = (id: string) => setToggled((t) => { const n = new Set(t); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const view = React.useMemo(() => (ops ? shipmentsOf(ops.seed, ops.events, ops.now) : null), [ops]);
 
@@ -89,7 +93,7 @@ export function LiveCargoScreen() {
         <div className="flex h-full flex-col items-center justify-center p-8">
           <div className="flex flex-col items-center gap-3 text-fg-2">
             <div className="size-6 animate-spin rounded-full border-2 border-line-ctrl border-t-accent" />
-            <span className="font-mono text-xs tracking-wider">HYDRATING EXPEDITION STATE...</span>
+            <span className="text-xs">Loading this device's expedition state.</span>
           </div>
         </div>
       </Frame>
@@ -114,6 +118,13 @@ export function LiveCargoScreen() {
     return { before: f(before), after: f(after), pnr: after?.pnr?.pnrDate, station: after?.state };
   })();
 
+  // Section 9.5: shipments with an at-risk or missed milestone (or inbound in doubt) first and open.
+  const atRisk = (id: string, feasible: string) =>
+    feasible !== "FEASIBLE" || !!ops.milestones.find((m) => m.shipmentId === id)?.milestones.some((x) => x.state === "AT_RISK" || x.state === "MISSED");
+  const ordered = [...view.shipments].sort((a, b) => Number(atRisk(b.id, b.feasible)) - Number(atRisk(a.id, a.feasible)));
+  const isOpen = (id: string, feasible: string) => atRisk(id, feasible) !== toggled.has(id);
+  const collapsed = ordered.filter((s) => !isOpen(s.id, s.feasible));
+
   const record = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || !targetLeg || !newEta) return;
@@ -131,31 +142,36 @@ export function LiveCargoScreen() {
   };
 
   return (
-    <Frame moment="start" nav="cargo">
-      <div className="space-y-4 p-5">
+    <Frame moment="start" nav="cargo"
+      drawer={creating && isHq ? (
+        <aside role="dialog" aria-label="New shipment" className="absolute inset-y-0 right-0 z-20 flex w-[560px] flex-col border-l border-line bg-surface shadow-drawer">
+          {/* The form carries its own title and Close; the drawer only holds it. */}
+          <div className="min-h-0 flex-1 overflow-auto p-5">
+            <ShipmentForm
+              seed={seed}
+              vessels={seed.vessels.flatMap((v) => { const st = reduce(seed, events).vessels.get(v.id); return st ? [{ id: v.id, name: v.name, departure: st.departure, etaStation: st.etaStation, loadCutoff: st.loadCutoff }] : []; })}
+              onDone={() => setCreating(false)}
+            />
+          </div>
+        </aside>
+      ) : undefined}>
+      <div className="space-y-4 p-6">
         <div className="flex items-end gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-fg">Cargo</h1>
+            <h1 className="text-title font-semibold text-fg">Cargo</h1>
             {vessel && (
-              <p className="mt-0.5 text-sm text-fg-2">
-                Inbound to {[...new Set(seed.shipments.map((s) => nodeLabel(s.dest_node_id)))].join(" and ") || nodeLabel("MAITRI")} · {seed.vessels[0]!.name} load cutoff <span className="font-mono">{dayLabel(vessel.loadCutoff)}</span> · departs {dayLabel(vessel.departure)} · closing {dayLabel(vessel.stationClosingDate)}
-              </p>
+              <>
+                <p className="mt-0.5 text-sm text-fg-2">Inbound to {[...new Set(seed.shipments.map((s) => nodeLabel(s.dest_node_id)))].join(" and ") || nodeLabel("MAITRI")}.</p>
+                <p className="text-sm text-fg-2">{seed.vessels[0]!.name}: load cutoff <span className="font-semibold text-fg">{dayLabel(vessel.loadCutoff)}</span>, departs {dayLabel(vessel.departure)}, station closing {dayLabel(vessel.stationClosingDate)}.</p>
+              </>
             )}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-[12px] text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
+            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
             <Button icon={<PackagePlus size={14} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
             <Button icon={<Pencil size={14} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
           </div>
         </div>
-
-        {creating && isHq && (
-          <ShipmentForm
-            seed={seed}
-            vessels={seed.vessels.flatMap((v) => { const st = reduce(seed, events).vessels.get(v.id); return st ? [{ id: v.id, name: v.name, departure: st.departure, etaStation: st.etaStation, loadCutoff: st.loadCutoff }] : []; })}
-            onDone={() => setCreating(false)}
-          />
-        )}
 
         {edit && isHq && (
           <Card className="border-accent/60">
@@ -173,24 +189,34 @@ export function LiveCargoScreen() {
                 <input value={reasonInput} onChange={(e) => setReasonInput(e.target.value)} className="ml-2 h-8 w-56 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg" />
               </label>
               {preview?.before && preview.after && (
-                <div className="flex items-center gap-2 rounded-md border border-line-strong bg-bg px-3 py-1.5 text-[12px] text-fg">
-                  <TriangleAlert size={14} className={preview.after.state === "RED" ? "text-bad" : "text-fg-2"} aria-hidden />
-                  Preview (engine, not recorded): Fuel {preview.before.ratio?.toFixed(4)} → <b className="font-mono">{preview.after.ratio?.toFixed(4)} {preview.after.state}</b>
-                  {preview.pnr && ` · PNR ${dayLabel(preview.pnr)}`}
-                </div>
+                <p aria-live="polite" className={cx("text-sm", preview.after.state === "RED" ? "font-semibold text-bad" : preview.after.state === "AMBER" ? "font-semibold text-warn" : "text-fg")}>
+                  <span className="text-fg-2">If recorded: </span>
+                  {nodeLabel(target!.dest_node_id)} fuel ratio {formatRatio(preview.before.ratio)} → {formatRatio(preview.after.ratio)}, {preview.before.state === preview.after.state ? "stays" : "turns"} {preview.after.state}.
+                  {preview.pnr && ` Point of no return ${dayLabel(preview.pnr)}.`}
+                </p>
               )}
               {!newEta && <span className="text-xs text-bad">Enter a date like "7 Feb"</span>}
-              <Button variant="primary" type="submit" disabled={busy || !newEta}>Record LEG_DELAYED</Button>
+              <Button variant="primary" type="submit" disabled={busy || !newEta}>Record delay</Button>
               <Button variant="ghost" type="button" onClick={() => setEdit(false)}>Cancel</Button>
             </form>
             {error && <p className="mt-2 text-xs text-bad">{error}</p>}
           </Card>
         )}
 
-        {view.shipments.map((s) => { const ms = ops.milestones.find((x) => x.shipmentId === s.id); return <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} milestones={ms && <MilestoneStrip m={ms} />} />; })}
+        {ordered.filter((s) => isOpen(s.id, s.feasible)).map((s) => {
+          const ms = ops.milestones.find((x) => x.shipmentId === s.id);
+          return <LegTimeline key={s.id} s={s} today={dayLabel(now)} originalEta={view.original[s.id]} milestones={ms && <MilestoneStrip m={ms} />} onCollapse={() => toggle(s.id)} />;
+        })}
 
-        <p className="text-[11px] text-fg-2">
-          Cargo-leg freshness is shown as a badge. When an ETA report is STALE or worse and slack ≤ 2 d, R17 marks the inbound UNCERTAIN and the band's low side excludes it.
+        {collapsed.length > 0 && (
+          <section>
+            <SectionHeader title={`${collapsed.length} of ${ordered.length} shipments on track`} />
+            <Card pad="none"><ul className="divide-y divide-line">{collapsed.map((s) => <ShipmentRow key={s.id} s={s} onExpand={() => toggle(s.id)} />)}</ul></Card>
+          </section>
+        )}
+
+        <p className="text-xs text-fg-2">
+          When an ETA report is stale or older and slack is 2 d or less, the inbound is uncertain (R17): the band's low side leaves it out. Verify before acting.
         </p>
       </div>
     </Frame>

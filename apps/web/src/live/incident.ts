@@ -9,6 +9,7 @@ import { useDevice } from "./DeviceProvider";
 import { nodeLabel } from "./chrome";
 import { coords, describeEvent, incidentTypeLabel } from "./describe";
 import { formatAge, formatShort } from "./format";
+import { formatAgo } from "../format";
 import { useLiveOps } from "./ops";
 
 import type { Inc as IncidentData, SnapshotRow } from "../components/incident";
@@ -140,7 +141,7 @@ export function useLiveIncident(): LiveIncident | null {
     const heard = ops.openIncidents.length ? snap.lastHeard[incident.node_id] : null;
     const comms = own
       ? `${nodeLabel(incident.node_id)} link ${snap.link} (simulated link)${snap.link === "OFFLINE" ? " · local operations active" : ""}`
-      : `${nodeLabel(incident.node_id)} last heard ${heard ? `${formatAge(heard, now)} ago` : "at seed"} (as seen from ${identity.device_id})`;
+      : `${nodeLabel(incident.node_id)} last heard ${heard ? formatAgo(heard, now) : "at seed"} (as seen from ${identity.device_id})`;
 
     // Incident timeline: the incident, the team's check-ins and responder status changes.
     const responderIds = new Set([...capable, ...excluded].map((r) => r.id));

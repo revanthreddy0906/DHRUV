@@ -16,7 +16,7 @@ const MERGE: Record<string, string> = {
   CS: "CS · safety-critical: the most conservative report wins, conflicts flagged",
 };
 
-const mono = "font-mono text-[12px]";
+const mono = "font-mono text-xs";
 
 /** Server figures from GET /storage, refreshed while the screen is open. Offline, the last answer stays with its age. */
 function useServerStorage() {
@@ -62,7 +62,7 @@ function useDeviceMeta() {
 function Stat({ label, value, note }: { label: string; value: React.ReactNode; note?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-line py-1.5 last:border-0">
-      <span className="text-[12px] text-fg-2">{label}{note && <span className="block text-[11px] text-fg-2/80">{note}</span>}</span>
+      <span className="text-xs text-fg-2">{label}{note && <span className="block text-xs text-fg-2/80">{note}</span>}</span>
       <span className={cx(mono, "text-fg tabular-nums")}>{value}</span>
     </div>
   );
@@ -75,8 +75,8 @@ function Step({ done, title, detail }: { done: boolean; title: string; detail: R
         {done ? <Check size={12} aria-hidden /> : <span className="size-1.5 rounded-full bg-fg-2" />}
       </span>
       <div className="min-w-0">
-        <div className={cx("text-[13px]", done ? "text-fg" : "text-fg-2")}>{title}</div>
-        <div className="text-[12px] text-fg-2">{detail}</div>
+        <div className={cx("text-sm", done ? "text-fg" : "text-fg-2")}>{title}</div>
+        <div className="text-xs text-fg-2">{detail}</div>
       </div>
     </li>
   );
@@ -101,7 +101,7 @@ export function LiveDataScreen() {
   const [itemId, setItemId] = React.useState<string>();
 
   if (!device || !snap || !ops) {
-    return <Frame moment="start" nav="data"><div className="p-8 text-center font-mono text-xs tracking-wider text-fg-2">OPENING THIS DEVICE'S STORE...</div></Frame>;
+    return <Frame moment="start" nav="data"><div className="p-8 text-center text-sm text-fg-2">Opening this device's store.</div></Frame>;
   }
 
   const { identity } = device.session;
@@ -120,7 +120,7 @@ export function LiveDataScreen() {
     <Frame moment="start" nav="data">
       <div className="space-y-4 p-5">
         <div>
-          <h1 className="text-xl font-semibold text-fg">Where data lives</h1>
+          <h1 className="text-title font-semibold text-fg">Where data lives</h1>
           <p className="mt-0.5 max-w-[90ch] text-sm text-fg-2">
             Every change is one event. It is written to this device first, queued in its outbox, and appended to the server's log when the link allows.
             Stock levels, decisions and readiness are not stored anywhere: they are computed from the events each time.
@@ -130,7 +130,7 @@ export function LiveDataScreen() {
         <div className="grid gap-4 xl:grid-cols-[1fr_1.35fr_1fr]">
           <Card>
             <SectionHeader title="This device" meta={<HardDrive size={14} className="text-fg-2" aria-hidden />} />
-            <p className="mb-2 text-[12px] text-fg-2">Browser IndexedDB database <span className={cx(mono, "text-fg")}>dhruv-{identity.device_id}</span>. It works with no network at all.</p>
+            <p className="mb-2 text-xs text-fg-2">Browser IndexedDB database <span className={cx(mono, "text-fg")}>dhruv-{identity.device_id}</span>. It works with no network at all.</p>
             <Stat label="events" note="every event this device holds, its own and pulled" value={events.length} />
             <Stat label="  of which local only" note="clock and link switches, never synced" value={localOnly} />
             <Stat label="outbox · pending" note="written here, not yet accepted by the server" value={pending.length} />
@@ -139,10 +139,10 @@ export function LiveDataScreen() {
             <Stat label="meta · cursor" note="how far it has pulled other devices' events" value={meta?.cursor ?? "…"} />
             <Stat label="meta · epoch" note="which run of the server log it belongs to" value={meta?.epoch ? `${meta.epoch.slice(0, 8)}…` : "…"} />
             <Stat label="cache · seed" note="the season's reference data, kept for offline use" value={`${ops.seed.inventory_items.length} items · ${ops.seed.personnel.length} people`} />
-            <div className="mt-3 text-[11px] text-fg-2">Outbox by priority tier (drains P0 first):</div>
+            <div className="mt-3 text-xs text-fg-2">Outbox by priority tier (drains P0 first):</div>
             <div className="mt-1 flex gap-1.5">
               {tiers.map((t) => (
-                <span key={t.p} className={cx("rounded border px-1.5 py-0.5 font-mono text-[11px]", t.n ? "border-accent/60 text-fg" : "border-line text-fg-2")}>P{t.p} {t.n}</span>
+                <span key={t.p} className={cx("rounded border px-1.5 py-0.5 font-mono text-xs", t.n ? "border-accent/60 text-fg" : "border-line text-fg-2")}>P{t.p} {t.n}</span>
               ))}
             </div>
           </Card>
@@ -161,23 +161,23 @@ export function LiveDataScreen() {
             <SectionHeader title="Server" meta={<Server size={14} className="text-fg-2" aria-hidden />} />
             {storage ? (
               <>
-                <p className="mb-2 text-[12px] text-fg-2">{storage.engine} file <span className={cx(mono, "text-fg")}>{storage.file.split("/").pop()}</span> · journal {storage.journal_mode}</p>
+                <p className="mb-2 text-xs text-fg-2">{storage.engine} file <span className={cx(mono, "text-fg")}>{storage.file.split("/").pop()}</span> · journal {storage.journal_mode}</p>
                 <Stat label="events" note="append-only log: the source of truth" value={storage.log.rows} />
                 <Stat label="cursor" note="position of the newest event" value={storage.cursor} />
                 <Stat label="epoch" note="renewed on Reset to Start" value={`${storage.epoch.slice(0, 8)}…`} />
                 {storage.derived.map((d) => <Stat key={d.table} label={d.table} note="rebuilt from events after each batch" value={d.rows} />)}
-                <div className="mt-3 text-[11px] uppercase tracking-wider text-fg-2">Reference data (seed, read-only)</div>
+                <div className="mt-3 text-xs text-fg-2">Reference data (seed, read-only)</div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {storage.reference.map((r) => <span key={r.table} className="rounded border border-line px-1.5 py-0.5 font-mono text-[11px] text-fg-2">{r.table} {r.rows}</span>)}
+                  {storage.reference.map((r) => <span key={r.table} className="rounded border border-line px-1.5 py-0.5 font-mono text-xs text-fg-2">{r.table} {r.rows}</span>)}
                 </div>
-                <div className="mt-3 text-[11px] uppercase tracking-wider text-fg-2">Events by device</div>
+                <div className="mt-3 text-xs text-fg-2">Events by device</div>
                 <div className="mt-1 space-y-0.5">
-                  {storage.log.by_device.map((d) => <div key={d.device_id} className="flex justify-between font-mono text-[11px] text-fg-2"><span>{d.device_id}</span><span>{d.n} · seq ≤ {d.last_seq}</span></div>)}
-                  {storage.log.by_device.length === 0 && <div className="text-[12px] text-fg-2">No events since Reset to Start.</div>}
+                  {storage.log.by_device.map((d) => <div key={d.device_id} className="flex justify-between font-mono text-xs text-fg-2"><span>{d.device_id}</span><span>{d.n} · seq ≤ {d.last_seq}</span></div>)}
+                  {storage.log.by_device.length === 0 && <div className="text-xs text-fg-2">No events since Reset to Start.</div>}
                 </div>
               </>
             ) : <p className="text-sm text-fg-2">{server.error ?? "Asking the server…"}</p>}
-            {storage && server.error && <p className="mt-2 text-[11px] text-warn">{server.error}</p>}
+            {storage && server.error && <p className="mt-2 text-xs text-warn">{server.error}</p>}
           </Card>
         </div>
 
@@ -190,7 +190,7 @@ export function LiveDataScreen() {
               </select>
             </label>
             {item && balance && (
-              <div className="min-w-0 flex-1 space-y-2 text-[13px]">
+              <div className="min-w-0 flex-1 space-y-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Tag>{balance.countedAt ? `last count ${balance.base} ${item.unit}` : `seed stock ${balance.base} ${item.unit}`}</Tag>
                   {balance.deltas.map((d) => (
@@ -200,9 +200,9 @@ export function LiveDataScreen() {
                     </React.Fragment>
                   ))}
                   <ArrowRight size={12} className="text-fg-2" aria-hidden />
-                  <span className="font-mono text-base font-semibold text-fg">{balance.balance} {item.unit}</span>
+                  <span className="font-mono text-heading font-semibold text-fg">{balance.balance} {item.unit}</span>
                 </div>
-                <p className="text-[12px] text-fg-2">
+                <p className="text-xs text-fg-2">
                   The server's <span className={mono}>inventory_items</span> row still says {item.stock} {item.unit}: that is the season's starting figure and it is never updated.
                   What every screen shows is the last STOCK_COUNTED plus the receipts minus the issues recorded after it, recomputed from the log (merge class B).
                   Two devices that saw the same events always get the same number.
@@ -235,8 +235,8 @@ function EventJourney({ event, pending, refused, own }: { event: OpEvent; pendin
           </>
         )}
       </ol>
-      <div className="text-[11px] text-fg-2">Merge rule: {MERGE[rule.mergeClass]}</div>
-      <pre className="max-h-64 overflow-auto rounded-md border border-line bg-bg p-2 font-mono text-[11px] leading-4 text-fg">{JSON.stringify(event, null, 2)}</pre>
+      <div className="text-xs text-fg-2">Merge rule: {MERGE[rule.mergeClass]}</div>
+      <pre className="max-h-64 overflow-auto rounded-md border border-line bg-bg p-2 font-mono text-xs leading-4 text-fg">{JSON.stringify(event, null, 2)}</pre>
     </div>
   );
 }

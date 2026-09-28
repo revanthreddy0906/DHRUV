@@ -1,8 +1,12 @@
 import * as React from "react";
-import { EVENT_RULES, type Seed } from "@dhruv/shared";
+import { EVENT_RULES, type OpEvent, type Seed } from "@dhruv/shared";
+import type { Evaluation } from "@dhruv/engine";
 import { Button, Card, SectionHeader } from "../components/primitives";
 import type { InventoryView } from "../data/demo";
 import { WriteFeedback, useEventWriter } from "./writeStatus";
+import { findItem, useConsequencePreview } from "./useConsequencePreview";
+import { countPlausibility } from "../format";
+import { cx } from "../components/primitives";
 
 const STOCK_ACTIONS = [
   { type: "STOCK_ISSUED", label: "Issue" },
@@ -34,7 +38,11 @@ const input = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg
  * It only produces STOCK_* events through device.write(); the table beside it moves because the
  * engine re-reduces the log, never because this form touched a number. Mount it keyed by station.
  */
-export function StockTransactionForm({ role, node, seed, rows }: { role: string; node: string; seed: Seed; rows: InventoryView[] }) {
+export function StockTransactionForm({ role, node, seed, rows, events, now, evaluation }: {
+  role: string; node: string; seed: Seed; rows: InventoryView[];
+  /** This device's events, clock and current evaluation: the consequence preview runs the engine on them. */
+  events: OpEvent[]; now: string; evaluation: Evaluation;
+}) {
   const actions = stockActionsFor(role);
   const items = seed.inventory_items.filter((i) => i.node_id === node);
   const shipments = seed.shipments.filter((s) => s.dest_node_id === node);
@@ -46,6 +54,17 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
   const [shipmentId, setShipmentId] = React.useState("");
   const [touched, setTouched] = React.useState(false);
   const { busy, error, last, submit } = useEventWriter();
+
+  // Consequence preview (section 9.4): once item, action and quantity are valid, the engine is run
+  // with the draft as a hypothetical overlay event, exactly as the what-if drawer does.
+  const qtyNumber = Number(qty);
+  const qtyValid = !validateStock(action, qty, "x").qty;
+  const draft = itemId && qtyValid && actions.length > 0 ? { type: action, itemId, node, qty: qtyNumber, role } : undefined;
+  const preview = useConsequencePreview(draft, { seed, events, now, evaluation });
+
+  // Plausibility guard (section 9.4): an implausible count is confirmed before it is recorded.
+  const [guard, setGuard] = React.useState<string>();
+  React.useEffect(() => setGuard(undefined), [qty, itemId, action]);
 
   if (actions.length === 0) {
     return (
@@ -66,6 +85,17 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
     setTouched(true);
     if (busy || invalid || !item) return;
     const n = Number(qty);
+    if (action === "STOCK_COUNTED" && !guard) {
+      // Against the engine's current derived stock and requirement for this line.
+      const line = findItem(evaluation, node, item.id)?.item;
+      const warning = line?.stock !== undefined ? countPlausibility(n, line.stock, line.need, item.unit) : undefined;
+      if (warning) return setGuard(warning);
+    }
+    await record(n);
+  };
+
+  const record = async (n: number) => {
+    if (!item) return;
     const payload =
       action === "STOCK_ISSUED" ? { item_id: item.id, qty: n, reason: reason.trim() }
       : action === "STOCK_RECEIVED" ? { item_id: item.id, qty: n, ...(shipmentId ? { shipment_id: shipmentId } : {}) }
@@ -82,19 +112,20 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
       setShipmentId("");
       setTouched(false);
     }
+    setGuard(undefined);
   };
 
-  const fieldError = (msg?: string) => (touched && msg ? <span className="mt-1 block text-[11px] text-bad">{msg}</span> : null);
+  const fieldError = (msg?: string) => (touched && msg ? <span className="mt-1 block text-xs text-bad">{msg}</span> : null);
 
   return (
     <Card>
-      <SectionHeader title="Stock transaction" meta={<span className="text-[11px] text-fg-2">Saved on this device first, then synced</span>} />
+      <SectionHeader title="Stock transaction" meta={<span className="text-xs text-fg-2">Saved on this device first, then synced</span>} />
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <label className="text-xs text-fg-2">Item
           <select aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} className={`${input} mt-1 block w-56`}>
             {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.id})</option>)}
           </select>
-          {row && <span className="mt-1 block text-[11px]">Current stock <span className="font-mono text-fg">{row.stock}</span></span>}
+          {row && <span className="mt-1 block text-xs">Current stock <span className="font-mono text-fg">{row.stock}</span></span>}
         </label>
         <label className="text-xs text-fg-2">Action
           <select aria-label="Action" value={action} onChange={(e) => setAction(e.target.value as StockType)} className={`${input} mt-1 block w-32`}>
@@ -119,10 +150,24 @@ export function StockTransactionForm({ role, node, seed, rows }: { role: string;
             </select>
           </label>
         )}
-        <div className="pt-5">
-          <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : "Submit"}</Button>
-        </div>
+        {!guard && (
+          <div className="pt-5">
+            <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : "Submit"}</Button>
+          </div>
+        )}
       </form>
+      {guard && (
+        <div role="alertdialog" aria-label="Confirm this count" className="mt-3 flex flex-wrap items-center gap-3 rounded-md bg-warn-tint px-3 py-2">
+          <p className="flex-1 text-sm font-semibold text-fg">{guard}</p>
+          <Button variant="primary" disabled={busy} onClick={() => void record(Number(qty))}>{busy ? "Saving…" : "Confirm"}</Button>
+          <Button onClick={() => { setGuard(undefined); document.querySelector<HTMLInputElement>('input[aria-label="Quantity"]')?.focus(); }}>Edit</Button>
+        </div>
+      )}
+      {preview && (
+        <p role="status" aria-live="polite" className={cx("mt-3 text-sm", preview.tone === "RED" ? "font-semibold text-bad" : preview.tone === "AMBER" ? "font-semibold text-warn" : "text-fg")}>
+          <span className="text-fg-2">If recorded: </span>{preview.text}
+        </p>
+      )}
       <div className="mt-3">
         <WriteFeedback event={last?.event} summary={last?.summary} error={error} />
       </div>

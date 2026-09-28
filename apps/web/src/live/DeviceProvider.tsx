@@ -49,6 +49,8 @@ export interface LiveDevice {
   /** Clears the failure count (stalled) and syncs now. */
   retry(): Promise<void>;
   jump(hours: number): Promise<void>;
+  /** Demo: moves this device's clock to an absolute time (the Director's jumps, this tab only). */
+  jumpTo(iso: string): Promise<void>;
   resetClock(): Promise<void>;
   setLink(status: LinkStatus): Promise<void>;
   signOut(): void;
@@ -260,6 +262,9 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       },
       jump: async (hours) => {
         await jumpClock(db, session.identity, addHours(await now(db), hours));
+      },
+      jumpTo: async (iso) => {
+        await jumpClock(db, session.identity, iso);
       },
       resetClock: async () => {
         await jumpClock(db, session.identity, config.demo.startAt);

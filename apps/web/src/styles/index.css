@@ -3,18 +3,18 @@
 @import "tailwindcss";
 @import "./theme.css";
 
-/* Leaflet on the dark operations palette (F4). */
+/* Leaflet on the Polar light palette. */
 .dhruv-map.leaflet-container { background: var(--bg); font-family: var(--font-sans); }
-.dhruv-map .leaflet-tooltip { background: rgba(11, 18, 32, 0.92); color: var(--text-primary); border: 1px solid var(--border-strong); box-shadow: none; font-size: 11px; }
+.dhruv-map .leaflet-tooltip { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border-strong); box-shadow: none; font-size: 12px; }
 .dhruv-map .leaflet-tooltip.dhruv-map-label { font-family: var(--font-mono); font-weight: 600; padding: 1px 5px; }
 .dhruv-map .leaflet-tooltip-right::before { border-right-color: var(--border-strong); }
-.dhruv-map .leaflet-control-attribution { background: rgba(11, 18, 32, 0.75); color: var(--text-secondary); }
+.dhruv-map .leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--text-secondary); }
 .dhruv-map .leaflet-control-attribution a { color: var(--accent); }
 .dhruv-map .leaflet-bar a { background: var(--surface); color: var(--text-primary); border-color: var(--border); }
 
 /* The schematic's own palette, mapped to the design tokens. */
 .dhruv-schematic {
-  --dhruv-map-bg: var(--surface); --dhruv-map-route: #9fb3c8; --dhruv-map-node: var(--text-primary);
-  --dhruv-amber: var(--state-amber); --dhruv-amber-fill: rgba(245, 158, 11, 0.12); --dhruv-ok: var(--state-green); --dhruv-red: var(--state-red);
+  --dhruv-map-bg: var(--surface); --dhruv-map-route: var(--border-strong); --dhruv-map-node: var(--text-primary);
+  --dhruv-amber: var(--state-amber); --dhruv-amber-fill: var(--state-amber-tint); --dhruv-ok: var(--state-green); --dhruv-red: var(--state-red);
   --dhruv-team: var(--accent); --dhruv-text: var(--text-primary); --dhruv-muted: var(--text-secondary);
 }

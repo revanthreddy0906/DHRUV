@@ -43,9 +43,9 @@ export function RobustnessPanel({ seed, events, now, node }: { seed: Seed; event
     <Card>
       <SectionHeader
         title={`Fuel robustness · Γ budget · ${nodeLabel(node)}`}
-        meta={<span className="text-[11px] text-fg-2">Deterministic worst case · analysis only, nothing is recorded</span>}
+        meta={<span className="text-xs text-fg-2">Deterministic worst case · analysis only, nothing is recorded</span>}
       />
-      <p className="mb-3 text-[12px] text-fg-2">
+      <p className="mb-3 text-xs text-fg-2">
         Γ is how many of the deviations below may go wrong <em>at the same time</em>. For each Γ the engine tries every combination of that size through R01–R03 and keeps the worst fuel ratio. Γ = 0 is today's ratio.
       </p>
 
@@ -78,7 +78,7 @@ export function RobustnessPanel({ seed, events, now, node }: { seed: Seed; event
               </div>
             );
           })}
-          <p className="text-[11px] text-fg-2">
+          <p className="text-xs text-fg-2">
             Stock {result.stock.toFixed(1)} {result.unit} · feasible inbound {result.inboundQty.toFixed(1)} {result.unit}
             {result.feeder
               ? ` · tightest feeder ${result.feeder.legId} (${result.feeder.shipmentId}) ETA ${dayLabel(result.feeder.eta)}, cut-off ${dayLabel(result.feeder.loadCutoff)}, slack ${result.feeder.slackDays} d. All inbound is treated as riding it.`
@@ -95,17 +95,17 @@ export function RobustnessPanel({ seed, events, now, node }: { seed: Seed; event
                 {c.gamma}
               </button>
             ))}
-            <span className="ml-1 text-[11px] text-fg-2">of {n} · {choose(n, g)} combination{choose(n, g) === 1 ? "" : "s"} checked</span>
+            <span className="ml-1 text-xs text-fg-2">of {n} · {choose(n, g)} combination{choose(n, g) === 1 ? "" : "s"} checked</span>
           </div>
           <div className="flex items-center gap-3 rounded-md border border-line-strong bg-bg px-3 py-2.5">
             <ShieldAlert size={18} className={at.state === "GREEN" ? "text-ok" : at.state === "AMBER" ? "text-warn" : "text-bad"} aria-hidden />
             <RatioDisplay value={at.ratio.toFixed(4)} state={at.state} size="lg" />
             <StateBadge state={at.state} size="sm" />
-            <span className="text-[12px] text-fg-2">worst case at Γ = {g}: {describe(at.bindingInputs)}{g > 0 && ` · nominal ${nominal.ratio.toFixed(4)}`}</span>
+            <span className="text-xs text-fg-2">worst case at Γ = {g}: {describe(at.bindingInputs)}{g > 0 && ` · nominal ${nominal.ratio.toFixed(4)}`}</span>
           </div>
 
-          <table className="mt-3 w-full text-[12px]">
-            <thead className="text-left text-[10px] uppercase tracking-wider text-fg-2">
+          <table className="mt-3 w-full text-xs">
+            <thead className="text-left text-xs text-fg-2">
               <tr><th className="w-10 py-1 font-semibold">Γ</th><th className="w-28 font-semibold">Worst ratio</th><th className="w-24 font-semibold">State</th><th className="font-semibold">What goes wrong</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -120,7 +120,7 @@ export function RobustnessPanel({ seed, events, now, node }: { seed: Seed; event
             </tbody>
           </table>
           {result.leversApplied && (
-            <p className="mt-2 text-[11px] text-warn">An approved decision's levers apply to this station: the dashboard ratio ({result.engineRatio.toFixed(4)}) includes them, this analysis does not.</p>
+            <p className="mt-2 text-xs text-warn">An approved decision's levers apply to this station: the dashboard ratio ({result.engineRatio.toFixed(4)}) includes them, this analysis does not.</p>
           )}
         </div>
       </div>

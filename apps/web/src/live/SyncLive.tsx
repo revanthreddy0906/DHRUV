@@ -74,7 +74,6 @@ export function LiveSyncDrawer({ onClose }: { onClose: () => void }) {
       oldest={oldest ? formatAge(oldest, snap.now) : undefined}
       stalled={stalledRow}
       onClose={onClose}
-      onLinkChange={(l) => void device.setLink(l)}
       live={{
         sentBytes: drain?.bytes ?? 0,
         budget: link === "ONLINE" ? null : link === "DEGRADED" ? degradedBudget : 0,

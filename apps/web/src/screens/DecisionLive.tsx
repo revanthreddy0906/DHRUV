@@ -48,7 +48,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
     return (
       <Frame moment="start" nav="decisions">
         <div className="flex h-full items-center justify-center p-8">
-          <div className="max-w-md rounded-xl border border-dashed border-line-strong p-6 text-sm text-fg-2">
+          <div className="max-w-md rounded-lg border border-dashed border-line-strong p-6 text-sm text-fg-2">
             <SearchX size={18} className="mb-2 text-fg-2" aria-hidden />
             <p className="font-semibold text-fg">Decision {id} is not on this device.</p>
             <p className="mt-1">It may not have synced here yet. Local operations continue; it appears after the next sync that brings it in.</p>
@@ -186,7 +186,7 @@ function DecisionLinks({ decisions }: { decisions: ReturnType<typeof decisionsVi
         {decisions.map((d) => (
           <li key={d.id}>
             <Link to={`/decisions/${d.id}`} className="font-mono text-accent hover:underline">{d.id}</Link>
-            <span className="ml-2 text-[12px]">{nodeLabel(d.node_id)} · {d.status.toLowerCase()}</span>
+            <span className="ml-2 text-xs">{nodeLabel(d.node_id)} · {d.status.toLowerCase()}</span>
           </li>
         ))}
       </ul>
@@ -209,7 +209,7 @@ export function LiveDecisionsIndex() {
   return (
     <Frame moment="start" nav="decisions">
       <div className="flex h-full items-center justify-center p-8">
-        <div className="max-w-md rounded-xl border border-dashed border-line-strong p-6 text-sm text-fg-2">
+        <div className="max-w-md rounded-lg border border-dashed border-line-strong p-6 text-sm text-fg-2">
           <p className="font-semibold text-fg">No decisions on this device yet.</p>
           <p className="mt-1">The engine proposes one when a station falls below its thresholds and a lever can help. It appears here, and in the Command Center's queue, as soon as it reaches this device.</p>
         </div>

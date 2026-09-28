@@ -41,7 +41,7 @@ export function RouteLine({ a, b, delayed, label }: { a: { x: number; y: number 
 export function UncertaintyCircle({ cx: x, cy: y, radiusKm, pxPerKm, label }: { cx: number; cy: number; radiusKm: number; pxPerKm: number; label?: string }) {
   return (
     <g>
-      <circle cx={x} cy={y} r={radiusKm * pxPerKm} fill="rgba(245,158,11,.10)" stroke="var(--state-amber)" strokeWidth={1.5} strokeDasharray="4 3" />
+      <circle cx={x} cy={y} r={radiusKm * pxPerKm} fill="var(--state-amber)" fillOpacity={0.1} stroke="var(--state-amber)" strokeWidth={1.5} strokeDasharray="4 3" />
       <circle cx={x} cy={y} r={4} fill="var(--state-amber)" />
       {label && <text x={x + 8} y={y - 8} fontSize={11} fontFamily="Inter, system-ui, sans-serif" fontWeight={600} fill="var(--text-primary)">{label}</text>}
     </g>
@@ -95,9 +95,9 @@ export function LocalAreaMap({ width = 420, height = 360, circleKm = 27, ageText
 
 export function MapPanel({ tiles = "unavailable", children, className }: { tiles?: "available" | "unavailable"; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cx("overflow-hidden rounded-xl border border-line bg-surface", className)}>
+    <div className={cx("overflow-hidden rounded-lg border border-line bg-surface", className)}>
       {tiles === "unavailable" && (
-        <div role="status" className="flex items-center gap-2 border-b border-line bg-elevated px-3 py-1.5 text-[11px] text-fg-2">
+        <div role="status" className="flex items-center gap-2 border-b border-line bg-elevated px-3 py-1.5 text-xs text-fg-2">
           <MapPinOff size={13} aria-hidden className="text-warn" />Map tiles unavailable. Operational state remains available. Using schematic map.
         </div>
       )}

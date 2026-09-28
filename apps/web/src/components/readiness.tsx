@@ -18,14 +18,14 @@ export function DimensionChip({ dim, onClick, emphasis }: { dim: DimensionEval; 
         dim.state === "GREEN" ? "border-line bg-bg/40 hover:border-line-strong" : cx(m.border, m.tint),
         emphasis && "ring-1 ring-bad/60")}
       aria-label={`${DIM_LABEL[dim.key]}: ${dim.state}${dim.ratio !== undefined ? `, ratio ${dim.ratio}` : ""}${dim.freshness ? `, ${dim.freshness.label}, ${dim.freshness.cls}` : ""}`}>
-      <span className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-fg"><Icon size={13} className="shrink-0 text-fg-2" aria-hidden />{DIM_LABEL[dim.key]}</span>
+      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-fg"><Icon size={13} className="shrink-0 text-fg-2" aria-hidden />{DIM_LABEL[dim.key]}</span>
       <div className="flex items-baseline justify-between gap-2">
         {dim.ratio !== undefined
           ? <RatioDisplay value={dim.ratio} state={dim.state === "GREEN" ? undefined : dim.state} size="lg" stale={stale} />
-          : <span className="font-mono text-[13px] text-fg-2">{dim.ratioText ?? "—"}</span>}
-        <span className={cx("flex shrink-0 items-center gap-1 text-[10px] font-bold tracking-wide", m.text)}><m.Icon size={12} aria-hidden />{m.word}</span>
+          : <span className="font-mono text-sm text-fg-2">{dim.ratioText ?? "—"}</span>}
+        <span className={cx("flex shrink-0 items-center gap-1 text-xs font-bold", m.text)}><m.Icon size={12} aria-hidden />{m.word}</span>
       </div>
-      {dim.straddleText && <span className="text-[11px] font-semibold leading-4 text-warn">{dim.straddleText}</span>}
+      {dim.straddleText && <span className="text-xs font-semibold leading-4 text-warn">{dim.straddleText}</span>}
       {dim.freshness && <FreshnessChip cls={dim.freshness.cls} label={dim.freshness.age} className="-ml-1.5" />}
     </button>
   );
@@ -35,7 +35,7 @@ export function DimensionChip({ dim, onClick, emphasis }: { dim: DimensionEval; 
 export function SlipToleranceLine({ slip }: { slip: StationEval["slip"] }) {
   const breach = slip.kind === "breach";
   return (
-    <div className={cx("flex items-start gap-2 text-[12px] leading-4", breach ? "text-fg" : "text-fg-2")}>
+    <div className={cx("flex items-start gap-2 text-xs leading-4", breach ? "text-fg" : "text-fg-2")}>
       <CalendarClock size={13} className={cx("mt-px shrink-0", breach ? "text-bad" : "text-fg-2")} aria-hidden />
       <span>
         <span className="font-semibold text-fg">{breach ? "Reserve breach" : `Slip tolerance ${slip.days} d`}</span>
@@ -48,7 +48,7 @@ export function SlipToleranceLine({ slip }: { slip: StationEval["slip"] }) {
 /** v2 C8 / R18: the stock-table baseline shown next to the engine. */
 export function BaselineB0Badge({ alerts, engineState, text }: { alerts: number; engineState: Health; text: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-line-strong px-2 py-1.5 text-[11px]">
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-line-strong px-2 py-1.5 text-xs">
       <span className="font-mono font-semibold text-fg-2">B0</span>
       <span className="text-fg-2">{text}</span>
       <ArrowRight size={12} className="text-fg-2" aria-hidden />
@@ -69,9 +69,9 @@ export function StationCard({ station, link, onShowMath, onOpenDimension, compac
   const fuel = station.dimensions.find((d) => d.key === "FUEL");
   return (
     <article aria-labelledby={`st-${station.nodeId}`}
-      className={cx("rounded-xl border bg-surface p-5", station.state === "RED" ? "border-bad/60" : station.state === "AMBER" ? "border-warn/50" : "border-line")}>
+      className={cx("rounded-lg border bg-surface p-5", station.state === "RED" ? "border-bad/60" : station.state === "AMBER" ? "border-warn/50" : "border-line")}>
       <header className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 id={`st-${station.nodeId}`} className="text-lg font-semibold text-fg">{station.name}</h2>
+        <h2 id={`st-${station.nodeId}`} className="text-heading font-semibold text-fg">{station.name}</h2>
         <StateBadge state={station.state} context={ctx} size={compact ? "md" : "lg"} className={animateIndex !== undefined ? "dh-cascade-in" : undefined} />
         <span className="ml-auto">{link ? <LinkChip node="Link" status={link.status} age={link.age} /> : <LinkChip node="Link" status={station.link.status as LinkStatus} age={station.link.status !== "ONLINE" ? `last contact ${station.link.lastContact}` : undefined} />}</span>
       </header>
@@ -80,7 +80,7 @@ export function StationCard({ station, link, onShowMath, onOpenDimension, compac
 
       {station.driver && (
         <p className="mb-3 flex items-center gap-2 text-sm text-fg">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-2">Driver</span>
+          <span className="text-xs font-semibold text-fg-2">Driver</span>
           <span className="font-medium">{station.driver}</span>
         </p>
       )}
@@ -92,7 +92,7 @@ export function StationCard({ station, link, onShowMath, onOpenDimension, compac
       {fuel && (
         <div className="mt-3 space-y-2 border-t border-line pt-3">
           {fuel.band && (
-            <div className="font-mono text-[11px] text-fg-2">
+            <div className="font-mono text-xs text-fg-2">
               Fuel band {fuel.band.low.toFixed(4)}{fuel.band.high !== undefined ? ` – ${fuel.band.high.toFixed(4)}` : ""} · {fuel.band.straddles ? <span className="font-semibold text-warn">straddles</span> : "no straddle"}
               {fuel.freshness && <> · {fuel.freshness.label} ({fuel.freshness.cls})</>}
             </div>
@@ -102,7 +102,7 @@ export function StationCard({ station, link, onShowMath, onOpenDimension, compac
         </div>
       )}
 
-      {station.footnote && <p className="mt-3 text-[11px] text-fg-2">{station.footnote}</p>}
+      {station.footnote && <p className="mt-3 text-xs text-fg-2">{station.footnote}</p>}
 
       <footer className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
         {station.missions.map((m) => (
@@ -112,7 +112,7 @@ export function StationCard({ station, link, onShowMath, onOpenDimension, compac
         ))}
         {station.pnr && <CountdownChip date={station.pnr.date.replace(" 2027", "")} daysLeft={station.pnr.daysLeft} label="Point of no return" />}
         {(
-          <button type="button" onClick={onShowMath} className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold text-accent hover:bg-accent-tint">
+          <button type="button" onClick={onShowMath} className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-semibold text-accent hover:bg-accent-tint">
             <Sigma size={14} aria-hidden />Show the math
           </button>
         )}
@@ -129,11 +129,11 @@ export function PnrStrip({ phase, daysToResupply, links, pnr, vessel }: {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-surface/60 px-5 py-2.5">
       <div className="flex items-baseline gap-2">
-        <span className="text-[11px] uppercase tracking-wider text-fg-2">Phase</span>
+        <span className="text-xs text-fg-2">Phase</span>
         <span className="font-mono text-sm font-semibold text-fg">{phase}</span>
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="text-[11px] uppercase tracking-wider text-fg-2">Next resupply</span>
+        <span className="text-xs text-fg-2">Next resupply</span>
         <span className="font-mono text-sm font-semibold text-fg">20 Nov 2027 · {daysToResupply} d</span>
       </div>
       <div className="flex items-center gap-2 text-xs text-fg-2">
@@ -145,8 +145,8 @@ export function PnrStrip({ phase, daysToResupply, links, pnr, vessel }: {
       <div className="ml-auto">
         {pnr ? (
           <span className="inline-flex items-center gap-2 rounded-lg border border-bad/60 bg-bad-tint px-3 py-1.5" role="status" aria-live="polite">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-bad">Point of no return</span>
-            <span className="font-mono text-base font-bold text-fg">PNR: {pnr.date.replace(" 2027", "")} ({pnr.daysLeft} days)</span>
+            <span className="text-xs font-bold text-bad">Point of no return</span>
+            <span className="font-mono text-heading font-bold text-fg">PNR: {pnr.date.replace(" 2027", "")} ({pnr.daysLeft} days)</span>
           </span>
         ) : <span className="text-xs text-fg-2">No point of no return active</span>}
       </div>

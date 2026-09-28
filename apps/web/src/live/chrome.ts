@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { config, type LinkStatus } from "@dhruv/shared";
-import { STATION_NODES } from "@dhruv/seed";
+import { DEFAULT_SCENARIO, SCENARIOS, STATION_NODES, scenarioById } from "@dhruv/seed";
 import type { Freshness, Role } from "../data/types";
 import { useDevice } from "./DeviceProvider";
 import { daysToResupply, formatAge, formatClock, formatShort, phaseAt } from "./format";
+import { formatWallTime } from "../format";
 
 const NODE_LABEL: Record<string, string> = { HQ: "Goa HQ", MAITRI: "Maitri", BHARATI: "Bharati", MUMBAI: "Mumbai", CAPE_TOWN: "Cape Town" };
 export const nodeLabel = (id: string) => NODE_LABEL[id] ?? id;
@@ -11,6 +12,12 @@ export const nodeLabel = (id: string) => NODE_LABEL[id] ?? id;
 /** Section 8 link-contact freshness: < 1 h FRESH, < 6 h AGING, < 24 h STALE, otherwise CRITICAL. */
 function contactFreshness(hours: number): Freshness {
   return hours < 1 ? "FRESH" : hours < 6 ? "AGING" : hours < 24 ? "STALE" : "CRITICAL";
+}
+
+/** The Director scenario this device's seed came from (the seed carries no id), for its clock jumps. */
+function scenarioOf(seed: unknown) {
+  const vessels = JSON.stringify((seed as { vessels?: unknown } | null)?.vessels);
+  return SCENARIOS.find((s) => JSON.stringify(s.seed.vessels) === vessels) ?? scenarioById(DEFAULT_SCENARIO)!;
 }
 
 /**
@@ -36,7 +43,10 @@ export interface LiveChrome {
   /** Newest event from another device this tab holds: how current its view of other nodes is. */
   othersAsOf?: string;
   stations: StationLink[];
+  /** The Director's absolute jumps for this device's scenario; applied to this device only. */
+  clockJumps: { label: string; iso: string }[];
   onJump(hours: number): void;
+  onJumpTo(iso: string): void;
   onReset(): void;
   onLinkChange(status: LinkStatus): void;
   onRoleChange(role: Role): void;
@@ -76,10 +86,12 @@ export function useLiveChrome(): LiveChrome | null {
     daysToResupply: daysToResupply(snap.now),
     pending: { count: snap.sync.pending, oldest: oldest ? formatAge(oldest, snap.now) : undefined },
     stalled: snap.sync.stalled,
-    lastSync: lastOk ? new Date(lastOk.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : undefined,
+    lastSync: lastOk ? formatWallTime(lastOk.at) : undefined,
     othersAsOf: othersNewest ? formatShort(othersNewest) : undefined,
     stations,
+    clockJumps: scenarioOf(snap.seed).clockJumps,
     onJump: (h) => void device.jump(h),
+    onJumpTo: (iso) => void device.jumpTo(iso),
     onReset: () => void device.resetClock(),
     onLinkChange: (s) => void device.setLink(s),
     // A tab is one device: switching role means signing in as another device.

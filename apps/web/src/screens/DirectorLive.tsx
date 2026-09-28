@@ -72,9 +72,9 @@ export function LiveDirector() {
 
   if (!device || !isHq || !director) {
     return (
-      <div className="min-h-screen bg-bg p-8 font-mono text-[12px] text-fg">
+      <div className="min-h-screen bg-bg p-8 text-sm text-fg">
         <div className="max-w-xl border-2 border-dashed border-warn p-4">
-          <p className="font-bold tracking-[0.2em] text-warn">DEMO CONTROL</p>
+          <p className="font-bold text-warn">Demo control</p>
           <p className="mt-2">The Director needs an HQ Ops session in this tab (the admin endpoints are HQ Ops only).</p>
           <Link to="/login?role=HQ_OPS" className="mt-3 inline-block text-accent underline">Sign in as HQ Ops</Link>
         </div>
@@ -116,10 +116,10 @@ export function LiveDirector() {
 
   return (
     <div className="min-h-screen bg-bg p-6">
-      <div className="w-[920px] max-w-full border-2 border-dashed border-warn bg-bg p-4 font-mono text-[12px] text-fg">
+      <div className="w-[920px] max-w-full rounded-lg border-2 border-dashed border-line-strong bg-surface p-4 text-sm text-fg">
         <div className="mb-3 flex items-center gap-2 border-b border-line pb-2">
           <Clapperboard size={15} className="text-warn" aria-hidden />
-          <span className="font-bold tracking-[0.2em] text-warn">DEMO CONTROL</span>
+          <span className="font-bold text-warn">Demo control</span>
           <span className="text-fg-2">not part of the product · as {device.session.identity.device_id}</span>
           <Link to="/command" className="border border-line-strong px-2 py-1 text-fg-2 hover:text-fg">← Command</Link>
           <button type="button" disabled={busy} onClick={() => void run("Reset to Start", async () => { const on = await director.reset(scenario.id); setActive(scenario.id); setBeats({}); setLinks({ [NODES.MAITRI]: "ONLINE", [NODES.BHARATI]: "ONLINE" }); return `server reset to ${scenario.id}, ${on.length} tab(s) cleared`; })}
@@ -160,7 +160,7 @@ export function LiveDirector() {
                   <div className="ml-[8.5rem] mt-1 flex items-start gap-1.5 text-accent"><Hand size={12} className="mt-0.5 shrink-0" aria-hidden />{b.operator.instruction}<span className="text-fg-2"> · or press the beat to have it done</span></div>
                 )}
                 {b.real && (
-                  <div className="ml-[8.5rem] mt-0.5 text-[11px] text-fg-2">
+                  <div className="ml-[8.5rem] mt-0.5 text-xs text-fg-2">
                     <span className="text-fg">What really happened, {b.real.when}:</span> {b.real.text}{" "}
                     <a href={b.real.source} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline hover:text-fg">source<ExternalLink size={10} aria-hidden /></a>
                   </div>

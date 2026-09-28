@@ -87,7 +87,7 @@ export function ShipmentForm({ seed, vessels, onDone }: { seed: Seed; vessels: V
   const items = seed.inventory_items.filter((i) => i.node_id === input.dest);
   const unit = items.find((i) => i.id === input.itemId)?.unit;
   const { errors, payload } = buildShipment(input, seed, vessel);
-  const err = (k: keyof ShipmentInput) => (touched && errors[k] ? <span className="mt-1 block text-[11px] text-bad">{errors[k]}</span> : null);
+  const err = (k: keyof ShipmentInput) => (touched && errors[k] ? <span className="mt-1 block text-xs text-bad">{errors[k]}</span> : null);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +105,7 @@ export function ShipmentForm({ seed, vessels, onDone }: { seed: Seed; vessels: V
 
   return (
     <Card className="border-accent/60">
-      <SectionHeader title="New shipment" meta={<span className="text-[11px] text-fg-2">Records SHIPMENT_CREATED · HQ Ops</span>} />
+      <SectionHeader title="New shipment" meta={<span className="text-xs text-fg-2">Records SHIPMENT_CREATED · HQ Ops</span>} />
       <form onSubmit={onSubmit} noValidate className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] items-start gap-4">
         <label className="text-xs text-fg-2">Shipment id
           <input aria-label="Shipment id" value={input.id} onChange={(e) => set("id", e.target.value)} className={`${field} mt-1 block w-full font-mono`} />{err("id")}

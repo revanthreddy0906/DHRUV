@@ -9,8 +9,8 @@ const EMPTY: AuditFilterState = { device: "", role: "", type: "", entity: "", ti
 export function AuditFilters({ rows, value, onChange }: { rows: OpEventRow[]; value: AuditFilterState; onChange: (v: AuditFilterState) => void }) {
   const opts = (k: keyof OpEventRow) => Array.from(new Set(rows.map((r) => String(r[k])))).sort();
   const Sel = ({ k, label, src }: { k: keyof AuditFilterState; label: string; src: string[] }) => (
-    <label className="flex flex-col gap-0.5 text-[10px] uppercase tracking-wider text-fg-2">{label}
-      <select value={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.value })} className="h-8 min-w-32 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-xs normal-case tracking-normal text-fg">
+    <label className="flex flex-col gap-0.5 text-xs text-fg-2">{label}
+      <select value={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.value })} className="h-8 min-w-32 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-xs normal-case text-fg">
         <option value="">all</option>{src.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
@@ -23,7 +23,7 @@ export function AuditFilters({ rows, value, onChange }: { rows: OpEventRow[]; va
       <Sel k="type" label="Type" src={opts("type")} />
       <Sel k="entity" label="Entity" src={opts("entity")} />
       <Sel k="tier" label="Priority" src={["0", "1", "2", "3", "4", "5"]} />
-      <Button size="sm" variant="ghost" onClick={() => onChange(EMPTY)}>Clear</Button>
+      <button type="button" onClick={() => onChange(EMPTY)} className="self-end pb-2 text-sm font-semibold text-accent hover:underline">Clear filters</button>
     </div>
   );
 }
@@ -34,15 +34,15 @@ export function AuditTable({ rows, initialFilter = EMPTY }: { rows: OpEventRow[]
   return (
     <div className="space-y-3">
       <AuditFilters rows={rows} value={f} onChange={setF} />
-      <div className="overflow-hidden rounded-xl border border-line">
-        <table className="w-full text-[12px]">
-          <thead className="bg-elevated text-left text-[10px] uppercase tracking-wider text-fg-2">
-            <tr>{["Device · seq", "Type", "Entity", "Actor", "P", "observed_at", "recorded_at_server", "Summary"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>
+      <div className="overflow-hidden rounded-lg border border-line">
+        <table className="w-full text-xs">
+          <thead className="bg-elevated text-left text-xs text-fg-2">
+            <tr>{["Device and sequence", "Type", "Entity", "Actor", "Priority", "Observed (demo time)", "Recorded at server", "Summary"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>
           </thead>
           <tbody>
             {shown.map((r, i) => (
               <tr key={i} className={cx("border-t border-line", r.type === "CONFLICT_FLAGGED" && "bg-warn-tint/60")}>
-                <td className="whitespace-nowrap px-3 py-2 font-mono text-fg-2">{r.deviceSeq}</td>
+                <td className="h-10 whitespace-nowrap px-3 py-2 font-mono text-fg-2">{r.deviceSeq}</td>
                 <td className="px-3 py-2 font-mono font-semibold text-fg">{r.type}</td>
                 <td className="px-3 py-2 font-mono text-fg">{r.entity}</td>
                 <td className="px-3 py-2 font-mono text-fg-2">{r.actor}</td>
