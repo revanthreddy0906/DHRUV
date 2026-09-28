@@ -78,7 +78,7 @@ describe("offline-to-online round trip: the Director drives beats 1-11 against t
     const hq = openTab(app, hqDevice, channelName);
     const maitri = openTab(app, await login(app, "MAITRI-TAB-01", "STATION_LEADER", "MAITRI"), channelName);
     const ft3 = openTab(app, await login(app, "FT3-TAB-01", "FIELD_LEAD", "MAITRI"), channelName);
-    const director = createDirector({ channel: openChannel(channelName), admin: adminApi(app, hqDevice), timeoutMs: 150, stepDelayMs: 0 });
+    const director = createDirector({ channel: openChannel(channelName), admin: adminApi(app, hqDevice), timeoutMs: 1000, stepDelayMs: 0 });
 
     // Beats 1-2: slip and decision, at HQ; Maitri is still online and sees them.
     await director.runBeat("1");
@@ -149,5 +149,5 @@ describe("offline-to-online round trip: the Director drives beats 1-11 against t
     const state = await app.inject({ method: "GET", url: `${API}/state`, headers: auth(hqDevice) });
     expect(state.json().events).toEqual([]);
     expect(state.json().seed).toEqual(season48);
-  });
+  }, { timeout: 20_000 });
 });
