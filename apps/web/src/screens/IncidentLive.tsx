@@ -1,4 +1,6 @@
 import * as React from "react";
+import { RouteDiagram } from "../components/route";
+import { routeView } from "../live/route";
 import { ShieldCheck } from "lucide-react";
 import { IncidentPanel } from "../components/incident";
 import { Card, SectionHeader, cx } from "../components/primitives";
@@ -74,54 +76,68 @@ export function LiveIncidentScreen() {
   );
 }
 
-const STATUS_TEXT: Record<string, string> = { OK: "text-fg-2", DEGRADED: "text-warn", DOWN: "text-bad" };
 
-/** Map screen for the signed-in device: the whole route, and the incident area when one is open. */
+/**
+ * Map for the signed-in device (section 9.7): the Antarctic stations and the Cape Town leg by
+ * default, the route as a horizontal diagram, the incident area while one is open, and assets by
+ * exception. Positions are always last known with their age.
+ */
 export function LiveMapScreen() {
   const ops = useLiveOps();
   const incidentId = ops?.openIncidents[0]?.id;
   const all = useLiveMapModel();
   const focus = useLiveMapModel(incidentId);
+  const [showOk, setShowOk] = React.useState(false);
+  const route = React.useMemo(() => (ops ? routeView(ops.seed, ops.events, ops.maitriStation.nodeId) : undefined), [ops]);
   if (!all || !ops) return null;
   const assets = all.features.filter((f) => f.kind === "asset");
+  const exceptions = assets.filter((a) => (a.status ?? "OK") !== "OK" || a.conflict);
+  const ok = assets.filter((a) => !exceptions.includes(a));
   return (
     <Frame moment="start" nav="map">
-      <div className="space-y-4 p-5">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="text-title font-semibold text-fg">Map</h1>
-          <p className="mt-0.5 text-sm text-fg-2">Positions are always last known with their age. Nothing here is live. Tiles: NASA Blue Marble; the schematic is used when tiles are unavailable.</p>
+          <p className="mt-0.5 text-sm text-fg-2">Positions are last known, each with its age. Tiles: NASA Blue Marble; the schematic is used when tiles are unavailable.</p>
         </div>
-        <div className="grid grid-cols-[1.3fr_1fr] gap-4">
-          <LiveMap model={all} view="all" height={500} />
-          <div className="space-y-4">
-            {focus?.incident ? (
-              <LiveMap model={focus} view="incident" height={300} />
-            ) : (
-              <Card><p className="text-sm text-fg-2">No open incident on this device. The incident map appears here when one is opened.</p></Card>
+        {route && (
+          <Card>
+            <SectionHeader title={`Route of ${route.shipmentId}`} meta={<span className="text-xs text-fg-2">{route.name}</span>} />
+            <RouteDiagram route={route} />
+          </Card>
+        )}
+        <div className="grid items-start gap-6 xl:grid-cols-[1.4fr_1fr]">
+          <LiveMap model={all} view="antarctic" height={520} />
+          <div className="space-y-6">
+            {focus?.incident && (
+              <section>
+                <SectionHeader title={`Incident area · ${incidentId}`} />
+                <LiveMap model={focus} view="incident" height={300} />
+              </section>
             )}
-            <Card>
-              <SectionHeader title="Assets with a known position" />
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-xs">
-                {assets.map((a) => (
-                  <li key={a.id} className="flex justify-between gap-2">
-                    <span className="text-fg">{a.id}</span>
-                    <span className={cx(STATUS_TEXT[a.status ?? "OK"], a.conflict && "font-bold text-warn")}>{a.status}{a.conflict ? " · conflict" : ""}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-            <Card>
-              <SectionHeader title="Route legs" />
-              <ul className="font-mono text-xs text-fg-2">
-                {all.routes.map((r) => (
-                  <li key={r.leg_id} className="flex justify-between gap-2">
-                    <span className="text-fg">{r.leg_id}</span>
-                    <span>{nodeLabel(r.from.node_id)} → {nodeLabel(r.to.node_id)}</span>
-                    <span className={r.status === "DELAYED" ? "text-warn" : undefined}>{r.status} · ETA {r.eta.slice(5, 10)}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+            <section>
+              <SectionHeader title="Assets" />
+              <Card pad="none">
+                <ul className="divide-y divide-line">
+                  {exceptions.map((a) => (
+                    <li key={a.id} className="flex h-10 items-center justify-between gap-2 px-4 text-sm">
+                      <span className="font-mono text-fg">{a.id}</span>
+                      <span className={cx("font-semibold", a.status === "DOWN" ? "text-bad" : "text-warn")}>
+                        {(a.status ?? "OK").charAt(0) + (a.status ?? "OK").slice(1).toLowerCase()}{a.conflict ? ", conflicting reports" : ""}
+                      </span>
+                    </li>
+                  ))}
+                  {ok.length > 0 && (
+                    <li className="px-4 py-2">
+                      <button type="button" aria-expanded={showOk} onClick={() => setShowOk((s) => !s)} className="text-sm font-semibold text-accent hover:underline">
+                        {ok.length} of {assets.length} assets OK
+                      </button>
+                      {showOk && <p className="mt-1 font-mono text-xs text-fg-2">{ok.map((a) => a.id).join(", ")}</p>}
+                    </li>
+                  )}
+                </ul>
+              </Card>
+            </section>
           </div>
         </div>
       </div>

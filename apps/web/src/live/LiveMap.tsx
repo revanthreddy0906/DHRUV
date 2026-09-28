@@ -8,14 +8,23 @@ import { cx } from "../components/primitives";
 /** Tile errors before the map gives up on tiles and shows the schematic (section 16 fallback). */
 const TILE_ERRORS_BEFORE_FALLBACK = 3;
 
-/** Bounds to open on: around the incident (circle and top responders), or everything with the route. */
-function initialBounds(model: MapModel, view: "incident" | "all"): L.LatLngBounds {
+type MapView = "incident" | "all" | "antarctic";
+
+/** Latitude south of which a point belongs to the Antarctic view (Cape Town is −33.9). */
+const ANTARCTIC_VIEW_LAT = -30;
+
+/**
+ * Bounds to open on: around the incident (circle and top responders); the Antarctic stations and
+ * the Cape Town leg; or everything with the route.
+ */
+function initialBounds(model: MapModel, view: MapView): L.LatLngBounds {
   const focus = model.incident;
   if (view === "incident" && focus?.position) {
     const reachKm = Math.max(focus.uncertaintyKm ?? 0, ...focus.nearest.capable.slice(0, 3).map((c) => c.distanceKm), 10) * 1.2;
     return L.latLng(focus.position.lat, focus.position.lon).toBounds(reachKm * 2000);
   }
-  const points = [...model.features.map((f) => L.latLng(f.lat, f.lon)), ...model.routes.flatMap((r) => [L.latLng(r.from.lat, r.from.lon), L.latLng(r.to.lat, r.to.lon)])];
+  const all = [...model.features.map((f) => L.latLng(f.lat, f.lon)), ...model.routes.flatMap((r) => [L.latLng(r.from.lat, r.from.lon), L.latLng(r.to.lat, r.to.lon)])];
+  const points = view === "antarctic" ? all.filter((p) => p.lat < ANTARCTIC_VIEW_LAT) : all;
   return L.latLngBounds(points.length ? points : [L.latLng(-70.77, 11.73)]);
 }
 
@@ -25,7 +34,7 @@ function initialBounds(model: MapModel, view: "incident" | "all"): L.LatLngBound
  * failures only, never on the simulated link: Maitri going "offline" must not take its map away.
  */
 export function LiveMap({ model, view = "all", height = 360, compact = false, className }: {
-  model: MapModel; view?: "incident" | "all"; height?: number; compact?: boolean; className?: string;
+  model: MapModel; view?: MapView; height?: number; compact?: boolean; className?: string;
 }) {
   const el = React.useRef<HTMLDivElement>(null);
   const map = React.useRef<L.Map | null>(null);
@@ -82,11 +91,11 @@ export function LiveMap({ model, view = "all", height = 360, compact = false, cl
             </p>
           )}
           {/* The app's only innerHTML: renderSchematicSvg escapes every string that comes from events. */}
-          <div className="min-h-0 flex-1 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: renderSchematicSvg(model, { width, height: height - (tilesFailed ? 28 : 0), view }) }} />
+          <div className="min-h-0 flex-1 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: renderSchematicSvg(model, { width, height: height - (tilesFailed ? 28 : 0), view: view === "incident" ? "incident" : "all" }) }} />
         </div>
       )}
       <button type="button" onClick={() => setMode(mode === "tiles" ? "schematic" : "tiles")}
-        className="absolute bottom-2 right-2 z-[500] flex items-center gap-1 rounded-md border border-line-strong bg-bg/90 px-2 py-1 text-xs text-fg-2 hover:text-fg"
+        className="absolute bottom-2 right-2 z-[500] flex items-center gap-1 rounded-md border border-line-strong bg-surface px-2 py-1 text-xs text-fg-2 hover:text-fg"
         aria-label={mode === "tiles" ? "Show schematic map" : "Show map tiles"}>
         <Layers size={12} aria-hidden />{mode === "tiles" ? "Schematic" : "Tiles"}
       </button>
