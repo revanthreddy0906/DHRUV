@@ -38,6 +38,9 @@ export function QuietLine({ children }: { children: React.ReactNode }) {
   return <p role="status" className="p-8 text-sm text-fg-2">{children}</p>;
 }
 
+/** Shown where a record is looked up while a server reset's reload has not landed yet. */
+export const REFRESHING_AFTER_RESET = "Refreshing after a server reset…";
+
 /**
  * Persistent chrome for any screen. Signed in, the top bar, sidebar and offline banner come from
  * this tab's device (clock, link, outbox). Not signed in, they show the design fixture for `moment`.

@@ -11,7 +11,7 @@ import { nodeLabel } from "../live/chrome";
 import { dayLabel, describeEvent } from "../live/describe";
 import { formatShort } from "../live/format";
 import { approveReason, daysLeft, fullDate, useLiveOps } from "../live/ops";
-import { Frame } from "./Frame";
+import { Frame, QuietLine, REFRESHING_AFTER_RESET } from "./Frame";
 
 const sameLevers = (a: string[], b: string[]) => a.length === b.length && a.every((l) => b.includes(l));
 
@@ -38,8 +38,9 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string>();
 
-  // Frame shows "Checking this device's data…" until the data is confirmed.
+  // Frame shows "Checking this device's data…" until the data is confirmed; a reset's reload says so.
   if (!device.dataConfirmed) return <Frame moment="start" nav="decisions">{null}</Frame>;
+  if (device.refreshing) return <Frame moment="start" nav="decisions"><QuietLine>{REFRESHING_AFTER_RESET}</QuietLine></Frame>;
   if (!snap || !ops) return null;
   const { identity } = device.session;
   const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
@@ -52,8 +53,18 @@ export function LiveDecisionDetail({ id }: { id: string }) {
         <div className="flex h-full items-center justify-center p-8">
           <div className="max-w-md rounded-lg border border-dashed border-line-strong p-6 text-sm text-fg-2">
             <SearchX size={18} className="mb-2 text-fg-2" aria-hidden />
-            <p className="font-semibold text-fg">Decision {id} is not on this device.</p>
-            <p className="mt-1">It may not have synced here yet. Local operations continue; it appears after the next sync that brings it in.</p>
+            {device.resetSeen ? (
+              // After a Reset to Start the old run's decisions are gone for good: do not promise a sync.
+              <>
+                <p className="font-semibold text-fg">Decision {id} is not part of the current run.</p>
+                <p className="mt-1">The server was reset to Start since this device loaded it. <Link to="/decisions" className="text-accent hover:underline">Open decisions</Link> for what this device holds now.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-fg">Decision {id} is not on this device.</p>
+                <p className="mt-1">It may not have synced here yet. Local operations continue; it appears after the next sync that brings it in.</p>
+              </>
+            )}
             {others.length > 0 && <DecisionLinks decisions={others} />}
           </div>
         </div>
@@ -206,6 +217,7 @@ export function LiveDecisionsIndex() {
   const snap = device?.snapshot;
   // Pick only from data confirmed as the current run, so a stale store never chooses the redirect.
   if (device && !device.dataConfirmed) return <Frame moment="start" nav="decisions">{null}</Frame>;
+  if (device?.refreshing) return <Frame moment="start" nav="decisions"><QuietLine>{REFRESHING_AFTER_RESET}</QuietLine></Frame>;
   if (!snap) return null;
   const decisions = decisionsView(snap.events.filter((e) => !snap.rejected.has(e.event_id)));
   const pick = decisions.find((d) => d.status === "PROPOSED") ?? [...decisions].sort((a, b) => b.proposed_at.localeCompare(a.proposed_at))[0];

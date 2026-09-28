@@ -66,6 +66,10 @@ export interface LiveDevice {
    * Degraded, or DATA_CONFIRM_TIMEOUT_MS passed. Screens show "Checking this device's data…" until then.
    */
   dataConfirmed: boolean;
+  /** A server reset cleared this device's store and the reload (bootstrap) has not landed yet. */
+  refreshing: boolean;
+  /** This tab saw a server reset clear its store since it opened. */
+  resetSeen: boolean;
 }
 
 interface DeviceContextValue {
@@ -172,8 +176,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [lastSync, setLastSync] = React.useState<LastSync | null>(null);
   const kick = React.useRef<() => void>(() => {});
   const [confirmed, setConfirmed] = React.useState(false);
+  const [lastResetAt, setLastResetAt] = React.useState<number | null>(null);
   /** signIn bootstraps before the session is set, so that store is already current. */
   const bootstrappedAtSignIn = React.useRef(false);
+  const hadSeed = React.useRef(false);
 
   // Epoch-confirmation gate, per device session: starts closed (unless signIn just bootstrapped)
   // and opens after DATA_CONFIRM_TIMEOUT_MS at the latest, so a slow or absent server never blocks.
@@ -181,11 +187,19 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     if (!db || !session) return;
     setConfirmed(bootstrappedAtSignIn.current);
     bootstrappedAtSignIn.current = false;
+    setLastResetAt(null);
+    hadSeed.current = false;
     const timer = setTimeout(() => setConfirmed(true), DATA_CONFIRM_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [db, session]);
 
-
+  // A store that had a seed and lost it was cleared by a reset (a sync that found a new epoch, or
+  // the Director's Reset to Start on this browser).
+  React.useEffect(() => {
+    if (!snapshot) return;
+    if (hadSeed.current && !snapshot.seed) setLastResetAt(Date.now());
+    hadSeed.current = !!snapshot.seed;
+  }, [snapshot]);
 
   const signOut = React.useCallback(() => {
     saveSession(null);
@@ -254,6 +268,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         // The server was reset to Start: the store was cleared, so reload it right away.
         if (!outcome.ok && "reset" in outcome) {
           reset = true;
+          setLastResetAt(Date.now());
           delay = 0;
         }
       } catch (err) {
@@ -314,8 +329,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       signOut,
       // Offline or Degraded, the local data is what this device works from: never hold it back.
       dataConfirmed: confirmed || (!!snapshot && snapshot.link !== "ONLINE"),
+      refreshing: !!snapshot && !snapshot.seed && lastResetAt !== null,
+      resetSeen: lastResetAt !== null,
     };
-  }, [session, db, snapshot, lastSync, signOut, confirmed]);
+  }, [session, db, snapshot, lastSync, signOut, confirmed, lastResetAt]);
 
   const duplicateOf = session && owned === false ? session.identity.device_id : null;
   const value = React.useMemo(() => ({ device, duplicateOf, signIn, signOut }), [device, duplicateOf, signIn, signOut]);
