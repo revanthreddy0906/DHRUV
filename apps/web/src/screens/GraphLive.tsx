@@ -154,7 +154,7 @@ export function LiveGraphScreen() {
                     <path key={i} d={roundedPath(routePoints(a, b, layout))}
                       strokeWidth={style === "impact" ? 1.5 : 1.25}
                       strokeDasharray={style === "dashed" ? "4 4" : undefined}
-                      className={style === "dashed" ? "stroke-line" : trouble === "RED" ? "stroke-bad" : trouble === "AMBER" ? "stroke-warn" : "stroke-line-strong"} />
+                      className={style === "dashed" ? "stroke-line-strong" : trouble === "RED" ? "stroke-bad" : trouble === "AMBER" ? "stroke-warn" : "stroke-line-strong"} />
                   );
                 })}
               </svg>
