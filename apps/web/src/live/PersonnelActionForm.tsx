@@ -126,7 +126,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
           </>
         )}
         <div className="pt-5">
-          <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : "Submit"}</Button>
+          <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : action === "PERSON_MOVED" ? "Record move" : "Set status"}</Button>
         </div>
       </form>
       <div className="mt-3"><WriteFeedback event={last?.event} summary={last?.summary} error={error} /></div>

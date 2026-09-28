@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Link } from "react-router-dom";
 import { RouteDiagram } from "../components/route";
 import { routeView } from "../live/route";
 import { ShieldCheck } from "lucide-react";
@@ -65,6 +66,10 @@ export function LiveIncidentPanel({ compact = false }: { compact?: boolean }) {
         onPrint={() => window.print()}
         map={<LiveMap model={model} view="incident" height={340} />}
       />
+      <p className="text-sm text-fg-2">
+        Records: {incident.person_ids.map((id, i) => <React.Fragment key={id}>{i ? ", " : ""}<Link to={`/personnel/${id}`} className="text-accent hover:underline">{data.people[i]?.name ?? id}</Link></React.Fragment>)}
+        {data.responders.length > 0 && <>{"; responders "}{data.responders.map((r, i) => <React.Fragment key={r.id}>{i ? ", " : ""}<Link to={`/assets/${r.id}`} className="font-mono text-accent hover:underline">{r.id}</Link></React.Fragment>)}</>}
+      </p>
       {error && <p role="alert" className="text-xs text-fg">{error}</p>}
     </div>
   );
@@ -124,7 +129,7 @@ export function LiveMapScreen() {
                 <ul className="divide-y divide-line">
                   {exceptions.map((a) => (
                     <li key={a.id} className="flex h-10 items-center justify-between gap-2 px-4 text-sm">
-                      <span className="font-mono text-fg">{a.id}</span>
+                      <Link to={`/assets/${a.id}`} className="font-mono text-accent hover:underline">{a.id}</Link>
                       <span className={cx("font-semibold", a.status === "DOWN" ? "text-bad" : "text-warn")}>
                         {(a.status ?? "OK").charAt(0) + (a.status ?? "OK").slice(1).toLowerCase()}{a.conflict ? ", conflicting reports" : ""}
                       </span>
@@ -135,7 +140,7 @@ export function LiveMapScreen() {
                       <button type="button" aria-expanded={showOk} onClick={() => setShowOk((s) => !s)} className="text-sm font-semibold text-accent hover:underline">
                         {ok.length} of {assets.length} assets OK
                       </button>
-                      {showOk && <p className="mt-1 font-mono text-xs text-fg-2">{ok.map((a) => a.id).join(", ")}</p>}
+                      {showOk && <p className="mt-1 font-mono text-xs text-fg-2">{ok.map((a, i) => <React.Fragment key={a.id}>{i ? ", " : ""}<Link to={`/assets/${a.id}`} className="text-accent hover:underline">{a.id}</Link></React.Fragment>)}</p>}
                     </li>
                   )}
                 </ul>

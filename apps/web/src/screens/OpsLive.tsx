@@ -103,7 +103,7 @@ export function LivePersonnelScreen() {
             <ul className="max-h-96 divide-y divide-line overflow-y-auto px-4 text-sm">
               {people.map((p) => (
                 <li key={p.id} className="flex items-center gap-2 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-fg">{p.name}<span className="ml-1.5 text-xs text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
+                  <span className="min-w-0 flex-1 truncate text-fg"><Link to={`/personnel/${p.id}`} className="text-accent hover:underline">{p.name}</Link><span className="ml-1.5 text-xs text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
                   <Tag tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status.replace("_", " ")}</Tag>
                   <span className="w-14 text-right font-mono text-xs text-fg-2">{formatAge(p.lastObservedAt, ops.now)}</span>
                 </li>
