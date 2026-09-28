@@ -38,6 +38,8 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string>();
 
+  // Frame shows "Checking this device's data…" until the data is confirmed.
+  if (!device.dataConfirmed) return <Frame moment="start" nav="decisions">{null}</Frame>;
   if (!snap || !ops) return null;
   const { identity } = device.session;
   const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
@@ -202,6 +204,8 @@ function DecisionLinks({ decisions }: { decisions: ReturnType<typeof decisionsVi
 export function LiveDecisionsIndex() {
   const device = useDevice();
   const snap = device?.snapshot;
+  // Pick only from data confirmed as the current run, so a stale store never chooses the redirect.
+  if (device && !device.dataConfirmed) return <Frame moment="start" nav="decisions">{null}</Frame>;
   if (!snap) return null;
   const decisions = decisionsView(snap.events.filter((e) => !snap.rejected.has(e.event_id)));
   const pick = decisions.find((d) => d.status === "PROPOSED") ?? [...decisions].sort((a, b) => b.proposed_at.localeCompare(a.proposed_at))[0];
