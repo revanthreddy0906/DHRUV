@@ -3,7 +3,7 @@ import { evaluate, impactOf, knowledgeGraph } from "@dhruv/engine";
 import type { OpEvent } from "@dhruv/shared";
 import { aurora2016Seed, season48 } from "@dhruv/seed";
 import { defaultFocus, downstreamOf, focusView, linkToPath, upstreamOf } from "./graphFocus";
-import { numberRuns, readableDates, recordAction, recordDetail, recordReason, sourceNote } from "./graphText";
+import { numberRuns, readableDates, recordAction, recordLabel, recordDetail, recordReason, sourceNote } from "./graphText";
 
 const AT = "2027-01-24T08:10:00.000Z";
 const base = { created_at_client: AT, observed_at: AT, priority: 3, schema_version: 1 };
@@ -113,7 +113,16 @@ describe("graph wording", () => {
     expect(recordDetail(n("INV-DSL"), station)).toBe("92.0 kL on hand");
     expect(recordDetail(n("role:MAITRI:DOCTOR"), station)).toBe("2 of need 1");
     expect(recordDetail(n("assets:MAITRI:Skidoo"), station)).toBe("5 of 5 OK");
-    expect(recordDetail(n("V-ICE-STAR"), station)).toBe("Cut-off 4 Feb · ETA 24 Feb");
+    expect(recordDetail(n("V-ICE-STAR"), station)).toBe("Cutoff 4 Feb · ETA 24 Feb");
+    expect(recordDetail(n("MAITRI"), station)).toBe("Fuel −40.0 kL short");
+    const start = build([]);
+    const s = (id: string) => start.graph.nodes.find((x) => x.id === id)!;
+    expect(recordDetail(s("L2-C104"), start.station)).toBe("ETA 2 Feb");
+    expect(recordDetail(s("INV-DSL"), start.station)).toBe("92.0 kL + 48.0 inbound");
+    expect(recordDetail(s("MAITRI"), start.station)).toBe("Within thresholds");
+    const places = season48.nodes.map((x) => ({ id: x.id, name: x.name }));
+    expect(recordLabel(n("L2-C104"), places)).toBe("L2-C104 Mumbai port → Cape Town");
+    expect(recordLabel(n("role:MAITRI:DOCTOR"))).toBe("Doctor");
   });
 
   it("reasons: one sentence per record", () => {
@@ -121,6 +130,8 @@ describe("graph wording", () => {
     const n = (id: string) => graph.nodes.find((x) => x.id === id)!;
     expect(recordReason(n("L2-C104"), graph, station)).toBe("Leg ETA 7 Feb misses the 4 Feb vessel cutoff.");
     expect(recordReason(n("C-104"), graph, station)).toBe("Cargo excluded by vessel cutoff: the feeder leg arrives 7 Feb, after the 4 Feb cutoff.");
+    expect(recordReason(n("F-27"), graph, station)).toBe("Depends on Diesel, which is RED.");
+    expect(recordLabel(n("MAITRI.POWER"))).toBe("Spares and power");
     expect(recordReason(n("MAITRI.FUEL"), graph, station)).toBe("Fuel below requirement: 92.0 of 132.0 kL. Cargo excluded by vessel cutoff.");
     const start = build([]);
     expect(recordReason(start.graph.nodes.find((x) => x.id === "L2-C104")!, start.graph, start.station)).toBe("Leg ETA 2 Feb is close to the 4 Feb vessel cutoff.");

@@ -1,196 +1,196 @@
 import * as React from "react";
-import { useSearchParams } from "react-router-dom";
-import { impactOf, knowledgeGraph, type GraphEdge, type GraphNode, type GraphNodeType } from "@dhruv/engine";
-import { Card, SectionHeader, StateBadge, Tag, cx } from "../components/primitives";
+import { Link, useSearchParams } from "react-router-dom";
+import { knowledgeGraph, type GraphNode, type KnowledgeGraph, type StationEval } from "@dhruv/engine";
+import { Card, StateBadge, cx } from "../components/primitives";
+import {
+  GRAPH_COLUMNS, TYPE_COLUMN, TYPE_LABEL, defaultFocus, focusView, isAbnormal, linkToPath, numberRuns, recordAction, recordDetail, recordLabel, recordReason, sourceNote,
+} from "../format";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { useStationFocus } from "../live/stationFocus";
 import { Frame } from "./Frame";
+import { CARD_H, CARD_W, COLLAPSED_LINE, columnX, layoutFocus, roundedPath, routePoints } from "./graphLayout";
 
-/** Column per node type: supply chain left to right, what it feeds on the right. */
-const COLUMN: Record<GraphNodeType, number> = {
-  vessel: 0, decision: 0,
-  leg: 1, lever: 1,
-  shipment: 2, incident: 2,
-  item: 3, role: 3, assets: 3,
-  dimension: 4, mission: 4,
-  station: 5,
-};
-const COLUMN_TITLE = ["Vessel · decisions", "Legs · levers", "Shipments · incidents", "Items · people · assets", "Dimensions · missions", "Station"];
-const TYPE_LABEL: Record<GraphNodeType, string> = {
-  station: "station", dimension: "dimension", item: "inventory item", shipment: "shipment", leg: "cargo leg", vessel: "vessel",
-  role: "people by role", assets: "assets by type", mission: "mission", lever: "lever", decision: "decision", incident: "incident",
-};
-const W = 196, H = 40, GAP = 10, COL = 236, TOP = 34, PAD = 12;
-
-// GREEN is quiet (section 3.1): only AMBER and RED records get a coloured outline.
-const stroke = (s?: string) => (s === "RED" ? "stroke-bad" : s === "AMBER" ? "stroke-warn" : "stroke-line-strong");
-
-interface Placed extends GraphNode { x: number; y: number }
-
-function layout(nodes: GraphNode[]): { placed: Map<string, Placed>; width: number; height: number } {
-  const cols: GraphNode[][] = [[], [], [], [], [], []];
-  for (const n of nodes) cols[COLUMN[n.type]]!.push(n);
-  const placed = new Map<string, Placed>();
-  let height = 0;
-  cols.forEach((col, c) => {
-    // Primary type first in each column, then the secondary band, separated by a gap.
-    let y = TOP;
-    let prev: GraphNodeType | undefined;
-    for (const n of col) {
-      if (prev && prev !== n.type) y += 18;
-      placed.set(n.id, { ...n, x: PAD + c * COL, y });
-      y += H + GAP;
-      prev = n.type;
-    }
-    height = Math.max(height, y);
-  });
-  return { placed, width: PAD * 2 + 5 * COL + W, height: height + PAD };
+/** Words in Inter, numbers in mono (section 4). */
+function Numbers({ text }: { text: string }) {
+  return <>{numberRuns(text).map((r, i) => (r.mono ? <span key={i} className="font-mono tabular-nums">{r.text}</span> : r.text))}</>;
 }
 
-function edgePath(a: Placed, b: Placed): string {
-  if (COLUMN[a.type] === COLUMN[b.type]) {
-    // Same column: bow out to the left.
-    const x = a.x, y1 = a.y + H / 2, y2 = b.y + H / 2;
-    return `M ${x} ${y1} C ${x - 40} ${y1}, ${x - 40} ${y2}, ${x} ${y2}`;
-  }
-  const forward = a.x < b.x;
-  const x1 = forward ? a.x + W : a.x, x2 = forward ? b.x : b.x + W;
-  const y1 = a.y + H / 2, y2 = b.y + H / 2;
-  const mid = (x1 + x2) / 2;
-  return `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+function RecordCard({ node, label, station, focused, remedy, style, onSelect }: {
+  node: GraphNode; label: string; station?: StationEval; focused: boolean; remedy: boolean; style: React.CSSProperties; onSelect: () => void;
+}) {
+  const abnormal = isAbnormal(node.state);
+  const detail = recordDetail(node, station);
+  return (
+    <button type="button" onClick={onSelect} aria-pressed={focused}
+      aria-label={`${TYPE_LABEL[node.type]} ${label}${abnormal ? `, ${node.state}` : ""}`}
+      style={style}
+      className={cx(
+        "absolute flex flex-col justify-between rounded-lg border px-3 py-2.5 text-left transition-colors duration-150",
+        remedy ? "border-dashed border-line-strong" : "border-line",
+        node.state === "RED" ? "bg-bad-tint" : node.state === "AMBER" ? "bg-warn-tint" : "bg-surface hover:bg-elevated",
+        focused && "outline-2 outline-offset-0 outline-accent",
+      )}>
+      <span className="line-clamp-2 text-sm font-semibold text-fg">{label}</span>
+      <span className="flex items-center justify-between gap-2 text-xs text-fg-2">
+        <span className="truncate" title={detail}><Numbers text={detail} /></span>
+        {abnormal && <StateBadge state={node.state!} size="sm" className="shrink-0 bg-transparent! p-0!" />}
+      </span>
+    </button>
+  );
+}
+
+function RecordList({ title, ids, graph, label, why, onSelect }: {
+  title: string; ids: string[]; graph: KnowledgeGraph; label: (n: GraphNode) => string; why: (id: string) => string | undefined; onSelect: (id: string) => void;
+}) {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n] as const));
+  if (!ids.length) return null;
+  return (
+    <div>
+      <h3 className="mb-2 text-heading font-semibold text-fg">{title} ({ids.length})</h3>
+      <ul className="space-y-2">
+        {ids.map((id) => {
+          const n = byId.get(id)!;
+          const line = why(id);
+          return (
+            <li key={id} className="text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => onSelect(id)} className="text-left font-medium text-fg underline decoration-line-strong underline-offset-2 hover:decoration-accent">{label(n)}</button>
+                {isAbnormal(n.state) && <StateBadge state={n.state!} size="sm" />}
+              </div>
+              {line && <div className="text-xs text-fg-2"><Numbers text={line} /></div>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 /**
- * Connections (evaluator question 2): what a station's readiness depends on, drawn from the same
- * seed and events the engine uses. Click anything to see why it is linked and what a problem there
- * would reach.
+ * Connections (SPEC A): a focused impact explorer. One record is in focus; the screen shows what it
+ * depends on, what a problem there would reach, and the remedies on that path. Everything else
+ * collapses into counts. The URL carries the focus (?focus=L2-C104).
  */
 export function LiveGraphScreen() {
   const device = useDevice();
   const [params, setParams] = useSearchParams();
-  const [focus] = useStationFocus();
-  const ops = useLiveOps(focus);
+  const [stationFocus] = useStationFocus();
+  const ops = useLiveOps(stationFocus);
   const node = ops?.maitriStation.nodeId;
   const graph = React.useMemo(() => (ops && node ? knowledgeGraph({ seed: ops.seed, events: ops.events }, ops.evaluation, node) : null), [ops, node]);
-  const selectedId = params.get("focus") ?? undefined;
-  const select = (id?: string) => setParams((p) => { const next = new URLSearchParams(p); if (id) next.set("focus", id); else next.delete("focus"); return next; }, { replace: true });
+  const [showAll, setShowAll] = React.useState(false);
+  const [expanded, setExpanded] = React.useState<Set<number>>(new Set());
 
-  if (!device || !ops || !graph || !node) {
-    return <Frame moment="start" nav="graph"><div className="p-8 text-center text-xs text-fg-2">Building the graph.</div></Frame>;
+  const requested = params.get("focus") ?? undefined;
+  const focusId = graph ? (requested && graph.nodes.some((n) => n.id === requested) ? requested : defaultFocus(graph)) : undefined;
+  React.useEffect(() => setExpanded(new Set()), [focusId]);
+
+  const select = (id: string) => setParams((p) => { const next = new URLSearchParams(p); next.set("focus", id); return next; }, { replace: true });
+
+  if (!device || !ops || !graph || !node || !focusId) {
+    return <Frame moment="start" nav="graph"><div className="p-6 text-sm text-fg-2">Building the graph.</div></Frame>;
   }
 
-  const { placed, width, height } = layout(graph.nodes);
-  const selected = selectedId ? placed.get(selectedId) : undefined;
-  const reach = new Set(selected ? impactOf(graph, selected.id) : []);
-  const touching = selected ? graph.edges.filter((e) => e.from === selected.id || e.to === selected.id) : [];
-  const near = new Set(touching.flatMap((e) => [e.from, e.to]));
-  const lit = (id: string) => !selected || id === selected.id || near.has(id) || reach.has(id);
-  const edgeLit = (e: GraphEdge) => !selected || e.from === selected.id || e.to === selected.id || ((reach.has(e.to)) && (reach.has(e.from) || e.from === selected.id) && e.impact);
-
-  const counts = { seed: graph.edges.filter((e) => e.source === "seed").length, rule: graph.edges.filter((e) => e.source === "rule").length, event: graph.edges.filter((e) => e.source === "event").length };
+  const station = ops.evaluation.stations.find((s) => s.nodeId === node);
+  const byId = new Map(graph.nodes.map((n) => [n.id, n] as const));
+  const view = focusView(graph, focusId, { showAll, expanded });
+  const layout = layoutFocus(view, graph.nodes.map((n) => n.id));
+  const focus = byId.get(focusId)!;
+  const label = (n: GraphNode) => recordLabel(n, ops.seed.nodes);
+  const action = recordAction(focus, graph);
+  const touching = graph.edges.filter((e) => e.from === focusId || e.to === focusId);
+  const why = (id: string) => linkToPath(view, graph, id)?.why;
+  const remedyLine = (id: string) => recordDetail(byId.get(id)!, station);
+  // Drawn in two passes so solid impact lines sit above the dashed ones.
+  const edges = [...view.edges].sort((a, b) => (a.style === b.style ? 0 : a.style === "dashed" ? -1 : 1));
 
   return (
     <Frame moment="start" nav="graph">
-      <div className="space-y-4 p-5">
-        <div className="flex flex-wrap items-end gap-3">
+      <div className="space-y-4 p-6">
+        <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-title font-semibold text-fg">Connections · {ops.maitriStation.name}</h1>
-            <p className="mt-0.5 max-w-[95ch] text-sm text-fg-2">
-              Everything the station's readiness depends on, and why. {graph.nodes.length} records, {graph.edges.length} links: {counts.seed} from the season's data, {counts.rule} from the engine's rules, {counts.event} from the event log.
-              Click a record to see its links and what a delay or shortage there would reach.
-            </p>
+            <p className="mt-0.5 text-sm text-fg-2">Solid lines carry trouble forward. Dashed lines are remedies.</p>
           </div>
-        </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-fg-2">
+              Find a record
+              <select value={focusId} onChange={(e) => select(e.target.value)}
+                className="h-9 max-w-70 rounded-md border border-line-ctrl bg-surface px-2 text-sm text-fg">
+                {GRAPH_COLUMNS.map((title, c) => (
+                  <optgroup key={title} label={title}>
+                    {graph.nodes.filter((n) => TYPE_COLUMN[n.type] === c).map((n) => <option key={n.id} value={n.id}>{label(n)}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-fg-2">
+              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="size-4 accent-accent" />
+              Show all records
+            </label>
+          </div>
+        </header>
 
-        <div className="grid gap-4 2xl:grid-cols-[1fr_380px]">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg" aria-live="polite">
+          <span className="text-fg-2">Focus:</span>
+          <span className="font-semibold">{label(focus)}</span>
+          {isAbnormal(focus.state) && <StateBadge state={focus.state!} size="sm" />}
+          <span><Numbers text={recordReason(focus, graph, station)} /></span>
+          {view.pathClear && <span className="text-fg-2">Nothing on this path is below threshold.</span>}
+        </p>
+
+        <div className="grid gap-4 min-[1680px]:grid-cols-[minmax(0,1fr)_360px]">
           <Card pad="none" className="overflow-x-auto">
-            <svg role="img" aria-label={`Knowledge graph for ${ops.maitriStation.name}`} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMin meet" style={{ width: "100%", minWidth: 960, maxWidth: width }} className="block">
-              {COLUMN_TITLE.map((t, c) => <text key={t} x={PAD + c * COL} y={20} className="fill-fg-2 text-xs font-semibold">{t}</text>)}
-              <g fill="none">
-                {graph.edges.map((e, i) => {
-                  const a = placed.get(e.from), b = placed.get(e.to);
+            <div className="relative" style={{ width: layout.width, height: layout.height }}>
+              {GRAPH_COLUMNS.map((title, c) => (
+                <div key={title} className="absolute top-2.5 text-xs font-semibold text-fg-2" style={{ left: columnX(c), width: CARD_W }}>{title}</div>
+              ))}
+              <svg aria-hidden width={layout.width} height={layout.height} className="pointer-events-none absolute inset-0" fill="none">
+                {edges.map(({ edge, style, trouble }, i) => {
+                  const a = layout.boxes.get(edge.from), b = layout.boxes.get(edge.to);
                   if (!a || !b) return null;
-                  const on = edgeLit(e);
                   return (
-                    <path key={i} d={edgePath(a, b)} strokeWidth={on && selected ? 1.8 : 1}
-                      strokeDasharray={e.impact ? undefined : "4 3"}
-                      className={cx(e.source === "event" ? "stroke-accent" : on && selected ? "stroke-fg-2" : "stroke-line-strong", "transition-opacity")}
-                      opacity={on ? 1 : 0.12} />
+                    <path key={i} d={roundedPath(routePoints(a, b, layout))}
+                      strokeWidth={style === "impact" ? 1.5 : 1.25}
+                      strokeDasharray={style === "dashed" ? "4 4" : undefined}
+                      className={style === "dashed" ? "stroke-line" : trouble === "RED" ? "stroke-bad" : trouble === "AMBER" ? "stroke-warn" : "stroke-line-strong"} />
                   );
                 })}
-              </g>
-              {[...placed.values()].map((n) => (
-                <g key={n.id} role="button" tabIndex={0} aria-label={`${TYPE_LABEL[n.type]} ${n.label}`} aria-pressed={n.id === selected?.id}
-                  transform={`translate(${n.x} ${n.y})`} className="cursor-pointer outline-none" opacity={lit(n.id) ? 1 : 0.25}
-                  onClick={() => select(n.id === selected?.id ? undefined : n.id)}
-                  onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(n.id); } }}>
-                  <rect width={W} height={H} rx={6} strokeWidth={n.id === selected?.id ? 2.5 : reach.has(n.id) ? 2 : 1.25}
-                    className={cx(n.type === "station" ? "fill-elevated" : "fill-surface", n.id === selected?.id ? "stroke-accent" : stroke(n.state))} />
-                  <text x={10} y={16} className="fill-fg text-xs font-medium">{n.label.length > 29 ? `${n.label.slice(0, 28)}…` : n.label}</text>
-                  <text x={10} y={31} className="fill-fg-2 font-mono text-xs">{(n.sub ?? TYPE_LABEL[n.type]).slice(0, 34)}</text>
-                </g>
+              </svg>
+              {[...layout.boxes.values()].map((box) => (
+                <RecordCard key={box.id} node={byId.get(box.id)!} label={label(byId.get(box.id)!)} station={station} focused={box.id === focusId} remedy={view.roles.get(box.id) === "remedy"}
+                  style={{ left: box.x, top: box.y, width: CARD_W, height: CARD_H }} onSelect={() => select(box.id)} />
               ))}
-            </svg>
+              {view.collapsed.map((c) => (
+                <button key={c.column} type="button" onClick={() => setExpanded((s) => new Set(s).add(c.column))}
+                  aria-label={`Show ${c.count} more records in ${GRAPH_COLUMNS[c.column]}`}
+                  className="absolute rounded-sm text-left text-xs text-fg-2 hover:text-fg hover:underline"
+                  style={{ left: columnX(c.column), top: layout.collapsedY, width: CARD_W, lineHeight: `${COLLAPSED_LINE}px` }}>
+                  {c.labels.map((l) => <span key={l} className="block">{l}</span>)}
+                </button>
+              ))}
+            </div>
           </Card>
 
-          <Card>
-            {selected ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-fg-2">{TYPE_LABEL[selected.type]}</div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-heading font-semibold text-fg">{selected.label}</h2>
-                    {selected.state && <StateBadge state={selected.state} size="sm" />}
-                  </div>
-                  {selected.sub && <div className="font-mono text-xs text-fg-2">{selected.sub}</div>}
+          <Card aria-label="Selected record" className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <div className="text-xs text-fg-2">Selected record · {TYPE_LABEL[focus.type]}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-heading font-semibold text-fg">{label(focus)}</h2>
+                  {focus.state && <StateBadge state={focus.state} size="sm" />}
                 </div>
-                <ul className="space-y-1 text-xs text-fg-2">{selected.detail.map((d, i) => <li key={i}>{d}</li>)}</ul>
-                <div>
-                  <SectionHeader title="Links" />
-                  <ul className="space-y-2">
-                    {touching.map((e, i) => {
-                      const other = placed.get(e.from === selected.id ? e.to : e.from);
-                      return (
-                        <li key={i} className="rounded-md border border-line px-2.5 py-2 text-xs">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-fg-2">{e.from === selected.id ? "→" : "←"}</span>
-                            <button type="button" className="font-medium text-fg underline decoration-line-strong underline-offset-2 hover:decoration-accent" onClick={() => select(other?.id)}>{other?.label}</button>
-                            <span className="text-fg-2">{e.kind}</span>
-                            {e.rule && <Tag>{e.rule}</Tag>}
-                            <Tag tone={e.source === "event" ? "accent" : "neutral"}>{e.source === "seed" ? "season data" : e.source === "rule" ? "engine rule" : "event log"}</Tag>
-                          </div>
-                          <div className="mt-1 text-fg-2">{e.why}</div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-                <div>
-                  <SectionHeader title="A delay or shortage here reaches" />
-                  {reach.size ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {graph.nodes.filter((n) => reach.has(n.id)).map((n) => (
-                        <button key={n.id} type="button" onClick={() => select(n.id)} className={cx("rounded border px-1.5 py-0.5 text-xs", n.state === "RED" ? "border-bad/50 text-bad" : n.state === "AMBER" ? "border-warn/50 text-warn" : "border-line text-fg")}>{n.label}</button>
-                      ))}
-                    </div>
-                  ) : <p className="text-xs text-fg-2">Nothing downstream: this is a remedy or an end point.</p>}
-                </div>
+                <p className="text-sm text-fg"><Numbers text={recordReason(focus, graph, station)} /></p>
+                <p className="text-xs text-fg-3">{sourceNote(touching)}</p>
               </div>
-            ) : (
-              <div className="space-y-3 text-xs text-fg-2">
-                <SectionHeader title="How to read it" />
-                <p>Left to right is the supply chain: the vessel carries legs, legs make up shipments, shipments bring items, items feed a dimension, dimensions make the station's state.</p>
-                <p>Solid lines carry trouble forward: a late feeder leg reaches the shipment, the diesel, Fuel and the station. Dashed lines are remedies (levers, decisions) and context.</p>
-                <p><span className="text-accent">Blue lines</span> come from the event log (created shipments, decisions, incidents); the rest from the season's data and the engine's rules.</p>
-                <p>The coloured edge on each record is its live state from the engine, on this device's events.</p>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {["INV-DSL", "L2-C104", "F-27", `${node}.FUEL`].filter((id) => placed.has(id)).map((id) => (
-                    <button key={id} type="button" onClick={() => select(id)} className="rounded border border-line px-2 py-1 text-xs text-fg hover:border-accent">Try {placed.get(id)!.label}</button>
-                  ))}
-                </div>
-              </div>
-            )}
+              {action && <Link to={action.path} className="inline-flex h-9 items-center rounded-md border border-line-strong bg-elevated px-3.5 text-sm font-semibold text-fg hover:border-accent/60">{action.label}</Link>}
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-1">
+              <RecordList title="Depends on" ids={view.upstream} graph={graph} label={label} why={why} onSelect={select} />
+              <RecordList title="A problem here reaches" ids={view.downstream} graph={graph} label={label} why={why} onSelect={select} />
+              <RecordList title="Remedies" ids={view.remedies} graph={graph} label={label} why={remedyLine} onSelect={select} />
+            </div>
           </Card>
         </div>
       </div>

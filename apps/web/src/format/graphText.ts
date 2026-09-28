@@ -2,7 +2,7 @@ import type { DimensionItem, GraphEdge, GraphNode, GraphNodeType, KnowledgeGraph
 import { formatHaveNeed } from "./margin";
 import { formatQty } from "./number";
 import { formatRatio } from "./ratio";
-import { dimensionReason, stationReason } from "./status";
+import { DIMENSION_LABEL, dimensionHeadline, dimensionReason, drivingDimension, stationReason } from "./status";
 import { formatDate, formatDateTime } from "./time";
 
 /**
@@ -28,7 +28,22 @@ export function readableDates(text: string): string {
 
 /** A node's own short line ("delayed · ETA 2027-02-07", "2 / need 1") in display form. */
 function cleanSub(sub: string): string {
-  return upperFirst(readableDates(sub).replace(/(\d+) \/ (?:need )?(\d+)/, (_, a, b) => (/need/.test(sub) ? `${a} of need ${b}` : `${a} of ${b}`)).replace(/\bok\b/, "OK"));
+  return upperFirst(readableDates(sub).replace(/(\d+) \/ (?:need )?(\d+)/, (_, a, b) => (/need/.test(sub) ? `${a} of need ${b}` : `${a} of ${b}`)).replace(/\bok\b/, "OK").replace(/cut-off/g, "cutoff"));
+}
+
+/**
+ * A record's name with place names as the season data spells them ("L2-C104 Mumbai → Cape Town";
+ * the engine writes node ids in lower case) and role names in sentence case.
+ */
+export function recordLabel(node: GraphNode, places: { id: string; name: string }[] = []): string {
+  if (node.type === "leg") {
+    const byWords = new Map(places.map((p) => [p.id.replace(/_/g, " ").toLowerCase(), p.name] as const));
+    const [id, ...rest] = node.label.split(" ");
+    return [id, rest.join(" ").split(" → ").map((w) => byWords.get(w) ?? w.replace(/\b\w/g, (c) => c.toUpperCase())).join(" → ")].join(" ");
+  }
+  if (node.type === "role") return upperFirst(node.label);
+  if (node.type === "dimension") return DIMENSION_LABEL[node.id.split(".").at(-1)!] ?? node.label;
+  return node.label;
 }
 
 function itemEval(station: StationEval | undefined, id: string): DimensionItem | undefined {
@@ -39,7 +54,10 @@ const dimensionOf = (station: StationEval | undefined, node: GraphNode) => stati
 
 /** The one detail line on a card: "Ratio 0.697", "Delayed · ETA 7 Feb", "92.0 kL on hand". */
 export function recordDetail(node: GraphNode, station?: StationEval): string {
-  if (node.type === "station" && station) return station.state === "GREEN" ? "Within thresholds" : `${station.state} station`;
+  if (node.type === "station" && station) {
+    const d = station.state === "GREEN" ? undefined : drivingDimension(station);
+    return d ? `${DIMENSION_LABEL[d.key] ?? d.key} ${dimensionHeadline(d)}` : "Within thresholds";
+  }
   if (node.type === "dimension") {
     const d = dimensionOf(station, node);
     if (d?.ratio !== null && d?.ratio !== undefined) return `Ratio ${formatRatio(d.ratio)}`;
@@ -47,7 +65,12 @@ export function recordDetail(node: GraphNode, station?: StationEval): string {
   }
   if (node.type === "item") {
     const i = itemEval(station, node.id);
-    if (i?.stock !== undefined) return i.inbound ? `${formatQty(i.stock, i.unit)} on hand, ${formatQty(i.inbound, i.unit)} inbound` : `${formatQty(i.stock, i.unit)} on hand`;
+    if (i?.stock !== undefined) return i.inbound ? `${formatQty(i.stock, i.unit)} + ${formatQty(i.inbound, i.unit).replace(` ${i.unit}`, "")} inbound` : `${formatQty(i.stock, i.unit)} on hand`;
+  }
+  // A leg with a state word beside it keeps only its ETA, unless it is delayed, so the line fits.
+  if (node.type === "leg" && node.state && node.state !== "GREEN" && !/^delayed/.test(node.sub ?? "")) {
+    const eta = node.sub?.match(/ETA (\S+)/)?.[1];
+    if (eta) return `ETA ${formatDate(`${eta}T00:00:00.000Z`)}`;
   }
   return node.sub ? cleanSub(node.sub) : TYPE_LABEL[node.type];
 }
@@ -117,8 +140,12 @@ export function recordReason(node: GraphNode, graph: KnowledgeGraph, station?: S
       return node.state ? `${upperFirst(node.label)}: ${cleanSub(node.sub ?? "")}.` : `${node.sub ?? ""} on station.`.replace(/^1 people/, "1 person");
     case "assets":
       return `${cleanSub(node.sub ?? "")}.`;
-    case "mission":
-      return stripRule(node.detail[0] ?? `${upperFirst(words(node.sub ?? ""))}.`);
+    case "mission": {
+      // The engine's R07 line names records by id ("depends on INV-DSL, which is RED"): use their names.
+      const names = new Map(graph.nodes.map((n) => [n.id, n.type === "item" ? n.label : n.id] as const));
+      const said = node.detail[0] ? stripRule(node.detail[0]).replace(/\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b/g, (id) => names.get(id) ?? id) : `${words(node.sub ?? "")}`;
+      return `${upperFirst(said)}${/[.]$/.test(said) ? "" : "."}`;
+    }
     case "incident":
       return `${upperFirst(node.sub ?? "open")} incident. ${readableDates(node.detail[1] ?? "")}`.trim();
     default:
