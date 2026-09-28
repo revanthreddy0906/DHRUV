@@ -253,3 +253,28 @@ function mergeByTime(a: HistoryRow[], b: HistoryRow[]): HistoryRow[] {
   const [season, ...rest] = a;
   return [season!, ...[...rest, ...b].sort((x, y) => (x.at ?? "").localeCompare(y.at ?? ""))];
 }
+
+/* ---------- Stocktake ---------- */
+
+/**
+ * A stocktake line needs a reason when the count moves the balance by more than `threshold` of the
+ * book balance (or at all, when the book balance is 0). UI rule only: it never changes the count.
+ */
+export function needsVarianceReason(v: Variance, threshold: number): boolean {
+  return v.diff !== 0 && (v.fraction === null || Math.abs(v.fraction) > threshold);
+}
+
+export interface ReviewRow<T extends StockItemRef> {
+  item: T;
+  row: LedgerRow;
+}
+
+/**
+ * HQ's Variance review: every count, across the given items, whose variance from the book balance
+ * needs a reason by the same rule as the stocktake, newest first. Derived from the ledger; no events.
+ */
+export function varianceReview<T extends StockItemRef>(sorted: OpEvent[], items: T[], refused: ReadonlySet<string>, threshold: number): ReviewRow<T>[] {
+  return items
+    .flatMap((item) => stockLedger(sorted, item, refused).filter((r) => r.kind === "COUNT" && r.variance && needsVarianceReason(r.variance, threshold)).map((row) => ({ item, row })))
+    .sort((a, b) => b.row.at.localeCompare(a.row.at));
+}

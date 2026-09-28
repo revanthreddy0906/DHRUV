@@ -14,6 +14,7 @@ export { GRAPH_COLUMNS, TYPE_COLUMN, defaultFocus, downstreamOf, focusView, isAb
 export { TYPE_LABEL, numberRuns, readableDates, recordAction, recordDetail, recordLabel, recordReason, sourceNote } from "./graphText";
 export { checkInStatus, fieldLinkLine, formatDateRange, type CheckInState, type CheckInStatus } from "./checkin";
 export {
-  assetHistory, entryPlace, entryPlaceText, formatCoords, maintainedBy, personHistory, roleWords, stockDerivation, stockLedger, variance,
+  assetHistory, entryPlace, entryPlaceText, formatCoords, maintainedBy, needsVarianceReason, personHistory, roleWords, stockDerivation, stockLedger, variance, varianceReview,
+  type ReviewRow,
   type DeviceOutboxView, type EntryPlace, type HistoryRow, type LedgerRow, type StockItemRef, type Variance,
 } from "./ledger";

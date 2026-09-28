@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compareEvents, stockBalance, type OpEvent } from "@dhruv/shared";
 import { season48 } from "@dhruv/seed";
-import { assetHistory, entryPlace, entryPlaceText, maintainedBy, personHistory, stockDerivation, stockLedger, variance } from "./ledger";
+import { assetHistory, entryPlace, entryPlaceText, maintainedBy, needsVarianceReason, personHistory, stockDerivation, stockLedger, variance, varianceReview } from "./ledger";
 
 let n = 0;
 const ev = (type: OpEvent["type"], device: string, role: OpEvent["actor_role"], payload: Record<string, unknown>, at: string, extra: Partial<OpEvent> = {}): OpEvent => ({
@@ -105,5 +105,22 @@ describe("asset and person histories", () => {
     const rows = personHistory([inc], verma, (n) => (n === "MAITRI" ? "Maitri" : n));
     expect(rows.map((r) => r.entry)).toEqual(["Field at Maitri (season data)", "Named in incident INC-01"]);
     expect(rows[1]!.detail).toBe("Last confirmed 25 Jan 07:00");
+  });
+});
+
+describe("stocktake", () => {
+  it("a variance over 10 % needs a reason; 10 % exactly does not; a zero book needs one for any count", () => {
+    expect(needsVarianceReason(variance(11, 10, "kits"), 0.1)).toBe(false);
+    expect(needsVarianceReason(variance(8.9, 10, "kits"), 0.1)).toBe(true);
+    expect(needsVarianceReason(variance(10, 10, "kits"), 0.1)).toBe(false);
+    expect(needsVarianceReason(variance(2, 0, "kits"), 0.1)).toBe(true);
+  });
+
+  it("variance review lists large-variance counts, newest first, with their reasons", () => {
+    const food = season48.inventory_items.find((i) => i.id === "INV-FOOD")!;
+    const small = ev("STOCK_COUNTED", "MAITRI-TAB-01", "STATION_LEADER", { item_id: "INV-DSL", qty: 90 }, at(24, "12:00"));
+    const big = ev("STOCK_COUNTED", "MAITRI-TAB-01", "STATION_LEADER", { item_id: "INV-FOOD", qty: 6000, reason: "Freezer failure, spoiled stock written off" }, at(24, "12:05"));
+    const review = varianceReview([small, big].sort(compareEvents), [diesel, food], new Set(), 0.1);
+    expect(review.map((r) => [r.item.id, r.row.reason, r.row.variance?.text])).toEqual([["INV-FOOD", "Freezer failure, spoiled stock written off", "−2,900 person-days (−32.6 %)"]]);
   });
 });
