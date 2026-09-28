@@ -65,12 +65,12 @@ export function StationsTable({ rows, className, onShowMath }: {
       <table className="w-full text-sm">
         <thead className="bg-elevated text-left text-xs text-fg-2">
           <tr>
-            <th scope="col" className="w-36 px-4 py-2 font-semibold">Station</th>
-            <th scope="col" className="w-28 px-3 py-2 font-semibold">State</th>
+            <th scope="col" className="w-28 px-4 py-2 font-semibold">Station</th>
+            <th scope="col" className="w-24 px-3 py-2 font-semibold">State</th>
             <th scope="col" className="px-3 py-2 font-semibold">Reason</th>
             <th scope="col" className="w-48 px-3 py-2 font-semibold">Deadline</th>
-            <th scope="col" className="w-56 px-3 py-2 font-semibold">Link</th>
-            <th scope="col" className="w-48 px-3 py-2"><span className="sr-only">Actions</span></th>
+            <th scope="col" className="w-44 px-3 py-2 font-semibold">Link</th>
+            <th scope="col" className="w-px px-3 py-2"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -79,7 +79,7 @@ export function StationsTable({ rows, className, onShowMath }: {
               <th scope="row" className="px-4 py-2 text-left font-semibold text-fg">{r.name}</th>
               <td className="px-3 py-2"><StateBadge state={r.state} size="sm" /></td>
               <td className="px-3 py-2 text-fg">{r.reason}</td>
-              <td className={cx("px-3 py-2", r.state === "RED" ? "font-semibold text-bad" : "text-fg")}>{r.deadline ?? ""}</td>
+              <td className={cx("whitespace-nowrap px-3 py-2", r.state === "RED" ? "font-semibold text-bad" : "text-fg")}>{r.deadline ?? ""}</td>
               <td className="px-3 py-2 text-fg-2">
                 {r.link && (r.link.freshness ? <FreshnessChip cls={r.link.freshness} label={r.link.text} /> : <span className="text-xs">{r.link.text}</span>)}
               </td>
