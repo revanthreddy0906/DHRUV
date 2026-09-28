@@ -122,8 +122,9 @@ export function LiveStationScreen() {
         <Disclosure title="Analysis and stress tests">
           {view.b0 && fuel && <BaselineB0Badge alerts={view.b0.alerts} engineState={fuel.state} text={view.b0.text} />}
           <RobustnessPanel seed={ops.seed} events={ops.events} now={ops.now} node={nodeId} />
-          <Link to={`/graph?station=${nodeId}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
-            <Network size={16} aria-hidden />Connections for {view.name}
+          {/* Opens Connections focused on the dimension that drives the station's state. */}
+          <Link to={`/graph?station=${nodeId}${driving ? `&focus=${nodeId}.${driving.key}` : ""}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
+            <Network size={16} aria-hidden />Connections for {view.name}{driving ? ` ${(DIMENSION_LABEL[driving.key] ?? driving.key).toLowerCase()}` : ""}
           </Link>
         </Disclosure>
       </div>
