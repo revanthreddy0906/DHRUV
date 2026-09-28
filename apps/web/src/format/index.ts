@@ -9,7 +9,11 @@ export { ALL_CLEAR, DIMENSION_LABEL, dimensionHeadline, dimensionReason, driving
 export { RULE_TITLE, TRACE_GROUPS, b0Line, groupTrace, traceGroup, traceSentence, type EngineStep, type TraceGroup } from "./trace";
 export { consequenceLine, countPlausibility, type ConsequenceInput } from "./consequence";
 export { timelinePositions } from "./timeline";
-export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallTime } from "./time";
+export { formatAge, formatAgeMinutes, formatAgo, formatDate, formatDateTime, formatSimClock, formatTime, formatWallDateTime, formatWallTime } from "./time";
 export { GRAPH_COLUMNS, TYPE_COLUMN, defaultFocus, downstreamOf, focusView, isAbnormal, linkToPath, upstreamOf, type Collapsed, type FocusEdge, type FocusRole, type FocusView } from "./graphFocus";
 export { TYPE_LABEL, numberRuns, readableDates, recordAction, recordDetail, recordLabel, recordReason, sourceNote } from "./graphText";
 export { checkInStatus, fieldLinkLine, formatDateRange, type CheckInState, type CheckInStatus } from "./checkin";
+export {
+  assetHistory, entryPlace, entryPlaceText, formatCoords, maintainedBy, personHistory, roleWords, stockDerivation, stockLedger, variance,
+  type DeviceOutboxView, type EntryPlace, type HistoryRow, type LedgerRow, type StockItemRef, type Variance,
+} from "./ledger";

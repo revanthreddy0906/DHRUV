@@ -22,3 +22,9 @@ export const FIELD_DEMO_POSITION = { lat: -70.62, lon: 12.1 };
 
 /** A check-in turns "Due soon" this many minutes before it is due (UI wording only). */
 export const CHECKIN_DUE_SOON_MINUTES = 30;
+
+/** At a stocktake, a counted line that differs from the book balance by more than this fraction needs a reason. */
+export const STOCKTAKE_VARIANCE_REASON_FRACTION = 0.1;
+
+/** HQ's Variance review lists counts whose variance from the book balance exceeds this fraction. */
+export const VARIANCE_REVIEW_FRACTION = 0.1;
