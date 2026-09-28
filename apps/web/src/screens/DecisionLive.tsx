@@ -84,7 +84,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
     if (!o) return undefined;
     if (o.expired) return o.expired;
     if (!realFor(o)) return `Option (${o.id}) is engine output not yet in the recorded proposal`;
-    return undefined;
+    return approveReason(decision, identity.role, identity.node_id, o.levers);
   };
 
   // Lever windows (R08) from the engine, counted down on this device's clock.
@@ -165,7 +165,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
         options={options}
         role={identity.role}
         today={dayLabel(now)}
-        blocked={{ approve: approveReason(decision, identity.role, identity.node_id), reject: identity.role !== "HQ_OPS" ? "Only HQ Ops can reject decisions" : undefined }}
+        blocked={{ approve: identity.role === "STATION_LEADER" ? undefined : approveReason(decision, identity.role, identity.node_id), reject: identity.role !== "HQ_OPS" ? "Only HQ Ops can reject decisions" : undefined }}
         optionBlocked={optionBlocked}
         status={outcomeText(device, decision, optionLabel)}
         busy={busy}

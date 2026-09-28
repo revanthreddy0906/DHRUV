@@ -1,4 +1,5 @@
-import { config } from "@dhruv/shared";
+import { config, type OpEvent, type Seed } from "@dhruv/shared";
+import { reduce, seasonFor } from "@dhruv/engine";
 import { formatAge, formatDateTime, formatSimClock } from "../format";
 
 /**
@@ -26,6 +27,18 @@ export function phaseAt(nowIso: string): string {
 /** Whole days to the next resupply (20 Nov 2027), counting a part day as a day. */
 export function daysToResupply(nowIso: string): number {
   return Math.max(0, Math.ceil((Date.parse(config.season.horizonAt) - Date.parse(nowIso)) / 86_400_000));
+}
+
+/**
+ * The season this device's scenario runs on: the fixed section 13 calendar, or the scenario's own
+ * season (Seed.season) whose next resupply is its relief vessel's current ETA.
+ */
+export function seasonAt(seed: Seed | null | undefined, events: OpEvent[], nowIso: string): { phase: string; daysToResupply: number; resupplyAt: string } {
+  if (!seed?.season) return { phase: phaseAt(nowIso), daysToResupply: daysToResupply(nowIso), resupplyAt: config.season.horizonAt };
+  const { resupplyAt } = seasonFor(seed, reduce(seed, events), nowIso);
+  const phase = seed.season.phases.find((p) => p.start <= nowIso && nowIso < p.end)?.phase ?? "WINTER";
+  const days = Math.max(0, Math.ceil((Date.parse(resupplyAt) - Date.parse(nowIso)) / 86_400_000));
+  return { phase, daysToResupply: days, resupplyAt };
 }
 
 /** Absolute clock jump target for the +1 h / +6 h / +30 h buttons (v2 C5: always absolute). */

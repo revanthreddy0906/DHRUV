@@ -66,7 +66,7 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
     rows,
     attention,
     season: {
-      phaseLine: `${sentence(live.phase)} phase. Next resupply 20 Nov 2027, in ${live.daysToResupply} days.`,
+      phaseLine: `${sentence(live.phase)} phase. Next resupply ${live.nextResupply}, in ${live.daysToResupply} days.`,
       vessel: w && {
         name: w.name,
         marks: [

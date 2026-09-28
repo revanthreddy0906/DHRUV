@@ -153,7 +153,11 @@ function missionsOf(st: EngineStationEval, seed: Seed): MissionEval[] {
   });
 }
 
-export function adaptStation(st: EngineStationEval, seed: Seed, now: string): WebStationEval {
+/**
+ * `resupply` names the next resupply in the slip line ("20 Nov 2027" style); omitted, the fixed
+ * season's wording stays ("the 20 Nov resupply", "The November ship").
+ */
+export function adaptStation(st: EngineStationEval, seed: Seed, now: string, resupply?: string): WebStationEval {
   const name = seed.nodes.find((n) => n.id === st.nodeId)?.name ?? st.nodeId;
   const fuelEval = st.dimensions.find((d) => d.key === "FUEL");
 
@@ -172,8 +176,8 @@ export function adaptStation(st: EngineStationEval, seed: Seed, now: string): We
 
   const tol = fuelEval?.slipTolerance;
   const slip: WebStationEval["slip"] = tol?.reserveBreachDate
-    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: `Reserve is breached on ${dayLabel(tol.reserveBreachDate)}, ${tol.daysShortOfWindow ?? 0} days before the 20 Nov resupply` }
-    : { kind: "tolerance", days: tol?.slipToleranceDays ?? 0, text: `The November ship can be up to ${tol?.slipToleranceDays ?? 0} days late before reserve is touched` };
+    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: `Reserve is breached on ${dayLabel(tol.reserveBreachDate)}, ${tol.daysShortOfWindow ?? 0} days before the ${resupply ? `next resupply on ${resupply}` : "20 Nov resupply"}` }
+    : { kind: "tolerance", days: tol?.slipToleranceDays ?? 0, text: `${resupply ? `The relief ship due ${resupply}` : "The November ship"} can be up to ${tol?.slipToleranceDays ?? 0} days late before reserve is touched` };
 
   const b0 = fuelEval?.baselineB0;
   const worst = st.dimensions.find((d) => d.state === st.state && d.state !== "GREEN");
@@ -267,8 +271,8 @@ export interface LiveAdaptedEvaluation {
 }
 
 /** Every station the engine evaluated; nothing is filled in for a station it did not. */
-export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: string, focus = "MAITRI"): LiveAdaptedEvaluation {
-  const stations = evaluation.stations.map((s) => adaptStation(s, seed, now));
+export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: string, focus = "MAITRI", resupply?: string): LiveAdaptedEvaluation {
+  const stations = evaluation.stations.map((s) => adaptStation(s, seed, now, resupply));
   const focusEval = evaluation.stations.find((s) => s.nodeId === focus) ?? evaluation.stations[0];
   const maitriStation = stations.find((s) => s.nodeId === focusEval?.nodeId) ?? stations[0]!;
   return {
