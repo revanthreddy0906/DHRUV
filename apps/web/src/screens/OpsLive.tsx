@@ -4,11 +4,12 @@ import { Network } from "lucide-react";
 import { InventoryRow, MissionRow, RoleCoverage } from "../components/ops";
 import { reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
-import { Card, SectionHeader, Tag, cx } from "../components/primitives";
+import { Button, Card, SectionHeader, Tag, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { useStationFocus } from "../live/stationFocus";
-import { StockTransactionForm } from "../live/StockTransactionForm";
+import { StockTransactionForm, stockActionsFor } from "../live/StockTransactionForm";
+import { StocktakePanel, VarianceReview } from "./StocktakeLive";
 import { PersonnelActionForm, type LivePerson } from "../live/PersonnelActionForm";
 import { formatAge } from "../live/format";
 import { Frame } from "./Frame";
@@ -25,10 +26,12 @@ export function LiveInventoryScreen() {
   const device = useDevice();
   const [focus] = useStationFocus();
   const ops = useLiveOps(focus);
+  const [stocktake, setStocktake] = React.useState(false);
   if (!device || !ops) return <Loading nav="inventory" />;
   const { role } = device.session.identity;
   const node = ops.maitriStation.nodeId;
   const rows = ops.inventory;
+  const canCount = stockActionsFor(role).some((a) => a.type === "STOCK_COUNTED");
   return (
     <Frame moment="start" nav="inventory">
       <div className="space-y-4 p-5">
@@ -38,21 +41,25 @@ export function LiveInventoryScreen() {
             <p className="mt-0.5 text-sm text-fg-2">Ratio = (stock + feasible inbound) / requirement to the next resupply with reserve. Evaluated on this device at its own clock.</p>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            {!stocktake && <Button onClick={() => setStocktake(true)} disabledReason={canCount ? undefined : "Field Leads cannot record counts"}>Start stocktake</Button>}
             <Link to={`/graph?station=${node}&focus=${rows[0]?.id ?? ""}`} className="flex items-center gap-1 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
           </div>
         </div>
-        <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} events={ops.events} now={ops.now} evaluation={ops.evaluation} />
+        {stocktake
+          ? <StocktakePanel key={node} ops={ops} device={device} node={node} onClose={() => setStocktake(false)} />
+          : <StockTransactionForm key={node} role={role} node={node} seed={ops.seed} rows={rows} events={ops.events} now={ops.now} evaluation={ops.evaluation} />}
         <Card pad="none" className="overflow-hidden">
           <table className="w-full">
             <thead className="bg-elevated text-left text-xs text-fg-2">
               <tr>{["Item", "Stock", "Inbound (feasible)", "Required", "Ratio", "Days of cover", "Count freshness"].map((h, i) => <th key={h} className={cx("px-3 py-2 font-semibold", i === 1 || i === 3 ? "text-right" : "")}>{h}</th>)}</tr>
             </thead>
             <tbody className="[&_td:first-child]:pl-3">
-              {rows.map((i) => <InventoryRow key={i.id} i={i} expanded={i.state !== "GREEN"} />)}
+              {rows.map((i) => <InventoryRow key={i.id} i={i} expanded={i.state !== "GREEN"} href={`/inventory/${i.id}`} />)}
             </tbody>
           </table>
           {rows.length === 0 && <p className="p-8 text-center text-sm text-fg-2">No inventory items for this station in the seed. Readiness for these dimensions shows unknown, not zero.</p>}
         </Card>
+        {role === "HQ_OPS" && <VarianceReview ops={ops} device={device} />}
       </div>
     </Frame>
   );
@@ -103,7 +110,7 @@ export function LivePersonnelScreen() {
             <ul className="max-h-96 divide-y divide-line overflow-y-auto px-4 text-sm">
               {people.map((p) => (
                 <li key={p.id} className="flex items-center gap-2 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-fg">{p.name}<span className="ml-1.5 text-xs text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
+                  <span className="min-w-0 flex-1 truncate text-fg"><Link to={`/personnel/${p.id}`} className="text-accent hover:underline">{p.name}</Link><span className="ml-1.5 text-xs text-fg-2">{p.role.replace(/_/g, " ").toLowerCase()}</span></span>
                   <Tag tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status.replace("_", " ")}</Tag>
                   <span className="w-14 text-right font-mono text-xs text-fg-2">{formatAge(p.lastObservedAt, ops.now)}</span>
                 </li>

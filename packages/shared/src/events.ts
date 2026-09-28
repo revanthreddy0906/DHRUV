@@ -18,7 +18,8 @@ export const ASSET_STATUSES = ["OK", "DEGRADED", "DOWN"] as const;
 export const PERSON_STATUSES = ["ON_STATION", "FIELD", "UNAVAILABLE", "INJURED", "EVACUATED"] as const;
 
 export const payloadSchemas = {
-  STOCK_COUNTED: z.object({ item_id: z.string(), qty }),
+  /** `reason` (DHRUV extension, optional): why a count differs from the book balance, e.g. at a stocktake. */
+  STOCK_COUNTED: z.object({ item_id: z.string(), qty, reason: z.string().trim().max(200).optional() }),
   STOCK_ISSUED: z.object({ item_id: z.string(), qty: z.number().positive(), reason: z.string(), mission_id: z.string().optional() }),
   STOCK_RECEIVED: z.object({ item_id: z.string(), qty, shipment_id: z.string().optional() }),
   BURN_RATE_CHANGED: z

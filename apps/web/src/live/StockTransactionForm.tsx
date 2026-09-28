@@ -13,7 +13,9 @@ const STOCK_ACTIONS = [
   { type: "STOCK_RECEIVED", label: "Receive" },
   { type: "STOCK_COUNTED", label: "Count" },
 ] as const;
-type StockType = (typeof STOCK_ACTIONS)[number]["type"];
+export type StockType = (typeof STOCK_ACTIONS)[number]["type"];
+/** Button label per action (CLAUDE.md section 10: say what it does, never "Submit"). */
+const RECORD_LABEL: Record<StockType, string> = { STOCK_ISSUED: "Record issue", STOCK_RECEIVED: "Record receipt", STOCK_COUNTED: "Record count" };
 
 /** The stock actions a role may record, straight from the event contract (EVENT_RULES). */
 export function stockActionsFor(role: string) {
@@ -28,6 +30,7 @@ export function validateStock(action: StockType, qtyInput: string, reason: strin
   else if (action === "STOCK_ISSUED" && qty <= 0) errors.qty = "Issue quantity must be greater than 0";
   else if (qty < 0) errors.qty = "Quantity cannot be negative";
   if (action === "STOCK_ISSUED" && !reason.trim()) errors.reason = "A reason is required for an issue";
+  if (reason.trim().length > 200) errors.reason = "Keep the reason to 200 characters";
   return errors;
 }
 
@@ -38,17 +41,24 @@ const input = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg
  * It only produces STOCK_* events through device.write(); the table beside it moves because the
  * engine re-reduces the log, never because this form touched a number. Mount it keyed by station.
  */
-export function StockTransactionForm({ role, node, seed, rows, events, now, evaluation }: {
+export function StockTransactionForm({ role, node, seed, rows, events, now, evaluation, fixedItemId, initialAction, autoFocusQuantity }: {
   role: string; node: string; seed: Seed; rows: InventoryView[];
   /** This device's events, clock and current evaluation: the consequence preview runs the engine on them. */
   events: OpEvent[]; now: string; evaluation: Evaluation;
+  /** Stock card: the form records for this one item only (no item picker). */
+  fixedItemId?: string;
+  /** Preselected action, when this role may record it ("Record correction" opens on Count). */
+  initialAction?: StockType;
+  autoFocusQuantity?: boolean;
 }) {
   const actions = stockActionsFor(role);
   const items = seed.inventory_items.filter((i) => i.node_id === node);
   const shipments = seed.shipments.filter((s) => s.dest_node_id === node);
 
-  const [itemId, setItemId] = React.useState(items[0]?.id ?? "");
-  const [action, setAction] = React.useState<StockType>(actions[0]?.type ?? "STOCK_COUNTED");
+  const [itemId, setItemId] = React.useState(fixedItemId ?? items[0]?.id ?? "");
+  const [action, setAction] = React.useState<StockType>(
+    (initialAction && actions.some((a) => a.type === initialAction) ? initialAction : undefined) ?? actions[0]?.type ?? "STOCK_COUNTED",
+  );
   const [qty, setQty] = React.useState("");
   const [reason, setReason] = React.useState("");
   const [shipmentId, setShipmentId] = React.useState("");
@@ -99,7 +109,7 @@ export function StockTransactionForm({ role, node, seed, rows, events, now, eval
     const payload =
       action === "STOCK_ISSUED" ? { item_id: item.id, qty: n, reason: reason.trim() }
       : action === "STOCK_RECEIVED" ? { item_id: item.id, qty: n, ...(shipmentId ? { shipment_id: shipmentId } : {}) }
-      : { item_id: item.id, qty: n };
+      : { item_id: item.id, qty: n, ...(reason.trim() ? { reason: reason.trim() } : {}) };
     const verb = STOCK_ACTIONS.find((a) => a.type === action)!.label.toLowerCase();
     const ok = await submit(
       { type: action, entity_type: "inventory_item", entity_id: item.id, node_id: item.node_id, payload },
@@ -121,24 +131,26 @@ export function StockTransactionForm({ role, node, seed, rows, events, now, eval
     <Card>
       <SectionHeader title="Stock transaction" meta={<span className="text-xs text-fg-2">Saved on this device first, then synced</span>} />
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
-        <label className="text-xs text-fg-2">Item
-          <select aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} className={`${input} mt-1 block w-56`}>
-            {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.id})</option>)}
-          </select>
-          {row && <span className="mt-1 block text-xs">Current stock <span className="font-mono text-fg">{row.stock}</span></span>}
-        </label>
+        {!fixedItemId && (
+          <label className="text-xs text-fg-2">Item
+            <select aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} className={`${input} mt-1 block w-56`}>
+              {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.id})</option>)}
+            </select>
+            {row && <span className="mt-1 block text-xs">Current stock <span className="font-mono text-fg">{row.stock}</span></span>}
+          </label>
+        )}
         <label className="text-xs text-fg-2">Action
           <select aria-label="Action" value={action} onChange={(e) => setAction(e.target.value as StockType)} className={`${input} mt-1 block w-32`}>
             {actions.map((a) => <option key={a.type} value={a.type}>{a.label}</option>)}
           </select>
         </label>
         <label className="text-xs text-fg-2">{action === "STOCK_COUNTED" ? "Counted quantity" : "Quantity"}{item ? ` (${item.unit})` : ""}
-          <input aria-label="Quantity" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} className={`${input} mt-1 block w-32 font-mono`} />
+          <input aria-label="Quantity" inputMode="decimal" value={qty} autoFocus={autoFocusQuantity} onChange={(e) => setQty(e.target.value)} className={`${input} mt-1 block w-32 font-mono`} />
           {fieldError(errors.qty)}
         </label>
-        {action === "STOCK_ISSUED" && (
-          <label className="text-xs text-fg-2">Reason
-            <input aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. generator refuel" className={`${input} mt-1 block w-60`} />
+        {(action === "STOCK_ISSUED" || action === "STOCK_COUNTED") && (
+          <label className="text-xs text-fg-2">{action === "STOCK_COUNTED" ? "Reason (optional)" : "Reason"}
+            <input aria-label="Reason" value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} placeholder={action === "STOCK_COUNTED" ? "e.g. correction of a miscount" : "e.g. generator refuel"} className={`${input} mt-1 block w-60`} />
             {fieldError(errors.reason)}
           </label>
         )}
@@ -152,7 +164,7 @@ export function StockTransactionForm({ role, node, seed, rows, events, now, eval
         )}
         {!guard && (
           <div className="pt-5">
-            <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : "Submit"}</Button>
+            <Button variant="primary" type="submit" disabled={busy || (touched && invalid)}>{busy ? "Saving…" : RECORD_LABEL[action]}</Button>
           </div>
         )}
       </form>

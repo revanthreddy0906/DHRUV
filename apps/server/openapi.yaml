@@ -329,7 +329,9 @@ components:
     ActorRole: { type: string, enum: [HQ_OPS, STATION_LEADER, FIELD_LEAD, SYSTEM] }
     EventType:
       type: string
-      description: Payload shape per type is the zod schema in packages/shared/src/events.ts (payloadSchemas).
+      description: >-
+        Payload shape per type is the zod schema in packages/shared/src/events.ts (payloadSchemas).
+        STOCK_COUNTED is {item_id, qty, reason?}; reason is optional, at most 200 characters after trimming.
       enum:
         [STOCK_COUNTED, STOCK_ISSUED, STOCK_RECEIVED, BURN_RATE_CHANGED, SHIPMENT_CREATED, LEG_UPDATED, LEG_DELAYED, VESSEL_UPDATED, PERSON_STATUS_SET, PERSON_MOVED, CHECKIN_RECORDED, ASSET_STATUS_SET, MISSION_UPDATED, ASSIGNMENT_SET, LINK_STATE_SET, INCIDENT_OPENED, INCIDENT_UPDATED, DECISION_PROPOSED, DECISION_APPROVED, DECISION_REJECTED, CONFLICT_FLAGGED, CONFLICT_RESOLVED, CLOCK_ADVANCED]
 

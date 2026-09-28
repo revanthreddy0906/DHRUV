@@ -46,7 +46,7 @@ export function describeEvent(e: OpEvent): string {
     }
     case "STOCK_COUNTED": {
       const x = p as PayloadOf<"STOCK_COUNTED">;
-      return `${x.item_id} counted ${x.qty}`;
+      return `${x.item_id} counted ${x.qty}${x.reason ? ` · ${x.reason}` : ""}`;
     }
     case "STOCK_ISSUED": {
       const x = p as PayloadOf<"STOCK_ISSUED">;

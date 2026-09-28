@@ -2,7 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import {
   Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Wifi, WifiOff, Signal,
-  FlaskConical, TabletSmartphone, RadioTower, Database, Network, LogOut, Building2,
+  FlaskConical, TabletSmartphone, RadioTower, Network, LogOut, Building2,
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
@@ -199,7 +199,6 @@ const NAV: { key: NavKey; label: string; Icon: typeof Radar }[] = [
 ];
 const ANALYSIS: { key: NavKey; label: string; Icon: typeof Radar }[] = [
   { key: "graph", label: "Connections", Icon: Network },
-  { key: "data", label: "Where data lives", Icon: Database },
 ];
 
 /**

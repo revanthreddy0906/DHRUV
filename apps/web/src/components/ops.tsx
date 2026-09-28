@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Link } from "react-router-dom";
 import { OctagonAlert, TriangleAlert, Users, UserX } from "lucide-react";
 import type { MissionEval } from "../data/types";
 import type { ShipmentView, InventoryView } from "../data/demo";
@@ -114,13 +115,13 @@ export function RequirementBreakdown({ rows }: { rows: NonNullable<InventoryView
   );
 }
 
-export function InventoryRow({ i, expanded, unverified }: { i: InventoryView; expanded?: boolean; unverified?: boolean }) {
+export function InventoryRow({ i, expanded, unverified, href }: { i: InventoryView; expanded?: boolean; unverified?: boolean; /** Live: the item's stock card. */ href?: string }) {
   const f = FRESH_META[i.freshness.cls];
   return (
     <>
       <tr className={cx("border-t border-line align-top", i.state === "RED" && "bg-bad-tint/50")}>
         <td className="py-2.5 pr-3">
-          <div className="text-sm font-medium text-fg">{i.name}</div>
+          {href ? <Link to={href} className="text-sm font-medium text-accent hover:underline">{i.name}</Link> : <div className="text-sm font-medium text-fg">{i.name}</div>}
           <div className="font-mono text-xs text-fg-2">{i.id} · {i.unit}</div>
           {unverified && <Tag tone="amber" className="mt-1">unverified · stock under review</Tag>}
         </td>

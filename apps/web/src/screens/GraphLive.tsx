@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { knowledgeGraph, type GraphNode, type KnowledgeGraph, type StationEval } from "@dhruv/engine";
+import { knowledgeGraph, reduce, type GraphNode, type KnowledgeGraph, type StationEval } from "@dhruv/engine";
 import { Card, StateBadge, cx } from "../components/primitives";
 import {
   GRAPH_COLUMNS, TYPE_COLUMN, TYPE_LABEL, defaultFocus, focusView, isAbnormal, linkToPath, numberRuns, recordAction, recordDetail, recordLabel, recordReason, sourceNote,
@@ -100,6 +100,13 @@ export function LiveGraphScreen() {
   const label = (n: GraphNode) => recordLabel(n, ops.seed.nodes);
   const action = recordAction(focus, graph);
   const touching = graph.edges.filter((e) => e.from === focusId || e.to === focusId);
+  // An asset group or a role group opens onto its members' own records.
+  const [, groupNode, groupKey] = focusId.split(":");
+  const members: { id: string; label: string; to: string }[] =
+    focus.type === "assets" ? ops.seed.assets.filter((a) => a.node_id === groupNode && a.type === groupKey).map((a) => ({ id: a.id, label: a.id, to: `/assets/${a.id}` }))
+    : focus.type === "role" ? [...reduce(ops.seed, ops.events).personnel.values()].filter((p) => p.nodeId === groupNode && p.role === groupKey)
+      .map((p) => ({ id: p.personId, label: ops.seed.personnel.find((x) => x.id === p.personId)?.name ?? p.personId, to: `/personnel/${p.personId}` }))
+    : [];
   const why = (id: string) => linkToPath(view, graph, id)?.why;
   const remedyLine = (id: string) => recordDetail(byId.get(id)!, station);
   // Drawn in two passes so solid impact lines sit above the dashed ones.
@@ -183,6 +190,9 @@ export function LiveGraphScreen() {
                 </div>
                 <p className="text-sm text-fg"><Numbers text={recordReason(focus, graph, station)} /></p>
                 <p className="text-xs text-fg-3">{sourceNote(touching)}</p>
+                {members.length > 0 && (
+                  <p className="text-sm text-fg-2">Records: {members.map((m, i) => <React.Fragment key={m.id}>{i ? ", " : ""}<Link to={m.to} className={cx("text-accent hover:underline", focus.type === "assets" && "font-mono")}>{m.label}</Link></React.Fragment>)}</p>
+                )}
               </div>
               {action && <Link to={action.path} className="inline-flex h-9 items-center rounded-md border border-line-strong bg-elevated px-3.5 text-sm font-semibold text-fg hover:border-accent/60">{action.label}</Link>}
             </div>

@@ -176,7 +176,7 @@ Idempotency: `(device_id, seq)` is unique — re-sending an event is always safe
 
 | Type | Payload | Allowed roles |
 | --- | --- | --- |
-| STOCK_COUNTED | item_id, qty | Station Leader, HQ |
+| STOCK_COUNTED | item_id, qty, reason? (optional, ≤ 200 characters, trimmed; why the count differs from the book balance) | Station Leader, HQ |
 | STOCK_ISSUED | item_id, qty (positive), reason, mission_id? | Station Leader |
 | STOCK_RECEIVED | item_id, qty, shipment_id? | Station Leader |
 | BURN_RATE_CHANGED | item_id, phase, new_rate or uplift_pct | Station Leader, HQ |

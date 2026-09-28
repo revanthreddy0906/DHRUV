@@ -60,3 +60,9 @@ export function formatWallTime(ms: number): string {
   const d = new Date(ms);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** Wall-clock date and time of a real moment on this machine (when HQ received an entry): "28 Sep 14:35". */
+export function formatWallDateTime(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
