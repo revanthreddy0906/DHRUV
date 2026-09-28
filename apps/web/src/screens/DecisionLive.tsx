@@ -6,7 +6,7 @@ import { decisionsView, type DecisionOptionView } from "@dhruv/store";
 import { DecisionDetail, type DecisionStatus } from "../components/decisions";
 import type { OptionEval } from "../data/types";
 import { useDevice, type LiveDevice } from "../live/DeviceProvider";
-import { adaptRecordedOption } from "../live/adapter";
+import { adaptRecordedOption, mergeVerify } from "../live/adapter";
 import { nodeLabel } from "../live/chrome";
 import { dayLabel, describeEvent } from "../live/describe";
 import { formatShort } from "../live/format";
@@ -77,7 +77,7 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const options = rawOptions.map((o): OptionEval => {
     const real = realFor(o);
     const expired = real?.deadline && Date.parse(real.deadline) < Date.parse(now) ? `Deadline ${dayLabel(real.deadline)} has passed` : o.expired;
-    return { ...o, deadline: real?.deadline ? dayLabel(real.deadline) : o.deadline, requiresVerify: [...new Set([...o.requiresVerify, ...(real?.requiresVerify ?? [])])], expired };
+    return { ...o, deadline: real?.deadline ? dayLabel(real.deadline) : o.deadline, requiresVerify: mergeVerify(o.requiresVerify, real?.requiresVerify ?? []), expired };
   });
   const optionBlocked = (optionId: string) => {
     const o = options.find((x) => x.id === optionId);

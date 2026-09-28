@@ -71,8 +71,8 @@ export const marion2026Seed: Seed = {
   ],
   inventory_items: season48.inventory_items.map((i) => {
     if (i.id === IDS.dieselMaitri) return { ...i, stock: DIESEL_START, reserve_pct: 0.2, last_counted: at("2027-04-01", "06:00") };
-    // About two months of food for 20 people (REAL "about two more months").
-    if (i.id === IDS.foodMaitri) return { ...i, stock: 1200, last_counted: at("2027-04-01", "06:00") };
+    // 20 people eat 20 person-days a day: 1,960 on 1 Apr leaves about two months on 9 May (REAL "about two more months").
+    if (i.id === IDS.foodMaitri) return { ...i, stock: 1960, last_counted: at("2027-04-01", "06:00") };
     return { ...i, last_counted: at("2027-04-01", "06:00") };
   }),
   // One winter phase: Maitri diesel 0.60 kL/day (illustrative); the other items keep season48's winter rates.
@@ -99,6 +99,7 @@ export const marion2026Seed: Seed = {
       cutoff: day("2027-06-30"), lead_days: 4, cost_amount: null, cost_unit: "overwintering season lost", synthetic: 1,
     },
   ],
+  link_state: season48.link_state.map((l) => ({ ...l, last_contact: at("2027-04-01", "06:00") })),
   season: {
     phases: [{ phase: "WINTER", start: day("2027-04-01"), end: day("2028-04-01") }],
     resupply: { vesselId: IDS.vessel },
@@ -119,6 +120,14 @@ const SRC = {
 
 const server = (type: BeatEvent["type"], entity_type: string, entity_id: string, node_id: string, payload: Record<string, unknown>, observed_at: string, actor_role: BeatEvent["actor_role"] = "HQ_OPS"): BeatEvent =>
   ({ device_id: DEVICES.DIRECTOR, actor_role, node_id, type, entity_type, entity_id, payload, observed_at });
+// Bharati is not part of the incident: its routine counts keep it current so HQ's attention list stays on Maitri.
+const bharatiCounts = (observed_at: string): BeatEvent[] =>
+  marion2026Seed.inventory_items.filter((i) => i.node_id === NODES.BHARATI)
+    .map((i) => server("STOCK_COUNTED", "inventory_item", i.id, NODES.BHARATI, { item_id: i.id, qty: i.stock }, observed_at, "STATION_LEADER"));
+// Maitri's other stores, counted with the diesel on 5, 9 and 13 May so only the diesel story needs attention.
+const storesCount = (food: number, observed_at: string): BeatEvent[] =>
+  marion2026Seed.inventory_items.filter((i) => i.node_id === NODES.MAITRI && i.id !== IDS.dieselMaitri)
+    .map((i) => ({ device_id: DEVICES.MAITRI_TAB, actor_role: "STATION_LEADER", node_id: NODES.MAITRI, type: "STOCK_COUNTED", entity_type: "inventory_item", entity_id: i.id, payload: { item_id: i.id, qty: i.id === IDS.foodMaitri ? food : i.stock }, observed_at }));
 const count = (qty: number, observed_at: string): BeatEvent =>
   ({ device_id: DEVICES.MAITRI_TAB, actor_role: "STATION_LEADER", node_id: NODES.MAITRI, type: "STOCK_COUNTED", entity_type: "inventory_item", entity_id: IDS.dieselMaitri, payload: { item_id: IDS.dieselMaitri, qty }, observed_at });
 const link = (status: "ONLINE" | "DEGRADED" | "OFFLINE", observed_at: string): BeatEvent =>
@@ -153,12 +162,12 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M4", label: "Diesel reaches the refinery: blend and lab test before loading", where: "server", advanceClock: true,
-    events: [server("LEG_UPDATED", "leg", MARION.reliefFeeder, NODES.HQ, { leg_id: MARION.reliefFeeder, eta: day("2027-05-05"), status: "IN_TRANSIT" }, at("2027-05-01", "10:00"))],
+    events: [...bharatiCounts(at("2027-05-01", "08:00")), server("LEG_UPDATED", "leg", MARION.reliefFeeder, NODES.HQ, { leg_id: MARION.reliefFeeder, eta: day("2027-05-05"), status: "IN_TRANSIT" }, at("2027-05-01", "10:00"))],
     real: { when: "1 May 2026", text: "A diesel shipment reaches the Cape Town refinery. It must be blended and laboratory-tested; delivery to the ship is expected within two days of lab confirmation.", source: SRC.dffe },
   },
   {
     beat: "M5", label: "Daily diesel counts at Maitri: 5, 6 and 7 May", where: "client", advanceClock: true,
-    events: [count(12.0, at("2027-05-05", "06:00")), count(11.4, at("2027-05-06", "06:00")), count(10.8, at("2027-05-07", "06:00"))],
+    events: [...storesCount(1280, at("2027-05-05", "05:30")), count(12.0, at("2027-05-05", "06:00")), count(11.4, at("2027-05-06", "06:00")), count(10.8, at("2027-05-07", "06:00"))],
     real: { when: "May 2026", text: "Fuel levels on the island are checked every day.", source: SRC.mg },
   },
   {
@@ -173,12 +182,12 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M6", label: "9 May: count 9.6 kL; Maitri's VSAT slows (Degraded)", where: "client", advanceClock: true,
-    events: [count(9.6, at("2027-05-09", "06:00")), link("DEGRADED", at("2027-05-09", "06:05"))],
+    events: [...storesCount(1200, at("2027-05-09", "05:30")), count(9.6, at("2027-05-09", "06:00")), link("DEGRADED", at("2027-05-09", "06:05"))],
     real: { when: "9 May 2026", text: "The VSAT line is in use but its bandwidth is low while it is reconfigured.", source: SRC.dffe },
   },
   {
     beat: "M6b", label: "Departure postponed until the fuel passes its lab test", where: "server", advanceClock: true,
-    events: [
+    events: [...bharatiCounts(at("2027-05-09", "06:00")),
       server("LEG_DELAYED", "leg", MARION.reliefFeeder, NODES.HQ, { leg_id: MARION.reliefFeeder, new_eta: day("2027-06-01"), reason: "blend not yet confirmed by the laboratory (date to be confirmed)" }, at("2027-05-09", "06:30")),
       vessel(IDS.vessel, day("2027-05-30"), day("2027-05-29"), day("2027-06-03"), at("2027-05-09", "06:35")),
     ],
@@ -211,7 +220,7 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M9", label: "Refinery cannot make polar diesel: relief fuel gone", where: "server", advanceClock: true,
-    events: [server("LEG_DELAYED", "leg", MARION.reliefFeeder, NODES.HQ, { leg_id: MARION.reliefFeeder, new_eta: day("2027-12-31"), reason: "national kerosene shortage: refinery cannot produce the blend" }, at("2027-05-12", "12:00"))],
+    events: [...bharatiCounts(at("2027-05-12", "08:00")), server("LEG_DELAYED", "leg", MARION.reliefFeeder, NODES.HQ, { leg_id: MARION.reliefFeeder, new_eta: day("2027-12-31"), reason: "national kerosene shortage: refinery cannot produce the blend" }, at("2027-05-12", "12:00"))],
     real: { when: "by 15 May 2026", text: "The Cape Town refinery confirms it cannot produce the polar diesel because of a national kerosene shortage. Aviation fuel for the ship's helicopters has to come from Durban (not tracked here).", source: SRC.mg },
   },
   {
@@ -223,7 +232,7 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M10", label: "Maitri keeps counting while offline (10–13 May)", where: "client", advanceClock: true,
-    events: [count(9.15, at("2027-05-10", "06:00")), count(8.7, at("2027-05-11", "06:00")), count(8.25, at("2027-05-12", "06:00")), count(7.8, at("2027-05-13", "06:00"))],
+    events: [...storesCount(1120, at("2027-05-13", "05:30")), count(9.15, at("2027-05-10", "06:00")), count(8.7, at("2027-05-11", "06:00")), count(8.25, at("2027-05-12", "06:00")), count(7.8, at("2027-05-13", "06:00"))],
     real: { when: "May 2026", text: "Fuel levels are monitored daily; food is enough though some items are running low.", source: SRC.mg },
   },
   {
@@ -239,7 +248,7 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M11b", label: "The ship sails for Maitri without fuel", where: "server", advanceClock: true,
-    events: [
+    events: [...bharatiCounts(at("2027-05-14", "11:00")),
       vessel(MARION.evacVessel, at("2027-05-14", "12:00"), day("2027-05-14"), at("2027-05-18", "06:00"), at("2027-05-14", "12:00")),
       server("LEG_UPDATED", "leg", MARION.evacLeg, NODES.HQ, { leg_id: MARION.evacLeg, etd: at("2027-05-14", "12:00"), eta: at("2027-05-18", "06:00"), status: "IN_TRANSIT" }, at("2027-05-14", "12:05")),
     ],
@@ -252,7 +261,7 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M13", label: "The ship arrives", where: "server", advanceClock: true,
-    events: [server("LEG_UPDATED", "leg", MARION.evacLeg, NODES.HQ, { leg_id: MARION.evacLeg, eta: at("2027-05-18", "06:00"), status: "DONE" }, at("2027-05-18", "06:00"))],
+    events: [...bharatiCounts(at("2027-05-18", "05:00")), server("LEG_UPDATED", "leg", MARION.evacLeg, NODES.HQ, { leg_id: MARION.evacLeg, eta: at("2027-05-18", "06:00"), status: "DONE" }, at("2027-05-18", "06:00"))],
     real: { when: "18 May 2026", text: "Scheduled arrival at the island.", source: SRC.knots },
   },
   {
@@ -272,7 +281,7 @@ export const MARION_BEATS: DirectorBeat[] = [
   },
   {
     beat: "M15b", label: "Next relief voyage scheduled for August", where: "server", advanceClock: true,
-    events: [vessel(IDS.vessel, day("2027-08-05"), day("2027-08-04"), day("2027-08-09"), at("2027-05-27", "15:00"))],
+    events: [...bharatiCounts(at("2027-05-27", "14:00")), vessel(IDS.vessel, day("2027-08-05"), day("2027-08-04"), day("2027-08-09"), at("2027-05-27", "15:00"))],
     real: { when: "5–9 Aug 2026", text: "The reactivation voyage sails on 5 August with a 32-member team (20 public-works staff) and the next team; it arrives on 9 August.", source: SRC.reactivation },
   },
   {

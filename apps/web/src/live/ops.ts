@@ -75,7 +75,7 @@ export function approveReason(decision: DecisionView, role: string, nodeId: stri
   if (role === "STATION_LEADER") {
     if (decision.node_id !== nodeId) return `Only ${nodeLabel(decision.node_id)}'s Station Leader or HQ Ops can approve`;
     const hqOnly = (levers: string[]) => levers.some((l) => LEVER_ACTIONS[l]?.hqOnly ?? true);
-    if (optionLevers) return hqOnly(optionLevers) ? "Only HQ Ops can approve this option" : undefined;
+    if (optionLevers) return hqOnly(optionLevers) ? "Only HQ Ops can approve decisions touching vessels" : undefined;
     if (decision.options.some((o) => hqOnly(o.levers))) return "Only HQ Ops can approve decisions touching vessels";
   }
   return undefined;

@@ -47,14 +47,37 @@ export function DecisionQueue({ items, onOpen }: { items: QueueItem[]; onOpen?: 
 
 /* ---------- Lever windows (N1) ---------- */
 
-const MON: Record<string, number> = { Jan: 0, Feb: 31, Mar: 59 };
-/** Day index from 24 Jan 2027 for "D Mon" labels (render helper, not engine math). */
-export const dayIdx = (d: string) => { const [n, m] = d.split(" "); return Number(n) + MON[m] - 24; };
+const MON: Record<string, number> = { Jan: 0, Feb: 31, Mar: 59, Apr: 90, May: 120, Jun: 151, Jul: 181, Aug: 212, Sep: 243, Oct: 273, Nov: 304, Dec: 334 };
+/** Day index from 24 Jan 2027 for "D Mon" labels (render helper, not engine math). A trailing year is ignored. */
+export const dayIdx = (d: string) => { const [n, m] = d.split(" "); return Number(n) + (MON[m ?? ""] ?? NaN) - 24; };
+/** "D Mon" for a day index from 24 Jan. */
+export const idxLabel = (i: number) => {
+  const doy = i + 24;
+  const m = Object.entries(MON).filter(([, start]) => start < doy).at(-1)!;
+  return `${doy - m[1]} ${m[0]}`;
+};
+
+/**
+ * A day axis for date labels: the fixed [from, to] window when every date falls inside it (the
+ * season48 layout), otherwise one fitted to the dates with `pad` days either side.
+ */
+export function dayAxis(dates: (string | undefined)[], from: string, to: string, pad = 3) {
+  const idx = dates.filter((d): d is string => !!d).map(dayIdx).filter((n) => Number.isFinite(n));
+  const [a, b] = [dayIdx(from), dayIdx(to)];
+  const fits = idx.every((n) => n >= a && n <= b);
+  const lo = fits ? a : Math.min(...idx) - pad;
+  const hi = fits ? b : Math.max(...idx, lo + 7) + pad;
+  return { lo, hi, fits, pct: (d: string) => ((dayIdx(d) - lo) / (hi - lo)) * 100 };
+}
 
 export function LeverWindow({ levers, today = "24 Jan", pnr = "3 Feb", end = "1 Mar" }: { levers: Lever[]; today?: string; pnr?: string; end?: string }) {
-  const span = dayIdx(end);
-  const x = (d: string) => `${(dayIdx(d) / span) * 100}%`;
-  const ticks = ["24 Jan", "31 Jan", "7 Feb", "14 Feb", "21 Feb", "28 Feb"];
+  const axis = dayAxis([today, pnr, ...levers.flatMap((l) => [l.deadline, l.cutoff])], "24 Jan", end, 4);
+  const span = 100;
+  const x = (d: string) => `${axis.pct(d)}%`;
+  // Weekly ticks: the season48 dates on its fixed axis, otherwise every 7 days from the axis start.
+  const ticks = axis.fits
+    ? ["24 Jan", "31 Jan", "7 Feb", "14 Feb", "21 Feb", "28 Feb"]
+    : Array.from({ length: Math.floor((axis.hi - axis.lo) / 7) + 1 }, (_, k) => idxLabel(axis.lo + 7 * k)).filter((t) => axis.pct(t) <= 95);
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
       <SectionHeader title="Decision windows · per lever" meta={<span className="text-xs text-fg-2">deadline = cutoff − lead</span>} />
@@ -79,7 +102,7 @@ export function LeverWindow({ levers, today = "24 Jan", pnr = "3 Feb", end = "1 
                   <div className={cx("absolute inset-y-1 rounded-sm", expired ? "bg-fg-3/40" : "bg-accent/35")} style={{ left: x(today), width: `calc(${x(l.deadline)} - ${x(today)})` }} />
                   <div className="absolute inset-y-1 dh-stale rounded-sm border border-warn/40" style={{ left: x(l.deadline), width: `calc(${x(l.cutoff)} - ${x(l.deadline)})` }} title={`Lead ${l.leadDays} d`} />
                   <div className="absolute -inset-y-0.5 w-0.5 bg-fg" style={{ left: x(l.deadline) }} />
-                  <span className={cx("absolute top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-xs text-fg", dayIdx(l.cutoff) / span > 0.6 ? "-translate-x-full pr-1.5" : "pl-1.5")} style={{ left: dayIdx(l.cutoff) / span > 0.6 ? x(l.deadline) : x(l.cutoff) }}>
+                  <span className={cx("absolute top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-xs text-fg", axis.pct(l.cutoff) / span > 0.6 ? "-translate-x-full pr-1.5" : "pl-1.5")} style={{ left: axis.pct(l.cutoff) / span > 0.6 ? x(l.deadline) : x(l.cutoff) }}>
                     act by {l.deadline} · {l.daysLeft} d · cutoff {l.cutoff}
                   </span>
                 </div>

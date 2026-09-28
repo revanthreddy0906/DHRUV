@@ -3,15 +3,16 @@ import { OctagonAlert, TriangleAlert, Users, UserX } from "lucide-react";
 import type { MissionEval } from "../data/types";
 import type { ShipmentView, InventoryView } from "../data/demo";
 import { cx, STATE_META, StateBadge, RatioDisplay, Tag, FreshnessChip, FRESH_META, Button } from "./primitives";
-import { dayIdx } from "./decisions";
+import { dayAxis, idxLabel } from "./decisions";
 
 /* ---------- Cargo ---------- */
 
 const AX0 = "10 Jan", AX1 = "1 Mar";
-const pos = (d: string) => ((dayIdx(d) - dayIdx(AX0)) / (dayIdx(AX1) - dayIdx(AX0))) * 100;
+/** The season48 cargo axis (10 Jan – 1 Mar), or one fitted to the dates when they fall outside it. */
+const DEFAULT_POS = dayAxis([], AX0, AX1).pct;
 
 /** The visual anchor of a shipment (section 9.5): one plain vertical line, "Vessel cutoff 4 Feb". */
-export function CutoffMarker({ date, label = "Vessel cutoff" }: { date: string; label?: string }) {
+export function CutoffMarker({ date, label = "Vessel cutoff", pos = DEFAULT_POS }: { date: string; label?: string; pos?: (d: string) => number }) {
   return (
     <div className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-fg" style={{ left: `${pos(date)}%` }}>
       <span className="absolute -top-5 left-1 whitespace-nowrap text-xs font-semibold tabular-nums text-fg">{label} {date}</span>
@@ -52,6 +53,9 @@ export function ShipmentRow({ s, onExpand }: { s: ShipmentView; onExpand?: () =>
 }
 
 export function LegTimeline({ s, today = "24 Jan", originalEta, milestones, onCollapse }: { s: ShipmentView; today?: string; originalEta?: string; milestones?: React.ReactNode; onCollapse?: () => void }) {
+  const axis = dayAxis([today, s.cutoff, originalEta, ...s.legs.flatMap((l) => [l.etd ?? undefined, l.eta])], AX0, AX1);
+  const pos = axis.pct;
+  const ticks = axis.fits ? [AX0, "1 Feb", "15 Feb", AX1] : [0, 1, 2, 3].map((k) => idxLabel(Math.round(axis.lo + ((axis.hi - axis.lo) * k) / 3)));
   return (
     <article className={cx("rounded-lg border bg-surface p-4", s.feasible === "EXCLUDED" ? "border-bad/60" : s.feasible === "UNCERTAIN" ? "border-warn/50" : "border-line")}>
       <header className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -67,7 +71,7 @@ export function LegTimeline({ s, today = "24 Jan", originalEta, milestones, onCo
       {s.note && <p className={cx("mt-2 text-sm font-medium", s.feasible === "EXCLUDED" ? "text-bad" : "text-warn")}>{s.note}</p>}
       <div className="relative mt-7">
         <div className="pointer-events-none absolute inset-y-0 left-[220px] right-[120px]">
-          <CutoffMarker date={s.cutoff} />
+          <CutoffMarker date={s.cutoff} pos={pos} />
           <div className="absolute inset-y-0 w-px bg-accent" style={{ left: `${pos(today)}%` }}><span className="absolute -bottom-5 left-1 text-xs font-semibold text-accent">Now</span></div>
         </div>
         <ul className="space-y-2">
@@ -96,7 +100,7 @@ export function LegTimeline({ s, today = "24 Jan", originalEta, milestones, onCo
           })}
         </ul>
       </div>
-      <div className="ml-[220px] mr-[120px] mt-6 flex justify-between text-xs tabular-nums text-fg-2"><span>{AX0}</span><span>1 Feb</span><span>15 Feb</span><span>{AX1}</span></div>
+      <div className="ml-[220px] mr-[120px] mt-6 flex justify-between text-xs tabular-nums text-fg-2">{ticks.map((t) => <span key={t}>{t}</span>)}</div>
       {milestones}
     </article>
   );

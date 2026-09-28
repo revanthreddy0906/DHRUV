@@ -221,7 +221,7 @@ export function inventoryRows(st: EngineStationEval | undefined, seed: Seed, now
         reserve: `${Math.round((i.reservePct ?? 0) * 100)} %`,
         ratio: i.ratio !== null ? r4(i.ratio) : 0,
         state: i.state,
-        cover: rate && d.key === "FUEL" ? `${Math.floor(i.stock / rate)} d at ${rate}` : d.foodRequirement ? `${Math.floor(i.stock / Math.max(1, d.foodRequirement.pob))} d at ${d.foodRequirement.pob} people` : undefined,
+        cover: rate && d.key === "FUEL" ? `${Math.floor(i.stock / rate)} d at ${rate}` : d.foodRequirement ? (d.foodRequirement.pob === 0 ? "no one on station" : `${Math.floor(i.stock / d.foodRequirement.pob)} d at ${d.foodRequirement.pob} people`) : undefined,
         freshness: { cls: fresh ?? "FRESH", age: formatAge(counted, now), counted: formatShort(counted) },
         breakdown: d.trace.filter((t) => (t.rule === "R01" || t.rule === "R19") && t.text.includes(d.key === "FOOD" ? "Food" : i.id)).map((t) => ({ phase: t.rule, calc: readable(t.text), value: "" })),
       });
@@ -286,6 +286,12 @@ export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: str
 }
 
 /** A recorded option in the screen's shape, with the live engine's band and verify flags on top. */
+/** Live verify reasons first; a recorded one that names the same input ("… (79h old)") only with an older age is dropped. */
+export const mergeVerify = (live: string[], recorded: string[]) => {
+  const key = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, "");
+  const seen = new Set(live.map(key));
+  return [...live, ...recorded.filter((t) => !seen.has(key(t)))];
+};
 export function adaptRecordedOption(r: DecisionOptionView, index: number, live: WebOptionEval | undefined): WebOptionEval {
   return {
     id: (r.label?.replace(/[()]/g, "") || String.fromCharCode(97 + index)) as WebOptionEval["id"],
@@ -299,7 +305,7 @@ export function adaptRecordedOption(r: DecisionOptionView, index: number, live: 
     cost: r.cost !== undefined ? formatCost(r.cost, r.costUnit ?? "") : "unknown",
     band: live?.band,
     straddleText: live?.straddleText,
-    requiresVerify: [...new Set([...r.requiresVerify, ...(live?.requiresVerify ?? [])])],
+    requiresVerify: mergeVerify(live?.requiresVerify ?? [], r.requiresVerify),
     reachesTarget: r.reachesTarget ?? r.state === "GREEN",
   };
 }
