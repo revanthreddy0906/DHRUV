@@ -7,6 +7,7 @@ import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDataScreen } from "../screens/DataLive";
 import { LiveGraphScreen } from "../screens/GraphLive";
+import { LiveStockCard } from "../screens/StockCardLive";
 import { LiveFieldScreen } from "../screens/FieldLive";
 import { LiveDirector } from "../screens/DirectorLive";
 import { LiveStationScreen, StationsIndex } from "../screens/StationLive";
@@ -294,6 +295,7 @@ export function App() {
         <Route path="/stations/:nodeId" element={device ? <LiveStationScreen /> : <SignedOut what="The Station page evaluates this device's own events" />} />
         <Route path="/cargo" element={<CargoRoute />} />
         <Route path="/inventory" element={<InventoryRoute />} />
+        <Route path="/inventory/:itemId" element={device ? <LiveStockCard /> : <SignedOut what="The stock card reads this device's own ledger" />} />
         <Route path="/personnel" element={<PersonnelRoute />} />
         <Route path="/map" element={<MapRoute />} />
         <Route path="/incident" element={<IncidentRoute />} />

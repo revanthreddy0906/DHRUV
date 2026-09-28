@@ -24,6 +24,12 @@ describe("stock transaction form contract", () => {
     expect(validateStock("STOCK_RECEIVED", "-1", "").qty).toBeDefined();
     expect(validateStock("STOCK_RECEIVED", "12", "")).toEqual({});
   });
+
+  it("a count may carry a reason of up to 200 characters (STOCK_COUNTED contract)", () => {
+    expect(validateStock("STOCK_COUNTED", "90", "correction of a miscount")).toEqual({});
+    expect(validateStock("STOCK_COUNTED", "90", ` ${"a".repeat(200)} `)).toEqual({});
+    expect(validateStock("STOCK_COUNTED", "90", "a".repeat(201)).reason).toBeDefined();
+  });
 });
 
 describe("consequence preview (engine with the draft as an overlay)", () => {

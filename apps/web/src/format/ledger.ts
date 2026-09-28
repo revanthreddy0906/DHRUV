@@ -122,6 +122,8 @@ export interface LedgerRow {
   qty: string;
   /** Balance after this entry, by the stock rule. */
   balance: number;
+  /** False for an entry the server refused: it is listed, but it is not a fact and moves nothing. */
+  counted: boolean;
   reason?: string;
   /** Counts only: how far the count was from the book balance before it. */
   variance?: Variance;
@@ -136,25 +138,29 @@ const words = (s: string) => s.replace(/_/g, " ").toLowerCase();
 
 /**
  * Every count, receipt and issue for one item, oldest first, opened by the season count, each with
- * the balance after it. `sorted` must be in reduce order. The balance of row n is stockBalance() of
- * the first n entries: the same rule as everywhere else, never a second copy of it.
+ * the balance after it. `sorted` must be in reduce order. The balance after an entry is
+ * stockBalance() of the counted entries up to it: the same rule as everywhere else, never a second
+ * copy of it. Entries in `refused` are listed but not counted (the server refused them).
  */
-export function stockLedger(sorted: OpEvent[], item: StockItemRef): LedgerRow[] {
+export function stockLedger(sorted: OpEvent[], item: StockItemRef, refused: ReadonlySet<string> = new Set()): LedgerRow[] {
   const entries = sorted.filter((e) => isStockEntry(e, item.id));
   const rows: LedgerRow[] = [{
     id: "season", at: item.last_counted, kind: "OPENING", entry: "Opening count (season data)",
-    qty: formatQty(item.stock, item.unit), balance: item.stock, reason: words(item.count_source),
+    qty: formatQty(item.stock, item.unit), balance: item.stock, counted: true, reason: words(item.count_source),
   }];
   entries.forEach((e, i) => {
     const p = e.payload as { qty: number; reason?: string; shipment_id?: string; mission_id?: string };
-    const balance = stockBalance(entries.slice(0, i + 1), item.id, item.stock)?.balance ?? item.stock;
+    const before = entries.slice(0, i).filter((x) => !refused.has(x.event_id));
+    const counted = !refused.has(e.event_id);
+    const book = stockBalance(before, item.id, item.stock)?.balance ?? item.stock;
+    const balance = counted ? stockBalance([...before, e], item.id, item.stock)?.balance ?? item.stock : book;
+    const base = { id: e.event_id, at: e.observed_at, balance, counted, event: e };
     if (e.type === "STOCK_COUNTED") {
-      const book = stockBalance(entries.slice(0, i), item.id, item.stock)?.balance ?? item.stock;
-      rows.push({ id: e.event_id, at: e.observed_at, kind: "COUNT", entry: "Count", qty: formatQty(p.qty, item.unit), balance, reason: p.reason?.trim() || undefined, variance: variance(p.qty, book, item.unit), event: e });
+      rows.push({ ...base, kind: "COUNT", entry: "Count", qty: formatQty(p.qty, item.unit), reason: p.reason?.trim() || undefined, variance: variance(p.qty, book, item.unit) });
     } else if (e.type === "STOCK_RECEIVED") {
-      rows.push({ id: e.event_id, at: e.observed_at, kind: "RECEIPT", entry: "Receipt", qty: signed(p.qty, item.unit), balance, reason: p.shipment_id ? `from shipment ${p.shipment_id}` : undefined, event: e });
+      rows.push({ ...base, kind: "RECEIPT", entry: "Receipt", qty: signed(p.qty, item.unit), reason: p.shipment_id ? `from shipment ${p.shipment_id}` : undefined });
     } else {
-      rows.push({ id: e.event_id, at: e.observed_at, kind: "ISSUE", entry: "Issue", qty: signed(-p.qty, item.unit), balance, reason: [p.reason, p.mission_id && `for ${p.mission_id}`].filter(Boolean).join(", ") || undefined, event: e });
+      rows.push({ ...base, kind: "ISSUE", entry: "Issue", qty: signed(-p.qty, item.unit), reason: [p.reason, p.mission_id && `for ${p.mission_id}`].filter(Boolean).join(", ") || undefined });
     }
   });
   return rows;

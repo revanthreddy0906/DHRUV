@@ -45,6 +45,16 @@ describe("stock ledger", () => {
     expect(stockDerivation(sorted, diesel)).toBe("Last count 95.0 kL on 24 Jan 11:00, nothing issued or received since.");
   });
 
+  it("lists a refused entry without counting it", () => {
+    const rows = stockLedger(sorted, diesel, new Set([issue.event_id]));
+    expect(rows.map((r) => [r.entry, r.balance, r.counted])).toEqual([
+      ["Opening count (season data)", 92, true],
+      ["Issue", 92, false],
+      ["Receipt", 102, true],
+      ["Count", 95, true],
+    ]);
+  });
+
   it("variance wording", () => {
     expect(variance(11, 10, "kits").text).toBe("+1 kits (+10.0 %)");
     expect(variance(10, 10, "kits").text).toBe("no change");

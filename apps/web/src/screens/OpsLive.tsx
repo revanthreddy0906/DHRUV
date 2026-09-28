@@ -48,7 +48,7 @@ export function LiveInventoryScreen() {
               <tr>{["Item", "Stock", "Inbound (feasible)", "Required", "Ratio", "Days of cover", "Count freshness"].map((h, i) => <th key={h} className={cx("px-3 py-2 font-semibold", i === 1 || i === 3 ? "text-right" : "")}>{h}</th>)}</tr>
             </thead>
             <tbody className="[&_td:first-child]:pl-3">
-              {rows.map((i) => <InventoryRow key={i.id} i={i} expanded={i.state !== "GREEN"} />)}
+              {rows.map((i) => <InventoryRow key={i.id} i={i} expanded={i.state !== "GREEN"} href={`/inventory/${i.id}`} />)}
             </tbody>
           </table>
           {rows.length === 0 && <p className="p-8 text-center text-sm text-fg-2">No inventory items for this station in the seed. Readiness for these dimensions shows unknown, not zero.</p>}
