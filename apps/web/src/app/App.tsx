@@ -6,6 +6,7 @@ import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
 import { LiveAuditScreen } from "../screens/AuditLive";
 import { LiveDataScreen } from "../screens/DataLive";
 import { LiveGraphScreen } from "../screens/GraphLive";
+import { LiveFieldScreen } from "../screens/FieldLive";
 import { LiveDirector } from "../screens/DirectorLive";
 import { LiveStationScreen, StationsIndex } from "../screens/StationLive";
 import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
@@ -174,8 +175,11 @@ function Home() {
   return <Navigate to={useDevice() ? "/command" : "/login"} replace />;
 }
 
+/** A signed-in Field Lead device gets the live screen; otherwise the static preview for the gallery. */
 function FieldRoute() {
   const [params] = useSearchParams();
+  const device = useDevice();
+  if (device?.session.identity.role === "FIELD_LEAD") return <LiveFieldScreen />;
   return <FieldScreen offline={flag(params, "offline")} />;
 }
 
