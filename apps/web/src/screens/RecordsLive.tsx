@@ -66,7 +66,7 @@ export function LiveAssetRecord() {
             {now?.observedAt && <span className="text-fg-2">, reported {formatAgo(now.observedAt, ops.now)}</span>}
           </p>
           <p className="text-sm text-fg-2">
-            {now?.lat != null && now.lon != null ? <>Last known position <span className="font-mono">{formatCoords(now.lat, now.lon)}</span></> : "No position reported on this device."}
+            {now?.lat != null && now.lon != null ? <>Last known position <span className="font-mono">{formatCoords(now.lat, now.lon)}</span>.</> : "No position reported on this device."}
             {seedAsset.speed_kmh ? ` Speed ${seedAsset.speed_kmh} km/h.` : ""}
           </p>
         </header>

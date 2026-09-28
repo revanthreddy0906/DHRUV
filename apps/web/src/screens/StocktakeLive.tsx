@@ -99,7 +99,7 @@ export function StocktakePanel({ ops, device, node, onClose }: { ops: LiveOps; d
           <tbody>
             {checked.map((c) => (
               <tr key={c.item.id} className={cx("border-t border-line", c.reasonNeeded && "bg-warn-tint/60")}>
-                <td className={TD}><Link to={`/inventory/${c.item.id}`} className="text-accent hover:underline">{c.item.name}</Link></td>
+                <td className={cx(TD, "whitespace-nowrap")}><Link to={`/inventory/${c.item.id}`} className="text-accent hover:underline">{c.item.name}</Link></td>
                 <td className={cx(TD, "whitespace-nowrap")}><span className="font-mono text-fg-2">{formatDateTime(c.countedAt)}</span><span className="block text-xs text-fg-2">{formatAgo(c.countedAt, ops.now)}</span></td>
                 <td className={cx(TD, "whitespace-nowrap text-right font-mono tabular-nums")}>{formatQty(c.book, c.item.unit)}</td>
                 <td className={TD}>

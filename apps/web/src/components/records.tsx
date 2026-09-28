@@ -24,8 +24,8 @@ export function RecordedBy({ event }: { event?: OpEvent }) {
   if (!event) return <span className="text-fg-2">Season data</span>;
   return (
     <span className="block leading-tight">
-      <span className="block text-fg">{roleWords(event.actor_role)}</span>
-      <span className="block font-mono text-xs text-fg-2">{event.device_id}</span>
+      <span className="block whitespace-nowrap text-fg">{roleWords(event.actor_role)}</span>
+      <span className="block whitespace-nowrap font-mono text-xs text-fg-2">{event.device_id}</span>
     </span>
   );
 }
