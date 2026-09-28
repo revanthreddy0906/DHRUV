@@ -110,7 +110,7 @@ export function SyncDrawer({ link, device, queue, oldest, onClose, onLinkChange,
           label={live ? live.budgetLabel : link === "DEGRADED" ? "Budget · 2.5 KB per demo second (Degraded); P5 waits" : link === "ONLINE" ? "Budget · unlimited (Online)" : "Budget · 0 (Offline): nothing leaves"} />
         <SectionHeader title="Pending queue by priority tier" />
         {remaining.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-tint p-3 text-sm"><CheckCircle2 size={15} className="text-ok" aria-hidden />Queue drained. All events acknowledged by the server.</p>
+          <p className="flex items-center gap-2 rounded-lg border border-line p-3 text-sm"><CheckCircle2 size={15} className="text-ok" aria-hidden />Queue drained. All events acknowledged by the server.</p>
         ) : <TierQueue items={remaining} leaving={leaving} stalled={stalled} leaveDelayMs={live?.leaveDelayMs} />}
         {live && live.refused.length > 0 && (
           <div>

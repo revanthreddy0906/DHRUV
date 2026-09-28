@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, CircleCheck, OctagonAlert, Siren, TriangleAlert } from "lucide-react";
+import { ChevronRight, CircleCheck, OctagonAlert, Sigma, Siren, TriangleAlert } from "lucide-react";
 import type { Freshness, Health } from "../data/types";
 import { ALL_CLEAR } from "../format";
 import { Card, FreshnessChip, SectionHeader, StateBadge, cx } from "./primitives";
@@ -55,7 +55,11 @@ export function IncidentStrip({ title, confirmed, to }: { title: string; confirm
 }
 
 /** One row per station: state, the reason in a sentence, the deadline, link age, and the way in. */
-export function StationsTable({ rows, className }: { rows: StationRowView[]; className?: string }) {
+export function StationsTable({ rows, className, onShowMath }: {
+  rows: StationRowView[]; className?: string;
+  /** Opens the trace on the dimension that drives a station's state (offered on non-GREEN rows). */
+  onShowMath?: (nodeId: string) => void;
+}) {
   return (
     <Card pad="none" className={cx("overflow-hidden", className)}>
       <table className="w-full text-sm">
@@ -66,7 +70,7 @@ export function StationsTable({ rows, className }: { rows: StationRowView[]; cla
             <th scope="col" className="px-3 py-2 font-semibold">Reason</th>
             <th scope="col" className="w-48 px-3 py-2 font-semibold">Deadline</th>
             <th scope="col" className="w-56 px-3 py-2 font-semibold">Link</th>
-            <th scope="col" className="w-12 px-3 py-2"><span className="sr-only">Open</span></th>
+            <th scope="col" className="w-48 px-3 py-2"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -79,7 +83,13 @@ export function StationsTable({ rows, className }: { rows: StationRowView[]; cla
               <td className="px-3 py-2 text-fg-2">
                 {r.link && (r.link.freshness ? <FreshnessChip cls={r.link.freshness} label={r.link.text} /> : <span className="text-xs">{r.link.text}</span>)}
               </td>
-              <td className="px-3 py-2 text-right">
+              <td className="whitespace-nowrap px-3 py-2 text-right">
+                {onShowMath && r.state !== "GREEN" && (
+                  <button type="button" onClick={() => onShowMath(r.nodeId)} aria-label={`Show the math: ${r.name}`}
+                    className="mr-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold text-accent hover:bg-accent-tint">
+                    <Sigma size={16} strokeWidth={1.75} aria-hidden />Show the math
+                  </button>
+                )}
                 {r.href && (
                   <Link to={r.href} aria-label={`Open ${r.name}`} className="inline-flex size-8 items-center justify-center rounded-md text-fg-2 hover:bg-elevated hover:text-fg">
                     <ChevronRight size={16} aria-hidden />

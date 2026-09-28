@@ -4,7 +4,7 @@ import { dayLabel } from "./describe";
 
 const TONE: Record<MilestoneState, string> = {
   DONE: "border-line-strong text-fg-2",
-  ON_TRACK: "border-ok/50 text-ok",
+  ON_TRACK: "border-line text-fg",
   AT_RISK: "border-warn/60 text-warn",
   MISSED: "border-bad/60 text-bad",
   UNKNOWN: "border-line text-fg-2",

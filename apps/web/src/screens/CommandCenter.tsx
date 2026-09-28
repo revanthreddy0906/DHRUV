@@ -11,7 +11,9 @@ import { liveCommandView, type CommandView } from "../live/command";
 import { parseEtaInput } from "../live/format";
 import { useLiveOps } from "../live/ops";
 import { LiveWhatIfDrawer } from "../live/WhatIfLive";
-import { timelinePositions } from "../format";
+import { drivingDimension, timelinePositions } from "../format";
+import { nodeLabel } from "../live/chrome";
+import { traceDrawerProps } from "../live/traceView";
 
 /** The signed-out preview: the same layout from the design fixture for `moment` (values frozen). */
 function fixtureCommandView(moment: MomentId): CommandView {
@@ -73,6 +75,7 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
   const ops = useLiveOps();
   const [showTrace, setShowTrace] = React.useState(trace);
   const [sim, setSim] = React.useState(whatIf);
+  const [mathNode, setMathNode] = React.useState<string>();
 
   if (device && !ops) {
     return <Frame moment="start" nav="command"><p className="p-8 text-center text-sm text-fg-2">Loading this device's expedition state.</p></Frame>;
@@ -89,12 +92,19 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
         {/* Design previews only (?trace=1): signed in, the math opens from the Station page on the dimension clicked. */}
         {showTrace && !ops && <TraceDrawer title="Maitri · Fuel" state={MOMENTS[moment].stations[0]?.dimensions.find((d) => d.key === "FUEL")?.state} subtitle={`As seen by ${MOMENTS[moment].viewer.id} at ${MOMENTS[moment].clock}`}
           steps={fixtureTrace.map((s) => ({ rule: s.rule, text: traceText(s) }))} units={{ "INV-DSL": "kL" }} animate={cascade} onClose={() => setShowTrace(false)} />}
+        {mathNode && ops && live && (() => {
+          // The station row's math opens the dimension that drives its state (section 9.2).
+          const st = ops.evaluation.stations.find((s) => s.nodeId === mathNode);
+          const key = st && drivingDimension(st)?.key;
+          const props = st && key ? traceDrawerProps(st, key, nodeLabel(mathNode), live.deviceId, live.clock) : undefined;
+          return props ? <TraceDrawer key={`${mathNode}:${key}`} {...props} onClose={() => setMathNode(undefined)} /> : null;
+        })()}
         {sim && (ops && live ? <LiveWhatIfDrawer ops={ops} role={live.role} onClose={() => setSim(false)} /> : <WhatIfDrawer onClose={() => setSim(false)} onDiscard={() => setSim(false)} />)}
       </>}>
       <div className="space-y-6 p-6">
         <StatusLine text={view.status} />
         {view.incident && <IncidentStrip title={view.incident.title} confirmed={view.incident.confirmed} to="/incident" />}
-        <StationsTable rows={view.rows} className={cx(cascade && "dh-cascade-in")} />
+        <StationsTable rows={view.rows} className={cx(cascade && "dh-cascade-in")} onShowMath={ops ? setMathNode : undefined} />
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
           <NeedsAttention items={view.attention} allClear={view.allClear} />
           <div className="space-y-6">
