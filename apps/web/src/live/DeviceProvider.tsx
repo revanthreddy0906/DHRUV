@@ -76,11 +76,13 @@ interface DeviceContextValue {
   device: LiveDevice | null;
   /** Another tab already acts as this tab's device: this tab must not sync or answer the Director. */
   duplicateOf: string | null;
+  /** A saved session is being restored (this tab is still acquiring the device): not signed out. */
+  restoring: boolean;
   signIn(session: Session): Promise<void>;
   signOut(): void;
 }
 
-const DeviceContext = React.createContext<DeviceContextValue>({ device: null, duplicateOf: null, signIn: async () => {}, signOut: () => {} });
+const DeviceContext = React.createContext<DeviceContextValue>({ device: null, duplicateOf: null, restoring: false, signIn: async () => {}, signOut: () => {} });
 
 const lockName = (deviceId: string) => `dhruv-device-${deviceId}`;
 
@@ -135,6 +137,14 @@ export function useDevice(): LiveDevice | null {
 
 export function useSignIn(): (session: Session) => Promise<void> {
   return React.useContext(DeviceContext).signIn;
+}
+
+/**
+ * True while a saved session is restoring. useDevice() is still null then, so screens must not fall
+ * back to their signed-out design fixtures or redirect to /login.
+ */
+export function useSessionRestoring(): boolean {
+  return React.useContext(DeviceContext).restoring;
 }
 
 /** The device id when another tab already acts as this tab's device, else null. */
@@ -335,6 +345,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, [session, db, snapshot, lastSync, signOut, confirmed, lastResetAt]);
 
   const duplicateOf = session && owned === false ? session.identity.device_id : null;
-  const value = React.useMemo(() => ({ device, duplicateOf, signIn, signOut }), [device, duplicateOf, signIn, signOut]);
+  const restoring = !!session && owned === null;
+  const value = React.useMemo(() => ({ device, duplicateOf, restoring, signIn, signOut }), [device, duplicateOf, restoring, signIn, signOut]);
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;
 }

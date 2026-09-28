@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LiveDecisionDetail, LiveDecisionsIndex } from "../screens/DecisionLive";
+import { QuietLine } from "../screens/Frame";
 import { LiveCargoScreen } from "../screens/CargoLive";
 import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
 import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
@@ -9,7 +10,7 @@ import { LiveGraphScreen } from "../screens/GraphLive";
 import { LiveFieldScreen } from "../screens/FieldLive";
 import { LiveDirector } from "../screens/DirectorLive";
 import { LiveStationScreen, StationsIndex } from "../screens/StationLive";
-import { useDevice, useDuplicateDevice, useSignIn } from "../live/DeviceProvider";
+import { useDevice, useDuplicateDevice, useSessionRestoring, useSignIn } from "../live/DeviceProvider";
 import { login } from "../live/session";
 import type { Role } from "../data/types";
 import { MOMENTS, type MomentId } from "../data/demo";
@@ -274,7 +275,10 @@ export function App() {
   const [params] = useSearchParams();
   const device = useDevice();
   const duplicate = useDuplicateDevice();
+  const restoring = useSessionRestoring();
   if (duplicate.deviceId) return <DuplicateDevice deviceId={duplicate.deviceId} onSignOut={duplicate.signOut} />;
+  // A saved session is restoring: not signed out, so no design fixture and no redirect to /login.
+  if (restoring) return <div className="h-screen w-full bg-bg"><QuietLine>Checking this device's data…</QuietLine></div>;
   // Hidden Director (?director=1): live when this tab is signed in, the design mock otherwise.
   if (flag(params, "director")) return device ? <LiveDirector /> : <DirectorScreen />;
   return (
