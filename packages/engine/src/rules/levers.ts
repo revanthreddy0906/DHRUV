@@ -7,6 +7,8 @@ export interface LeverEffect {
   newDeparture?: string;
   newLoadCutoff?: string;
   newLegEta?: string;
+  /** The lever's cutoff is this many days before the station's reserve-breach date (marion2026 EVACUATE). */
+  cutoffBeforeBreachDays?: number;
   [key: string]: unknown;
 }
 
@@ -47,8 +49,10 @@ function parseEffect(raw: string): LeverEffect {
       newLoadCutoff = new Date(depMs - 2 * 86400000).toISOString();
     }
     const newLegEta = obj.newLegEta ?? obj.new_leg_eta;
+    const cutoffBeforeBreachDays = obj.cutoffBeforeBreachDays ?? obj.cutoff_before_breach_days;
     return {
       ...obj,
+      cutoffBeforeBreachDays,
       addAvailableKl,
       saveRawKl,
       burnRateUplift,
@@ -70,6 +74,8 @@ export function catalogueLevers(
   levers: Seed["levers"],
   now: string,
   nodeId?: string,
+  /** The station's reserve-breach date, for levers whose cutoff is set relative to it. */
+  reserveBreachDate?: string | null,
 ): CataloguedLever[] {
   const nowDate = truncateToDate(now);
   const nowMs = new Date(nowDate).getTime();
@@ -77,7 +83,12 @@ export function catalogueLevers(
   const filtered = nodeId ? levers.filter((l) => l.node_id === nodeId) : levers;
 
   return filtered.map((l) => {
-    const cutoffDate = truncateToDate(l.cutoff);
+    const effect = parseEffect(l.effect);
+    // A cutoff tied to the reserve-breach date moves with the fuel: conserving pushes it later.
+    const relative = effect.cutoffBeforeBreachDays !== undefined && reserveBreachDate
+      ? new Date(new Date(truncateToDate(reserveBreachDate)).getTime() - effect.cutoffBeforeBreachDays * 86400000).toISOString()
+      : undefined;
+    const cutoffDate = truncateToDate(relative ?? l.cutoff);
     const cutoffMs = new Date(cutoffDate).getTime();
     const deadlineMs = cutoffMs - l.lead_days * 86400000;
     const deadline = new Date(deadlineMs).toISOString();
@@ -85,10 +96,9 @@ export function catalogueLevers(
 
     const available = deadlineMs >= nowMs;
     const daysRemaining = daysBetween(nowDate, deadlineDate);
-    const effect = parseEffect(l.effect);
 
     const dateStr = deadlineDate.slice(0, 10);
-    const trace = `[R08] ${l.id}: cutoff ${cutoffDate.slice(0, 10)} - lead ${l.lead_days}d = deadline ${dateStr} -> ${
+    const trace = `[R08] ${l.id}: cutoff ${cutoffDate.slice(0, 10)}${relative ? ` (reserve breach ${reserveBreachDate!.slice(0, 10)} - ${effect.cutoffBeforeBreachDays}d)` : ""} - lead ${l.lead_days}d = deadline ${dateStr} -> ${
       available ? `available (${daysRemaining}d left)` : "EXPIRED"
     }`;
 
@@ -97,7 +107,7 @@ export function catalogueLevers(
       nodeId: l.node_id,
       label: l.label,
       effect,
-      cutoff: l.cutoff,
+      cutoff: relative ?? l.cutoff,
       leadDays: l.lead_days,
       deadline,
       costAmount: l.cost_amount,

@@ -67,7 +67,7 @@ export function RatioDisplay({ value, state, size = "md", stale, className }: { 
   const sz = { sm: "text-xs", md: "text-sm", lg: "text-heading", xl: "text-headline" }[size];
   return (
     <span className={cx("font-mono tabular-nums font-semibold", sz, state ? STATE_META[state].text : "text-fg", stale && "dh-stale", className)}>
-      {value}
+      {typeof value === "number" && !Number.isFinite(value) ? "no requirement" : value}
     </span>
   );
 }

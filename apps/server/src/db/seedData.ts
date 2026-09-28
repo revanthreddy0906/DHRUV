@@ -8,6 +8,9 @@ export function loadSeed(db: Database.Database): Seed {
   for (const table of SEED_TABLES) {
     (seed[table] as unknown[]) = db.prepare(`SELECT * FROM ${table}`).all();
   }
+  // A scenario's own season (marion2026) is kept as JSON beside the reference tables.
+  const season = db.prepare(`SELECT value FROM server_meta WHERE key = 'season'`).get() as { value: string } | undefined;
+  if (season) seed.season = JSON.parse(season.value) as Seed["season"];
   return seed;
 }
 
@@ -26,6 +29,8 @@ export function resetToStart(db: Database.Database, seed: Seed = emptySeed()): v
         db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map((c) => `@${c}`).join(", ")})`).run(row);
       }
     }
+    if (seed.season) db.prepare(`INSERT INTO server_meta (key, value) VALUES ('season', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`).run(JSON.stringify(seed.season));
+    else db.prepare(`DELETE FROM server_meta WHERE key = 'season'`).run();
     // A new run of the log: devices still holding the previous one must reload.
     renewEpoch(db);
   });

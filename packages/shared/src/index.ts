@@ -8,6 +8,7 @@ export * from "./shipments.js";
 
 export type {
   Seed,
+  SeasonOverride,
   StateResponse,
   ErrorCode,
   ApiError,

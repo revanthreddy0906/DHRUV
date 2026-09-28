@@ -3,7 +3,8 @@ import { config, type LinkStatus } from "@dhruv/shared";
 import { DEFAULT_SCENARIO, SCENARIOS, STATION_NODES, scenarioById } from "@dhruv/seed";
 import type { Freshness, Role } from "../data/types";
 import { useDevice } from "./DeviceProvider";
-import { daysToResupply, formatAge, formatClock, formatShort, phaseAt } from "./format";
+import { formatAge, formatClock, formatShort, seasonAt } from "./format";
+import { formatDate } from "../format";
 import { formatWallTime } from "../format";
 
 const NODE_LABEL: Record<string, string> = { HQ: "Goa HQ", MAITRI: "Maitri", BHARATI: "Bharati", MUMBAI: "Mumbai", CAPE_TOWN: "Cape Town" };
@@ -37,6 +38,8 @@ export interface LiveChrome {
   clock: string;
   phase: string;
   daysToResupply: number;
+  /** "20 Nov 2027", or the scenario relief vessel's current ETA. */
+  nextResupply: string;
   pending: { count: number; oldest?: string };
   stalled: boolean;
   lastSync?: string;
@@ -76,14 +79,17 @@ export function useLiveChrome(): LiveChrome | null {
     return { node, label: nodeLabel(node), own: false, age: formatAge(heard, snap.now), freshness: contactFreshness(hours) };
   });
 
+  const season = seasonAt(snap.seed, snap.events.filter((e) => !snap.rejected.has(e.event_id)), snap.now);
+
   return {
     role: identity.role as Role,
     deviceId: identity.device_id,
     station: nodeLabel(identity.node_id),
     link: snap.link,
     clock: formatClock(snap.now),
-    phase: phaseAt(snap.now),
-    daysToResupply: daysToResupply(snap.now),
+    phase: season.phase,
+    daysToResupply: season.daysToResupply,
+    nextResupply: `${formatDate(season.resupplyAt)} ${new Date(season.resupplyAt).getUTCFullYear()}`,
     pending: { count: snap.sync.pending, oldest: oldest ? formatAge(oldest, snap.now) : undefined },
     stalled: snap.sync.stalled,
     lastSync: lastOk ? formatWallTime(lastOk.at) : undefined,

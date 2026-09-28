@@ -13,8 +13,8 @@ import { useDevice } from "./DeviceProvider";
 import { exceptionsOf, forViewer, type OpsException } from "./exceptions";
 import { nodeLabel } from "./chrome";
 import { coords, dayLabel, describeEvent, incidentTypeLabel } from "./describe";
-import { formatAge } from "./format";
-import { formatAgo } from "../format";
+import { formatAge, seasonAt } from "./format";
+import { formatAgo, formatDate } from "../format";
 
 /**
  * Operational records for this device, from the events it holds (F2): open decisions with their
@@ -64,12 +64,19 @@ const DAY_MS = 86_400_000;
 export const daysLeft = (nowIso: string, deadline: string) => Math.ceil((Date.parse(deadline) - Date.parse(nowIso)) / DAY_MS);
 export const fullDate = (iso: string) => `${dayLabel(iso)} ${new Date(iso).getUTCFullYear()}`;
 
-/** Why this viewer cannot approve, if they cannot (section 4 permission rules, mirrored from the API). */
-export function approveReason(decision: DecisionView, role: string, nodeId: string): string | undefined {
+/**
+ * Why this viewer cannot approve, if they cannot (section 4 permission rules, mirrored from the API).
+ * Like the server, the HQ-only rule applies to the option chosen: a Station Leader may approve a
+ * station-level option (conserve) of a decision that also offers an HQ-only one (evacuate). Without
+ * an option (the queue card), any HQ-only option is flagged, as before.
+ */
+export function approveReason(decision: DecisionView, role: string, nodeId: string, optionLevers?: string[]): string | undefined {
   if (role === "FIELD_LEAD") return "Field Leads cannot approve decisions";
   if (role === "STATION_LEADER") {
-    if (decision.options.some((o) => o.levers.some((l) => LEVER_ACTIONS[l]?.hqOnly))) return "Only HQ Ops can approve decisions touching vessels";
     if (decision.node_id !== nodeId) return `Only ${nodeLabel(decision.node_id)}'s Station Leader or HQ Ops can approve`;
+    const hqOnly = (levers: string[]) => levers.some((l) => LEVER_ACTIONS[l]?.hqOnly ?? true);
+    if (optionLevers) return hqOnly(optionLevers) ? "Only HQ Ops can approve decisions touching vessels" : undefined;
+    if (decision.options.some((o) => hqOnly(o.levers))) return "Only HQ Ops can approve decisions touching vessels";
   }
   return undefined;
 }
@@ -121,7 +128,9 @@ export function useLiveOps(focusNode?: string): LiveOps | null {
     const focus = evaluated(identity.node_id)
       ? identity.node_id
       : identity.role === "HQ_OPS" && evaluated(focusNode) ? focusNode! : NODES.MAITRI;
-    const adapted = adaptLiveEvaluation(realEvaluation, seed, now, focus);
+    // A scenario with its own season (marion2026) names its relief vessel's current ETA in the slip line.
+    const resupplyAt = seed.season ? seasonAt(seed, events, now).resupplyAt : undefined;
+    const adapted = adaptLiveEvaluation(realEvaluation, seed, now, focus, resupplyAt && `${formatDate(resupplyAt)} ${new Date(resupplyAt).getUTCFullYear()}`);
     const focusEval = realEvaluation.stations.find((s) => s.nodeId === focus);
     const reduced = reduce(seed, events);
     const v = seed.vessels[0] ? reduced.vessels.get(seed.vessels[0].id) : undefined;

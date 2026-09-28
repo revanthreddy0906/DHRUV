@@ -165,9 +165,26 @@ export function NeedsAttention({ items, allClear }: { items: AttentionView[]; al
   );
 }
 
+/** Label rows for the season marks: above, below, then a second row each side. */
+const LANE = ["bottom-4", "top-4", "bottom-9", "top-9"] as const;
+/**
+ * Alternate labels above and below the line (season48's layout); a label that would overprint a
+ * neighbour within 30 % in its row moves to the next free row. "Now" sits in the first row above.
+ */
+function labelLanes(pcts: number[], nowPct: number): number[] {
+  const last: number[] = [nowPct, -Infinity, -Infinity, -Infinity];
+  return pcts.map((p, i) => {
+    const order = i % 2 ? [1, 0, 3, 2] : [0, 1, 2, 3];
+    const lane = order.find((l) => Math.abs(p - last[l]!) >= 30) ?? order[0]!;
+    last[lane] = p;
+    return lane;
+  });
+}
+
 /** Season: the phase line and the vessel window as a mini timeline with "now". */
 export function SeasonPanel({ season }: { season: SeasonView }) {
   const v = season.vessel;
+  const lanes = v ? labelLanes(v.marks.map((m) => m.pct), v.nowPct) : [];
   return (
     <section>
       <SectionHeader title="Season" />
@@ -176,12 +193,12 @@ export function SeasonPanel({ season }: { season: SeasonView }) {
         {v && (
           <div className="mt-3">
             <p className="text-xs text-fg-2">{v.name} window</p>
-            <div className="relative mx-2 mt-7 mb-7 h-px bg-line-strong" role="img"
+            <div className={cx("relative mx-2 h-px bg-line-strong", lanes.some((l) => l > 1) ? "my-12" : "my-7")} role="img"
               aria-label={`${v.name}: ${v.marks.map((m) => m.label).join(", ")}`}>
               {v.marks.map((m, i) => (
                 <div key={m.key} className="absolute -top-1.5 h-3" style={{ left: `${m.pct}%` }}>
                   <div className={cx("h-3 w-px", m.strong ? "w-0.5 bg-fg" : "bg-fg-2")} />
-                  <span className={cx("absolute whitespace-nowrap text-xs tabular-nums", m.pct > 85 ? "right-0" : m.pct < 15 ? "left-0" : "-translate-x-1/2", i % 2 ? "top-4" : "bottom-4", m.strong ? "font-semibold text-fg" : "text-fg-2")}>{m.label}</span>
+                  <span className={cx("absolute whitespace-nowrap text-xs tabular-nums", m.pct > 85 ? "right-0" : m.pct < 15 ? "left-0" : "-translate-x-1/2", LANE[lanes[i]!], m.strong ? "font-semibold text-fg" : "text-fg-2")}>{m.label}</span>
                 </div>
               ))}
               <div className="absolute -top-2.5 h-5" style={{ left: `${v.nowPct}%` }}>

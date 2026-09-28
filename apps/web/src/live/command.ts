@@ -53,8 +53,12 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
   }));
 
   const w = ops.vesselWindow;
+  // A station open all year (marion2026 closes the next March) would squash the voyage marks
+  // into the first few percent, so a closing date more than 60 days past the ETA is left off.
+  const showClosing = !!w && Date.parse(w.closing) - Date.parse(w.etaStation) <= 60 * 86_400_000;
   const marks = w ? timelinePositions([
-    { key: "cutoff", at: w.loadCutoff }, { key: "departs", at: w.departure }, { key: "eta", at: w.etaStation }, { key: "closing", at: w.closing },
+    { key: "cutoff", at: w.loadCutoff }, { key: "departs", at: w.departure }, { key: "eta", at: w.etaStation },
+    ...(showClosing ? [{ key: "closing" as const, at: w.closing }] : []),
   ], now) : [];
   const pct = (k: string) => marks.find((m) => m.key === k)?.pct ?? 0;
 
@@ -66,14 +70,14 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
     rows,
     attention,
     season: {
-      phaseLine: `${sentence(live.phase)} phase. Next resupply 20 Nov 2027, in ${live.daysToResupply} days.`,
+      phaseLine: `${sentence(live.phase)} phase. Next resupply ${live.nextResupply}, in ${live.daysToResupply} days.`,
       vessel: w && {
         name: w.name,
         marks: [
           { key: "cutoff", label: `Cutoff ${formatDate(w.loadCutoff)}`, pct: pct("cutoff"), strong: true },
           { key: "departs", label: `Departs ${formatDate(w.departure)}`, pct: pct("departs") },
           { key: "eta", label: `ETA ${formatDate(w.etaStation)}`, pct: pct("eta") },
-          { key: "closing", label: `Closing ${formatDate(w.closing)}`, pct: pct("closing") },
+          ...(showClosing ? [{ key: "closing", label: `Closing ${formatDate(w.closing)}`, pct: pct("closing") }] : []),
         ],
         nowPct: pct("now"),
       },

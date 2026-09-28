@@ -153,7 +153,11 @@ function missionsOf(st: EngineStationEval, seed: Seed): MissionEval[] {
   });
 }
 
-export function adaptStation(st: EngineStationEval, seed: Seed, now: string): WebStationEval {
+/**
+ * `resupply` names the next resupply in the slip line ("20 Nov 2027" style); omitted, the fixed
+ * season's wording stays ("the 20 Nov resupply", "The November ship").
+ */
+export function adaptStation(st: EngineStationEval, seed: Seed, now: string, resupply?: string): WebStationEval {
   const name = seed.nodes.find((n) => n.id === st.nodeId)?.name ?? st.nodeId;
   const fuelEval = st.dimensions.find((d) => d.key === "FUEL");
 
@@ -172,8 +176,8 @@ export function adaptStation(st: EngineStationEval, seed: Seed, now: string): We
 
   const tol = fuelEval?.slipTolerance;
   const slip: WebStationEval["slip"] = tol?.reserveBreachDate
-    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: `Reserve is breached on ${dayLabel(tol.reserveBreachDate)}, ${tol.daysShortOfWindow ?? 0} days before the 20 Nov resupply` }
-    : { kind: "tolerance", days: tol?.slipToleranceDays ?? 0, text: `The November ship can be up to ${tol?.slipToleranceDays ?? 0} days late before reserve is touched` };
+    ? { kind: "breach", date: dayLabel(tol.reserveBreachDate), daysShort: tol.daysShortOfWindow ?? 0, text: `Reserve is breached on ${dayLabel(tol.reserveBreachDate)}, ${tol.daysShortOfWindow ?? 0} days before the ${resupply ? `next resupply on ${resupply}` : "20 Nov resupply"}` }
+    : { kind: "tolerance", days: tol?.slipToleranceDays ?? 0, text: `${resupply ? `The relief ship due ${resupply}` : "The November ship"} can be up to ${tol?.slipToleranceDays ?? 0} days late before reserve is touched` };
 
   const b0 = fuelEval?.baselineB0;
   const worst = st.dimensions.find((d) => d.state === st.state && d.state !== "GREEN");
@@ -217,7 +221,7 @@ export function inventoryRows(st: EngineStationEval | undefined, seed: Seed, now
         reserve: `${Math.round((i.reservePct ?? 0) * 100)} %`,
         ratio: i.ratio !== null ? r4(i.ratio) : 0,
         state: i.state,
-        cover: rate && d.key === "FUEL" ? `${Math.floor(i.stock / rate)} d at ${rate}` : d.foodRequirement ? `${Math.floor(i.stock / Math.max(1, d.foodRequirement.pob))} d at ${d.foodRequirement.pob} people` : undefined,
+        cover: rate && d.key === "FUEL" ? `${Math.floor(i.stock / rate)} d at ${rate}` : d.foodRequirement ? (d.foodRequirement.pob === 0 ? "no one on station" : `${Math.floor(i.stock / d.foodRequirement.pob)} d at ${d.foodRequirement.pob} people`) : undefined,
         freshness: { cls: fresh ?? "FRESH", age: formatAge(counted, now), counted: formatShort(counted) },
         breakdown: d.trace.filter((t) => (t.rule === "R01" || t.rule === "R19") && t.text.includes(d.key === "FOOD" ? "Food" : i.id)).map((t) => ({ phase: t.rule, calc: readable(t.text), value: "" })),
       });
@@ -267,8 +271,8 @@ export interface LiveAdaptedEvaluation {
 }
 
 /** Every station the engine evaluated; nothing is filled in for a station it did not. */
-export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: string, focus = "MAITRI"): LiveAdaptedEvaluation {
-  const stations = evaluation.stations.map((s) => adaptStation(s, seed, now));
+export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: string, focus = "MAITRI", resupply?: string): LiveAdaptedEvaluation {
+  const stations = evaluation.stations.map((s) => adaptStation(s, seed, now, resupply));
   const focusEval = evaluation.stations.find((s) => s.nodeId === focus) ?? evaluation.stations[0];
   const maitriStation = stations.find((s) => s.nodeId === focusEval?.nodeId) ?? stations[0]!;
   return {
@@ -282,6 +286,12 @@ export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: str
 }
 
 /** A recorded option in the screen's shape, with the live engine's band and verify flags on top. */
+/** Live verify reasons first; a recorded one that names the same input ("… (79h old)") only with an older age is dropped. */
+export const mergeVerify = (live: string[], recorded: string[]) => {
+  const key = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, "");
+  const seen = new Set(live.map(key));
+  return [...live, ...recorded.filter((t) => !seen.has(key(t)))];
+};
 export function adaptRecordedOption(r: DecisionOptionView, index: number, live: WebOptionEval | undefined): WebOptionEval {
   return {
     id: (r.label?.replace(/[()]/g, "") || String.fromCharCode(97 + index)) as WebOptionEval["id"],
@@ -295,7 +305,7 @@ export function adaptRecordedOption(r: DecisionOptionView, index: number, live: 
     cost: r.cost !== undefined ? formatCost(r.cost, r.costUnit ?? "") : "unknown",
     band: live?.band,
     straddleText: live?.straddleText,
-    requiresVerify: [...new Set([...r.requiresVerify, ...(live?.requiresVerify ?? [])])],
+    requiresVerify: mergeVerify(live?.requiresVerify ?? [], r.requiresVerify),
     reachesTarget: r.reachesTarget ?? r.state === "GREEN",
   };
 }

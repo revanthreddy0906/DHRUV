@@ -209,6 +209,44 @@ const PHASE_BOUNDARIES: PhaseBoundaries = Object.fromEntries(
  */
 const PLAN_FROM = config.season.phases[0]!.start;
 
+/** The horizon a station's requirement runs over. */
+interface SeasonView {
+  boundaries: PhaseBoundaries;
+  /** Start of the requirement and of the reserve-breach walk. */
+  from: string;
+  /** The next resupply: the end of the horizon. */
+  resupplyAt: string;
+  /** True when the scenario sets its own season (Seed.season). */
+  overridden: boolean;
+}
+
+const DEFAULT_RESUPPLY = config.season.horizonAt;
+
+/**
+ * season48 and aurora2016: the fixed plan in config (PLAN_FROM to 20 Nov). A scenario with its own
+ * season (marion2026): from now to the relief vessel's current arrival, so a vessel slip moves the
+ * horizon and the reserve-breach date is counted from today.
+ */
+export function seasonFor(seed: Seed, state: Pick<State, "vessels">, now: string): SeasonView {
+  if (!seed.season) return { boundaries: PHASE_BOUNDARIES, from: PLAN_FROM, resupplyAt: DEFAULT_RESUPPLY, overridden: false };
+  const lastEnd = seed.season.phases.map((p) => p.end).sort().at(-1) ?? now;
+  const resupplyAt = state.vessels.get(seed.season.resupply.vesselId)?.etaStation ?? lastEnd;
+  const boundaries: PhaseBoundaries = {};
+  for (const p of seed.season.phases) {
+    boundaries[p.phase] = { start: p.start, end: p.end < resupplyAt ? p.end : resupplyAt };
+  }
+  return { boundaries, from: now, resupplyAt, overridden: true };
+}
+
+/** The burn rate that applies today: the CLOSING profile under the fixed plan, the phase containing `now` otherwise. */
+function rateToday(seed: Seed, season: SeasonView, item: { itemId: string; rateOverrides?: Record<string, number> }, now: string): number {
+  const profiles = seed.consumption_profiles.filter((cp) => cp.item_id === item.itemId);
+  if (!season.overridden) return item.rateOverrides?.CLOSING ?? profiles.find((cp) => cp.phase === "CLOSING")?.rate_per_day ?? 0;
+  const phase = seed.season!.phases.find((p) => p.start <= now && now < p.end)?.phase;
+  const profile = profiles.find((cp) => cp.phase === phase);
+  return phase ? (item.rateOverrides?.[phase] ?? profile?.rate_per_day ?? 0) : 0;
+}
+
 const lightOf = (ratio: number): Light =>
   ratio >= config.thresholds.green ? "GREEN" : ratio >= config.thresholds.amber ? "AMBER" : "RED";
 
@@ -266,14 +304,17 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
   const diesel = [...state.inventory.values()].find((i) => i.nodeId === nodeId && i.dimension === "FUEL");
   if (!diesel) return null;
   const dieselId = diesel.itemId;
-  const burnUplift = diesel.burnUplift ?? 0;
+  const season = seasonFor(input.seed, state, now);
 
   // Applied levers (R08 effects of approved options). HOLD_VESSEL acts through its follow-ups
-  // (VESSEL_UPDATED), so only levers without a new load cut-off add stock here.
+  // (VESSEL_UPDATED), so only levers without a new load cut-off add stock here. A lever that
+  // changes the burn rate (conserving) scales the requirement, cover and breach date.
   const appliedSave = applied.reduce((s, l) => s + (l.effect.saveRawKl ?? 0), 0);
   const appliedAdd = applied.reduce((s, l) => s + (l.effect.newLoadCutoff ? 0 : (l.effect.addAvailableKl ?? 0)), 0);
+  const appliedUplift = applied.reduce((s, l) => s + (l.effect.burnRateUplift ?? 0), 0);
+  const burnUplift = (diesel.burnUplift ?? 0) + appliedUplift;
 
-  const req0 = computeRequirement(diesel, input.seed.consumption_profiles, PLAN_FROM, PHASE_BOUNDARIES);
+  const req0 = computeRequirement(diesel, input.seed.consumption_profiles, season.from, season.boundaries);
   const rBase = Math.max(0, req0.rBase - appliedSave);
   const r = rBase * (1 + burnUplift) * (1 + diesel.reservePct);
   const reqTrace = appliedSave > 0
@@ -295,8 +336,7 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
     if (vessel) cargoConfidence = checkCargoFeasibilityConfidence(leg.legId, leg.eta, vessel.loadCutoff, legFreshness);
   }
 
-  const closingProfile = input.seed.consumption_profiles.find((cp) => cp.item_id === dieselId && cp.phase === "CLOSING");
-  const rateNow = (diesel.rateOverrides?.CLOSING ?? closingProfile?.rate_per_day ?? 0) * (1 + burnUplift);
+  const rateNow = rateToday(input.seed, season, diesel, now) * (1 + burnUplift);
 
   const fuelConfidence = computeConfidenceBand({
     stock: diesel.stock,
@@ -313,10 +353,11 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
     stock: diesel.stock,
     reservePct: diesel.reservePct,
     burnUplift,
-    now: PLAN_FROM,
-    phaseBoundaries: PHASE_BOUNDARIES,
+    now: season.from,
+    phaseBoundaries: season.boundaries,
     consumptionProfiles: input.seed.consumption_profiles,
     itemId: dieselId,
+    nextResupplyDate: season.resupplyAt,
   });
 
   const trace: TraceStep[] = [
@@ -339,7 +380,7 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
   const appliedIds = new Set(applied.map((l) => l.id));
 
   if (input.seed.levers.length > 0) {
-    levers = catalogueLevers(input.seed.levers, now, nodeId);
+    levers = catalogueLevers(input.seed.levers, now, nodeId, slipTol.reserveBreachDate);
     if (avail.state !== "GREEN") {
       for (const l of levers) trace.push({ rule: "R08", text: l.trace });
       // A lever already applied by an approved decision is not offered again.
@@ -381,10 +422,11 @@ function evaluateFuel(input: EngineInput, state: State, nodeId: string, now: str
           stock: diesel.stock,
           reservePct: diesel.reservePct,
           burnUplift: optUplift,
-          now: PLAN_FROM,
-          phaseBoundaries: PHASE_BOUNDARIES,
+          now: season.from,
+          phaseBoundaries: season.boundaries,
           consumptionProfiles: input.seed.consumption_profiles,
           itemId: dieselId,
+          nextResupplyDate: season.resupplyAt,
         });
         opt.slipTolerance = optSlip;
 
@@ -470,7 +512,9 @@ function evaluateStation(input: EngineInput, state: State, nodeId: string, now: 
   // R19: FOOD from live POB.
   const foodItem = [...state.inventory.values()].find((i) => i.nodeId === nodeId && i.dimension === "FOOD");
   if (foodItem) {
-    const foodReq = computeFoodRequirement({ foodItem, personnel: state.personnel.values(), nodeId, burnUplift: foodItem.burnUplift ?? 0, now });
+    const season = seasonFor(input.seed, state, now);
+    const daysToResupply = season.overridden ? Math.max(0, Math.round((Date.parse(season.resupplyAt) - Date.parse(now)) / 86_400_000)) : undefined;
+    const foodReq = computeFoodRequirement({ foodItem, personnel: state.personnel.values(), nodeId, burnUplift: foodItem.burnUplift ?? 0, now, daysToResupply });
     const foodFreshness = classifyFreshness(foodItem.itemId, "stock", foodItem.lastObservedAt, now);
     dimensions.push({
       key: "FOOD",
@@ -638,12 +682,13 @@ export function fuelRobustness(
   }
 
   const applied = uncertainties.filter((u) => u.target !== "shipmentSlack" || tightest);
+  const season = seasonFor(input.seed, state, now);
   const curve = evaluateBudgetCurve(
     {
       item: diesel,
       consumptionProfiles: input.seed.consumption_profiles,
-      now: PLAN_FROM,
-      phaseBoundaries: PHASE_BOUNDARIES,
+      now: season.from,
+      phaseBoundaries: season.boundaries,
       inboundLeg: tightest?.leg,
       vessel: tightest?.vessel,
       inboundCargoQty: inboundQty,

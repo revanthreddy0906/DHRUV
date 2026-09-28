@@ -139,6 +139,19 @@ export interface Seed {
   }[];
   dependencies: { from_type: string; from_id: string; to_type: string; to_id: string; kind: string }[];
   link_state: { node_id: string; status: "ONLINE" | "DEGRADED" | "OFFLINE"; last_contact: string | null }[];
+  /**
+   * Optional season of a Director scenario. Absent (season48, aurora2016): the requirement runs over
+   * config.season's fixed plan, 24 Jan to the 20 Nov resupply. Present: the requirement and the
+   * reserve-breach walk run from now to the named vessel's current arrival at the station, over
+   * these phases, so a vessel slip moves the horizon (marion2026).
+   */
+  season?: SeasonOverride;
+}
+
+export interface SeasonOverride {
+  phases: { phase: "CLOSING" | "WINTER" | "MOBILISATION"; start: string; end: string }[];
+  /** The relief vessel whose arrival is the next resupply. */
+  resupply: { vesselId: string };
 }
 
 export interface StateResponse {

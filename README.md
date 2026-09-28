@@ -93,6 +93,7 @@ docs/
   data-storage.md   How data is stored: device IndexedDB, outbox, server SQLite log, what is computed
   logistics-landscape.md  How other logistics platforms work, with sources, and what DHRUV adopted
   run-through-aurora-2016.md  A real incident (Aurora Australis aground, 2016) replayed on Maitri, beat by beat
+  run-through-marion-2026.md  A second real incident (Marion Island polar diesel, 2026): the evacuation deadline, beat by beat
 .github/workflows/ci.yml   Node 20: frozen install, typecheck, test, web build
 ```
 
@@ -165,6 +166,8 @@ The demo follows the Build Bible's runbook: a shipment slips, Maitri turns RED, 
 **[docs/demo-run.md](docs/demo-run.md)** lists every beat and exactly what each screen should show (for example "Maitri offline: INC-01, last confirmed 9 h ago, circle 27 km, HX-1 ≈ 11 min").
 
 **A real incident.** The Director's scenario picker also offers **Aurora Australis aground at Mawson (2016)**, replayed on Maitri with the real dates moved to 2027. Its "by hand" steps are done with the Inventory, Decisions and Cargo forms. See **[docs/run-through-aurora-2016.md](docs/run-through-aurora-2016.md)** for the sources, the adaptation and the expected numbers. `pnpm seed aurora2016` starts the server on it.
+
+A second one, **Marion Island polar diesel crisis (2026)**, turns "fuel lasts to about 20 May" into the date an evacuation must start, and shows how conserving moves it. See **[docs/run-through-marion-2026.md](docs/run-through-marion-2026.md)**; `pnpm seed marion2026` starts the server on it.
 
 Controls available in every signed-in tab:
 

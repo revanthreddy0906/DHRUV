@@ -55,4 +55,6 @@ export const LEVER_ACTIONS: Record<string, LeverAction> = {
     ],
   },
   CONSERVE: { hqOnly: false, followUps: [] },
+  // marion2026: evacuating a station is an HQ decision; the voyage and people moves are separate events.
+  EVACUATE: { hqOnly: true, followUps: [] },
 };

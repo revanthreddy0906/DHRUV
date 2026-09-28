@@ -1,5 +1,6 @@
 import type { Seed } from "@dhruv/shared";
 import { AURORA_BEATS, aurora2016Seed } from "./aurora2016.js";
+import { MARION_BEATS, marion2026Seed } from "./marion2026.js";
 import { DIRECTOR_BEATS, type DirectorBeat } from "./director.js";
 import { season48 } from "./season48.js";
 
@@ -39,6 +40,21 @@ export const SCENARIOS: readonly Scenario[] = [
       { label: "24 Feb 09:15", iso: "2027-02-24T09:15:00.000Z" },
       { label: "2 Mar", iso: "2027-03-02T12:00:00.000Z" },
       { label: "12 Mar", iso: "2027-03-12T08:00:00.000Z" },
+    ],
+  },
+  {
+    id: "marion2026",
+    title: "Real incident: Marion Island polar diesel crisis, 2026",
+    blurb: "Adapted from the 2026 Marion Island relief delay: Marion → Maitri, SA Agulhas II → MV Ice Star, dates moved to 2027. Station, vessel and all quantities are illustrative. Sources on each beat.",
+    seed: marion2026Seed,
+    beats: MARION_BEATS,
+    clockJumps: [
+      { label: "1 Apr", iso: "2027-04-01T08:00:00.000Z" },
+      { label: "8 May 06:00", iso: "2027-05-08T06:00:00.000Z" },
+      { label: "9 May", iso: "2027-05-09T10:00:00.000Z" },
+      { label: "14 May", iso: "2027-05-14T09:00:00.000Z" },
+      { label: "18 May", iso: "2027-05-18T06:30:00.000Z" },
+      { label: "27 May", iso: "2027-05-27T16:00:00.000Z" },
     ],
   },
 ];
