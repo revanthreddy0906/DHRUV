@@ -149,8 +149,8 @@ export function exceptionsOf(input: ExceptionInputs): OpsException[] {
       id: "refused", severity: "AMBER", node: "HQ", owners: ["HQ_OPS", "STATION_LEADER", "FIELD_LEAD"],
       title: `${input.refused} event${input.refused === 1 ? "" : "s"} from this device refused by the server`,
       why: "They are not counted in any view.",
-      playbook: ["Open the sync drawer or Where data lives to see the server's reason.", "Record the correct action again."],
-      link: { to: "/data", label: "See why" },
+      playbook: ["Open the sync drawer to see the server's reason.", "Record the correct action again."],
+      link: { to: "/command?sync=1", label: "See why" },
     });
   }
 

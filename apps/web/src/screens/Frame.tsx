@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { STATION_NODES } from "@dhruv/seed";
 import { DhruvShell, TopBar, Sidebar, OfflineBanner, type NavKey, type StationScope } from "../components/shell";
 import { DemoDock } from "../components/DemoDock";
@@ -61,7 +61,9 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
   const [link, setLink] = React.useState(m.link);
   const [role, setRole] = React.useState(m.viewer.role);
   const navigate = useNavigate();
-  const [syncOpen, setSyncOpen] = React.useState(false);
+  // ?sync=1 opens the sync drawer (the "See why" link on refused entries).
+  const [params] = useSearchParams();
+  const [syncOpen, setSyncOpen] = React.useState(() => params.get("sync") === "1");
 
   const chrome = live
     ? { role: live.role, link: live.link, clock: live.clock, pending: live.pending, station: live.station, deviceId: live.deviceId }
