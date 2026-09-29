@@ -94,7 +94,7 @@ export function Frame({ moment, nav, children, drawer, strip, simulation, confli
     <>
       <DhruvShell
         simulation={simulation}
-        top={<TopBar scope={scope} season={`${(live?.phase ?? m.phase).charAt(0)}${(live?.phase ?? m.phase).slice(1).toLowerCase()} phase`} pnr={pnr || undefined} clock={chrome.clock}
+        top={<TopBar scope={scope} pnr={pnr || undefined} clock={chrome.clock}
           sync={{ link: chrome.link, pending: chrome.pending.count, stalled: live?.stalled, syncedAt: live?.lastSync, onOpen: live ? () => setSyncOpen(true) : undefined }}
           user={live ? { role: live.role, station: live.station, deviceId: live.deviceId, onSignOut: live.signOut } : undefined} />}
         banner={banner ?? (offline ? offlineBanner : undefined)}

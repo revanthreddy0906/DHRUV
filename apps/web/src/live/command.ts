@@ -1,8 +1,5 @@
-import { classifyFreshness } from "@dhruv/engine";
-import type { AttentionView, EventView, SeasonView, StationRowView, SummaryView } from "../components/command";
-import type { Freshness } from "../data/types";
-import { DIMENSION_LABEL, drivingDimension, drivingItem, formatAge, formatAgo, formatDate, formatHaveNeed, formatRatio, isAllClear, stationReason, statusLine, timelinePositions } from "../format";
-import { networkView, type NetworkView } from "./network";
+import type { AttentionView, EventView, SeasonView, StationRowView } from "../components/command";
+import { drivingDimension, formatAgo, formatDate, isAllClear, stationReason, statusLine, timelinePositions } from "../format";
 import { nodeLabel, type LiveChrome } from "./chrome";
 import { rankForAttention, type OwnerRole } from "./exceptions";
 import type { LiveOps } from "./ops";
@@ -19,8 +16,6 @@ export interface CommandView {
   attention: AttentionView[];
   season: SeasonView;
   events: EventView[];
-  summary: SummaryView;
-  network?: NetworkView;
 }
 
 const OWNER: Record<OwnerRole, string> = { HQ_OPS: "HQ Ops", STATION_LEADER: "Station Leader", FIELD_LEAD: "Field Lead" };
@@ -35,15 +30,9 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
     // (the catalogued levers are fuel levers; they are no answer to a food or medical shortfall).
     const nextLever = st.state === "GREEN" || drivingDimension(st)?.key !== "FUEL" ? undefined : (st.levers ?? []).map((l) => l.deadline).filter((d) => d >= now).sort()[0];
     const link = live.stations.find((s) => s.node === st.nodeId);
-    // The driving dimension and its amount, only while the station is not GREEN (don't show absence).
-    const d = st.state === "GREEN" ? undefined : drivingDimension(st);
-    const item = d && drivingItem(d);
     return {
       nodeId: st.nodeId,
       name: names[st.nodeId]!,
-      code: names[st.nodeId]!.slice(0, 3).toUpperCase(),
-      critical: d && { label: DIMENSION_LABEL[d.key] ?? d.key, amount: item && item.unit !== "running" && d.key !== "PERSONNEL" && d.key !== "COMMS" ? formatHaveNeed(item.have, item.need, item.unit) : undefined },
-      ratio: d?.ratio != null ? formatRatio(d.ratio) : undefined,
       state: st.state,
       reason: stationReason(st),
       deadline: st.pnr?.pnrDate ? `Point of no return ${formatDate(st.pnr.pnrDate)}` : nextLever ? `Act by ${formatDate(nextLever)}` : undefined,
@@ -72,10 +61,6 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
     ...(showClosing ? [{ key: "closing" as const, at: w.closing }] : []),
   ], now) : [];
   const pct = (k: string) => marks.find((m) => m.key === k)?.pct ?? 0;
-  // How old the vessel's ETA report is: its latest VESSEL_UPDATED, classed by the engine (R12, cargo ETA tier).
-  const vesselId = ops.seed.vessels.find((v) => v.name === w?.name)?.id;
-  const report = vesselId ? ops.events.filter((e) => e.type === "VESSEL_UPDATED" && e.entity_id === vesselId).map((e) => e.observed_at).sort().at(-1) : undefined;
-  const etaAge = report ? { age: formatAge(report, now), freshness: classifyFreshness(vesselId!, "cargoEta", report, now).freshness as Freshness } : undefined;
 
   return {
     // An open incident is the first thing wrong, whatever the stations' readiness says.
@@ -88,8 +73,6 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
       phaseLine: `${sentence(live.phase)} phase. Next resupply ${live.nextResupply}, in ${live.daysToResupply} days.`,
       vessel: w && {
         name: w.name,
-        eta: formatDate(w.etaStation),
-        etaReport: etaAge,
         marks: [
           { key: "cutoff", label: `Cutoff ${formatDate(w.loadCutoff)}`, pct: pct("cutoff"), strong: true },
           { key: "departs", label: `Departs ${formatDate(w.departure)}`, pct: pct("departs") },
@@ -100,12 +83,5 @@ export function liveCommandView(ops: LiveOps, live: LiveChrome): CommandView {
       },
     },
     events: ops.timeline.slice(0, 5).map((e) => ({ id: e.deviceSeq, text: e.summary, device: e.device, age: e.age })),
-    summary: {
-      stations: evaluation.stations.filter((st) => st.state !== "GREEN").length,
-      worst: evaluation.stations.some((st) => st.state === "RED") ? "RED" : evaluation.stations.some((st) => st.state === "AMBER") ? "AMBER" : undefined,
-      incidents: ops.openIncidents.length,
-      decisions: ops.openDecisions.length,
-    },
-    network: networkView(ops.seed, ops.events, evaluation, now),
   };
 }

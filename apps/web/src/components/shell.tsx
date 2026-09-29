@@ -2,7 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import {
   Radar, Scale, Ship, Package, Users, Map as MapIcon, Siren, ScrollText, Wifi, WifiOff, Signal,
-  FlaskConical, TabletSmartphone, RadioTower, Network, LogOut, Building2, Clock3,
+  FlaskConical, TabletSmartphone, RadioTower, Network, LogOut, Building2,
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
@@ -78,7 +78,7 @@ export function SyncIndicator({ link, pending, stalled, syncedAt, onOpen }: { li
     : syncedAt ? `Online · synced ${syncedAt}` : "Online";
   return (
     <button type="button" onClick={onOpen} disabled={!onOpen} aria-live="polite" aria-label={`${text}. Open the sync drawer`}
-      className={cx("flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-sm tabular-nums disabled:cursor-default",
+      className={cx("flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm tabular-nums disabled:cursor-default",
         warn ? "border-transparent bg-warn-tint text-warn" : "border-line text-fg hover:bg-elevated")}>
       <m.Icon size={16} strokeWidth={1.75} aria-hidden />{text}
     </button>
@@ -130,28 +130,12 @@ export type StationScope =
   | { kind: "select"; value?: string; options: { id: string; label: string }[]; onChange: (node: string | undefined) => void }
   | { kind: "fixed"; label: string };
 
-/** The brand block: a copper monogram, the wordmark and what the product is. Sized to sit over the sidebar. */
-export function Brand() {
-  return (
-    <div className="flex w-[216px] shrink-0 items-center gap-3 self-stretch border-r border-line pr-4">
-      <span aria-hidden className="flex size-7 items-center justify-center rounded-sm border border-accent font-mono text-xs font-semibold text-accent">D</span>
-      <span className="leading-tight">
-        <span className="block font-mono text-heading font-semibold tracking-[0.24em] text-fg">DHRUV</span>
-        <span className="block text-xs text-fg-2">Polar operations</span>
-      </span>
-    </div>
-  );
-}
-
 /**
- * One row, 64 px (section 7.1): the brand block over the sidebar, station context and the season,
- * then on the right the PNR pill (only when a point of no return exists), this device's sync, the
- * read-only sim time and the user menu.
+ * One row, 56 px (section 7.1): wordmark, station context, then on the right the PNR pill (only
+ * when a point of no return exists), this device's sync, the read-only sim time and the user menu.
  */
-export function TopBar({ scope, season, pnr, sync, clock, user }: {
+export function TopBar({ scope, pnr, sync, clock, user }: {
   scope: StationScope;
-  /** "Closing phase": the season phase this device's scenario is in (the resupply date sits on the Command Season card). */
-  season?: string;
   pnr?: { date: string; daysLeft: number; href: string };
   sync: React.ComponentProps<typeof SyncIndicator>;
   clock: string;
@@ -159,8 +143,8 @@ export function TopBar({ scope, season, pnr, sync, clock, user }: {
   user?: React.ComponentProps<typeof UserMenu>;
 }) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-chrome px-4">
-      <Brand />
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-4">
+      <span className="font-mono text-heading font-semibold tracking-[0.2em] text-fg">DHRUV</span>
       {scope.kind === "select" ? (
         <select aria-label="Station" value={scope.value ?? ""} onChange={(e) => scope.onChange(e.target.value || undefined)}
           className="h-8 rounded-md border border-line-ctrl bg-surface px-2 text-sm text-fg">
@@ -170,19 +154,16 @@ export function TopBar({ scope, season, pnr, sync, clock, user }: {
       ) : (
         <span className="text-sm font-semibold text-fg">{scope.label}</span>
       )}
-      {/* The season also sits on the Command Season card; on narrower screens the top bar drops it rather than truncate it. */}
-      <div className="min-w-0 flex-1">{season && <span className="hidden truncate text-sm text-fg-2 min-[1360px]:block" title={season}>{season}</span>}</div>
-      <div aria-live="polite" className="shrink-0">
+      <div className="flex-1" />
+      <div aria-live="polite">
         {pnr && (
-          <Link to={pnr.href} className="flex h-8 items-center whitespace-nowrap rounded-md bg-bad-tint px-2.5 text-sm font-semibold text-bad hover:underline">
+          <Link to={pnr.href} className="flex h-8 items-center rounded-md bg-bad-tint px-2.5 text-sm font-semibold text-bad hover:underline">
             Point of no return {pnr.date} · {pnr.daysLeft} {pnr.daysLeft === 1 ? "day" : "days"}
           </Link>
         )}
       </div>
       <SyncIndicator {...sync} />
-      <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-fg-2">
-        <Clock3 size={16} strokeWidth={1.75} aria-hidden />Sim time <span className="font-mono tabular-nums text-fg">{clock}</span>
-      </span>
+      <span className="flex items-baseline gap-1.5 text-sm text-fg-2">Sim time <span className="font-mono tabular-nums text-fg">{clock}</span></span>
       {user ? <UserMenu {...user} /> : (
         <Link to="/login" className="flex h-8 items-center rounded-md border border-line-strong px-2.5 text-sm text-fg-2 hover:text-fg" title="Not signed in: design fixtures, not live data">
           Preview · Sign in
@@ -211,7 +192,7 @@ const ANALYSIS: { key: NavKey; label: string; Icon: typeof Radar }[] = [
 ];
 
 /**
- * 232 px on the chrome ground, in two groups, no footer (section 7.4): who this tab is lives in the user menu, its link in the sync
+ * 220 px, no footer (section 7.4): who this tab is lives in the user menu, its link in the sync
  * indicator. Badges only for what needs action. The Incident item shows only while one is open.
  */
 export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount = 0, onNavigate }: {
@@ -224,7 +205,7 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
       <li key={n.key}>
         <button type="button" aria-current={on ? "page" : undefined} onClick={() => onNavigate?.(n.key)}
           className={cx("flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm",
-            on ? "bg-accent-tint font-semibold text-accent" : inc ? "font-semibold text-bad hover:bg-surface" : "text-fg hover:bg-surface")}>
+            on ? "bg-accent-tint font-semibold text-accent" : inc ? "font-semibold text-bad hover:bg-elevated" : "text-fg hover:bg-elevated")}>
           <n.Icon size={16} strokeWidth={1.75} aria-hidden />
           <span className="flex-1">{n.label}</span>
           {badge > 0 && <span className="text-xs font-semibold tabular-nums text-fg" aria-label={n.key === "decisions" ? `${badge} pending` : `${badge} open conflicts`}>{badge}</span>}
@@ -233,11 +214,10 @@ export function Sidebar({ active, incidentOpen, decisionCount = 0, conflictCount
     );
   };
   return (
-    <nav aria-label="Primary" className="flex w-[232px] shrink-0 flex-col overflow-y-auto border-r border-line bg-chrome px-3 py-4">
-      <p className="px-2.5 pb-1.5 text-xs text-fg-2">Operations</p>
+    <nav aria-label="Primary" className="flex w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface p-2">
       <ul className="space-y-0.5">{NAV.filter((n) => n.key !== "incident" || incidentOpen).map(item)}</ul>
-      <div className="mx-2.5 my-4 border-t border-line" />
-      <p className="px-2.5 pb-1.5 text-xs text-fg-2">Analysis</p>
+      <div className="mx-2.5 my-3 border-t border-line" />
+      <p className="px-2.5 pb-1 text-xs text-fg-2">Analysis</p>
       <ul className="space-y-0.5">{ANALYSIS.map(item)}</ul>
     </nav>
   );
