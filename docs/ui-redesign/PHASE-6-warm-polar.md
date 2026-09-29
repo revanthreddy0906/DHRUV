@@ -29,8 +29,9 @@ kept in `docs/ui-redesign/reference/v0-warm-polar/`. Web-only: no changes to `pa
   - The brand block (copper "D" monogram, DHRUV, "Polar operations") sits over the sidebar.
   - The season phase is shown from 1360 px wide.
   - Sim time has a clock icon.
-- **Sidebar:** 232 px on `chrome`, in two groups, "Operations" and "Analysis". Where data lives
-  joins Analysis.
+- **Sidebar:** 232 px on `chrome`, in two groups, "Operations" and "Analysis". "Where data lives"
+  stays out of the nav, as Medha decided in `57e90f0` (each record shows where its entries are);
+  `/data` still works.
 - **Demo dock:** on `chrome`, still dashed and labelled as not the product.
 
 ### Primitives (`components/primitives.tsx`)
