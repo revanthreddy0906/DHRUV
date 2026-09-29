@@ -29,8 +29,9 @@ kept in `docs/ui-redesign/reference/v0-warm-polar/`. Web-only: no changes to `pa
   - The brand block (copper "D" monogram, DHRUV, "Polar operations") sits over the sidebar.
   - The season phase is shown from 1360 px wide.
   - Sim time has a clock icon.
-- **Sidebar:** 232 px on `chrome`, in two groups, "Operations" and "Analysis". Where data lives
-  joins Analysis.
+- **Sidebar:** 232 px on `chrome`, in two groups, "Operations" and "Analysis". "Where data lives"
+  stays out of the nav, as Medha decided in `57e90f0` (each record shows where its entries are);
+  `/data` still works.
 - **Demo dock:** on `chrome`, still dashed and labelled as not the product.
 
 ### Primitives (`components/primitives.tsx`)
@@ -114,3 +115,23 @@ The signed-out preview builds its network from the season48 Director script repl
   - approval goes through the confirmation dialog.
 - **Behaviour confirmed:** the Decision screen preselects the first option the viewer may approve,
   so a Station Leader lands on Conserve in DEC-MARION.
+
+## Revert, 29 Sep 2026: Medha's layout decisions stand
+
+At the team's request, the parts of this redesign that overrode Medha's Polar light decisions were
+reverted to her version (`2f2155a`). The warm palette, the removal of the synthetic data notice and
+the other screen polish stay.
+
+Reverted:
+- The network map on Command (her rule: the map lives on Map, not duplicated on Command).
+  `live/network.ts`, its tests and `components/network.tsx` are removed.
+- The Command composition: back to the status line, the stations table, then Needs attention beside
+  the Season panel and Recent events. The summary counts and the decision callout are gone (the PNR
+  pill and Needs attention already say it: one fact, one place).
+- The season phase in the top bar (it lives on the Season panel).
+- The stations table columns: Station, State, Reason, Deadline, Link, as she had them.
+- The top bar (56 px, `surface`, wordmark) and the sidebar (220 px, `surface`). The brand block and
+  the grouped chrome ground are removed; `chrome` stays only for the Field Lead header.
+- "Where data lives" stays out of the nav (`57e90f0`).
+
+So the sections of this note above on the chrome and the Command Center describe what was reverted.

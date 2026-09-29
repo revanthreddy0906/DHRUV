@@ -6,7 +6,7 @@
   /* Surfaces */
   --bg: #f3f1eb;
   --surface: #ffffff;
-  --chrome: #fbfaf7; /* top bar, sidebar, demo dock */
+  --chrome: #fbfaf7; /* the Field Lead header */
   --surface-elevated: #e9e6de;
   --border: #d8d5cc;
   --border-strong: #bdb8ac;
@@ -100,12 +100,6 @@
   /* CRITICAL value: the only place the 135° hatch is allowed. */
   .dh-critical {
     background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--state-red) 14%, transparent) 0 6px, transparent 6px 12px);
-  }
-  /* The network schematic's quiet 32 px grid (Command). */
-  .dh-grid {
-    background-image: linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
-    background-size: 32px 32px;
   }
   /* SIMULATION overlay stripes */
   .dh-sim-stripes {
