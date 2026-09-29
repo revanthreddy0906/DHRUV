@@ -1,12 +1,19 @@
 import * as React from "react";
 import { TriangleAlert, Pencil, Plus, ClipboardCheck, ScanEye } from "lucide-react";
 import {
-  MOMENTS, HERO_TRACE, FRESHNESS_TRACE_HQ_2501600, LEVERS, LEVERS_25JAN, OPTIONS_AFTER_SLIP, OPTIONS_HQ_2501600, OPTIONS_HQ_2501620,
+  MOMENTS,
   CARGO_START, CARGO_SLIP, CARGO_2600900, INVENTORY_START, INVENTORY_SLIP, ROLE_COVERAGE, MISSIONS, NAMED_PEOPLE, ASSETS, SK2_CONFLICT,
   EV, SYSTEM_EVENTS, OUTBOX_BEAT9, SYNTHETIC_BANNER, DEVICES, ROUTE_DISTANCES, type MomentId,
 } from "../data/demo";
 import { Frame } from "./Frame";
-import { DecisionDetail } from "../components/decisions";
+import { DecisionScreen } from "../components/decisions";
+import { TraceDrawer } from "../components/trace";
+import { DEVICES as SEED_DEVICES, DIRECTOR_BEATS, IDS as SEED_IDS, season48, type DirectorBeat } from "@dhruv/seed";
+import { evaluate } from "@dhruv/engine";
+import { decisionsView } from "@dhruv/store";
+import { replayBeats } from "../live/beatReplay";
+import { approvalPreview, buildDecisionScreen } from "../live/decisionView";
+import { nodeLabel } from "../live/chrome";
 import { LegTimeline } from "../components/ops";
 import { InventoryRow, RoleCoverage, MissionRow } from "../components/ops";
 import { MapPanel, SchematicMap, LocalAreaMap } from "../components/map";
@@ -16,7 +23,7 @@ import { ReviewQueue, ConflictResolver, SyncDrawer } from "../components/sync";
 import { Button, Card, SectionHeader, Tag, cx, FreshnessChip, StateBadge } from "../components/primitives";
 import { config } from "@dhruv/shared";
 import { FieldFrame, FieldView, type FieldModel } from "../components/field";
-import { checkInStatus, fieldLinkLine } from "../format";
+import { actorLabel, checkInStatus, fieldLinkLine, formatSimClock } from "../format";
 import { CHECKIN_DUE_SOON_MINUTES } from "../ui-config";
 import { DirectorPanel } from "../components/director";
 import { CommandCenter } from "./CommandCenter";
@@ -31,17 +38,40 @@ const Page = ({ title, sub, actions, children }: { title: string; sub?: React.Re
 
 /* ---------- Decision Detail ---------- */
 
+const REFERENCE_MOMENTS = {
+  slip: { upTo: "2", now: "2027-01-24T08:11:00.000Z", where: undefined, viewer: "hq" },
+  // HQ before Maitri's link returns: it holds only what the server wrote (beats 1, 2 and 5).
+  "hq-2501600": { upTo: "9", now: "2027-01-25T16:00:00.000Z", where: ["server"] as DirectorBeat["where"][], viewer: "hq" },
+  "hq-2501620": { upTo: "9", now: "2027-01-25T16:20:00.000Z", where: undefined, viewer: "hq" },
+  "maitri-2501600": { upTo: "8", now: "2027-01-25T16:00:00.000Z", where: undefined, viewer: "maitri" },
+} as const;
+
+const REFERENCE_VIEWERS = {
+  hq: { role: "HQ_OPS", node_id: "HQ", device_id: SEED_DEVICES.HQ_WEB },
+  maitri: { role: "STATION_LEADER", node_id: "MAITRI", device_id: SEED_DEVICES.MAITRI_TAB },
+};
+
+/**
+ * The signed-out design reference for Decision detail: the same screen and view model as a
+ * signed-in device, on the season48 Director script replayed locally through the engine.
+ */
 export function DecisionDetailScreen({ moment = "hq-2501600" }: { moment?: "slip" | "hq-2501600" | "hq-2501620" | "maitri-2501600" }) {
-  const opts = moment === "hq-2501600" ? OPTIONS_HQ_2501600 : moment === "hq-2501620" ? OPTIONS_HQ_2501620 : OPTIONS_AFTER_SLIP;
-  const at25 = moment !== "slip";
-  const trace = moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : HERO_TRACE;
+  const m = REFERENCE_MOMENTS[moment];
+  const identity = REFERENCE_VIEWERS[m.viewer];
+  const [showMath, setShowMath] = React.useState(false);
+  const data = React.useMemo(() => {
+    const events = replayBeats(season48, DIRECTOR_BEATS, { upTo: m.upTo, where: m.where ? [...m.where] : undefined });
+    const decision = decisionsView(events).find((d) => d.id === SEED_IDS.decision1)!;
+    return buildDecisionScreen({
+      decision, events, allEvents: events, pendingIds: new Set(), rejected: new Map(), seed: season48,
+      evaluation: evaluate({ seed: season48, events }, m.now), now: m.now, identity, stationName: nodeLabel,
+    });
+  }, [m, identity]);
+  const effects = Object.fromEntries(data.options.flatMap((o) => Object.entries(o.facts.effects ?? {})));
   return (
-    <Frame moment={moment} nav="decisions">
-      <DecisionDetail id="DEC-01" title="Maitri fuel below required threshold" station="Maitri"
-        current={{ state: "RED", ratio: 0.697, text: "Fuel below required threshold" }}
-        trigger="LEG_DELAYED C-104 L2 · ETA 2 Feb → 7 Feb · feeder vessel delayed · HQ-WEB-01 · 24 Jan 08:10"
-        pnr={{ date: "3 Feb 2027", daysLeft: at25 ? 9 : 10 }} trace={trace} levers={at25 ? LEVERS_25JAN : LEVERS} options={opts}
-        role={MOMENTS[moment].viewer.role} today={at25 ? "25 Jan" : "24 Jan"} />
+    <Frame moment={moment} nav="decisions"
+      drawer={showMath && <TraceDrawer title={`${data.station} · Fuel`} state={data.stationNow.fuelState} subtitle={`As seen by ${identity.device_id} at ${formatSimClock(m.now)}`} steps={data.why} units={data.units} b0={data.b0} onClose={() => setShowMath(false)} />}>
+      <DecisionScreen data={data} viewer={actorLabel(identity.role, identity.device_id)} now={m.now} preview={(levers) => approvalPreview(levers, season48, effects)} onShowMath={() => setShowMath(true)} />
     </Frame>
   );
 }

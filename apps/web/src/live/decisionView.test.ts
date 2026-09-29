@@ -5,38 +5,9 @@ import { withCreatedShipments, type OpEvent, type Seed } from "@dhruv/shared";
 import { decisionsView } from "@dhruv/store";
 import { approvalPreview, buildDecisionScreen, followUpsOf, stationAtApproval } from "./decisionView";
 import { mergeVerify } from "./adapter";
+import { replayBeats } from "./beatReplay";
 
-/**
- * Events as the Director and the server write them: beat events in order, a proposal's options
- * and trace from evaluate() at its time (as engineProposal does), its trigger resolved to the
- * latest matching event.
- */
-function replay(seed: Seed, beats: DirectorBeat[], upTo: string): OpEvent[] {
-  const out: OpEvent[] = [];
-  let seq = 0;
-  for (const b of beats) {
-    for (const e of b.events) {
-      let payload = e.payload;
-      if (b.proposeFromEngine && e.type === "DECISION_PROPOSED") {
-        const trigger = b.resolveTrigger && [...out].reverse().find((x) => x.type === b.resolveTrigger!.type && x.entity_id === b.resolveTrigger!.entity_id);
-        const st = evaluate({ seed: withCreatedShipments(seed, out), events: out }, e.observed_at).stations.find((s) => s.nodeId === b.proposeFromEngine!.node_id)!;
-        payload = {
-          ...payload,
-          trigger_event_id: trigger?.event_id ?? "",
-          options: (st.options ?? []).map((o, i) => ({
-            id: `OPT-${i + 1}`, label: o.label, levers: o.leverIds, deadline: o.deadline, requiresVerify: o.requiresVerify ?? [], ratio: o.ratio, state: o.state, gap: o.gap,
-            reaches_target: o.reachesTarget, binding_lever: o.bindingLeverId, slack_days: o.slackDays, cost: o.cost, cost_unit: o.costUnit,
-          })),
-          trace: st.dimensions.find((d) => d.key === "FUEL")?.trace ?? [],
-        };
-      }
-      seq++;
-      out.push({ ...e, payload, event_id: `ev-${seq}`, seq, created_at_client: e.observed_at, priority: 3, schema_version: 1 } as OpEvent);
-    }
-    if (b.beat === upTo) break;
-  }
-  return out;
-}
+const replay = (seed: Seed, beats: DirectorBeat[], upTo: string) => replayBeats(seed, beats, { upTo });
 
 /** An approval as the server writes it (device SERVER), with the levers' follow-ups. */
 function approve(events: OpEvent[], opts: { id: string; option: string; approver: string; at: string; levers: string[]; role?: string; device?: string }): OpEvent[] {
@@ -74,7 +45,7 @@ describe("season48 DEC-01 awaiting a decision (after beat 2)", () => {
   it("leads with the question and the engine's point of no return", () => {
     expect(s.phase).toBe("AWAITING");
     expect(s.title).toBe("Maitri fuel below requirement");
-    expect(s.deadline).toEqual({ text: "Decide by 3 Feb · 10 days" });
+    expect(s.deadline?.text).toBe("Decide by 3 Feb · 10 days");
     expect(s.pnr).toBe("2027-02-03T00:00:00.000Z");
   });
 
@@ -108,6 +79,7 @@ describe("season48 DEC-01 awaiting a decision (after beat 2)", () => {
 
   it("explains with the live fuel trace", () => {
     expect(s.why.some((t) => t.rule === "R03" && t.text.includes("0.6970"))).toBe(true);
+    expect(s.b0).toMatch(/^Baseline B0: 92.0 kL/);
   });
 
   it("blocks a Station Leader from vessel options and from rejecting, with the reason", () => {

@@ -62,14 +62,26 @@ export function daysText(n: number): string {
   return `${n} day${n === 1 ? "" : "s"}`;
 }
 
+export interface DeadlineHeadline {
+  /** A sentence before the deadline, when no option restores GREEN. */
+  lead?: string;
+  /** The whole line: "Decide by 3 Feb · 10 days". */
+  text: string;
+  /** Its parts, so the date can be set as a number: "Decide by", "3 Feb", "· 10 days". */
+  prefix: string;
+  date: string;
+  after: string;
+}
+
 /**
  * The header's deadline (the most prominent element): the engine's point of no return, else the
  * top-ranked option's own deadline when no option restores GREEN.
  */
-export function deadlineHeadline(input: { now: string; pnr?: { date: string; daysLeft?: number } | null; top?: { label: string; deadline: string } }): { lead?: string; text: string } | undefined {
+export function deadlineHeadline(input: { now: string; pnr?: { date: string; daysLeft?: number } | null; top?: { label: string; deadline: string } }): DeadlineHeadline | undefined {
   const { now, pnr, top } = input;
-  if (pnr) return { text: `Decide by ${formatDate(pnr.date)} · ${daysText(pnr.daysLeft ?? daysUntil(now, pnr.date))}` };
-  if (top) return { lead: "No option restores GREEN on its own", text: `Act by ${formatDate(top.deadline)} (option ${top.label}) · ${daysText(daysUntil(now, top.deadline))}` };
+  const make = (prefix: string, iso: string, after: string, lead?: string): DeadlineHeadline => ({ lead, prefix, date: formatDate(iso), after, text: `${prefix} ${formatDate(iso)} ${after}` });
+  if (pnr) return make("Decide by", pnr.date, `· ${daysText(pnr.daysLeft ?? daysUntil(now, pnr.date))}`);
+  if (top) return make("Act by", top.deadline, `(option ${top.label}) · ${daysText(daysUntil(now, top.deadline))}`, "No option restores GREEN on its own");
   return undefined;
 }
 
@@ -187,7 +199,7 @@ export interface OptionFacts {
 }
 
 export type CellTone = "amber" | "red" | "green";
-export interface Cell { text: string; sub?: string; tone?: CellTone; state?: Light; mono?: boolean }
+export interface Cell { text: string; sub?: string; tone?: CellTone; state?: Light }
 export interface CompareRow { key: string; label: string; cells: Cell[]; differs: boolean }
 
 /** "19.5 lakh INR", "none (comfort and ops impact)". Costs are synthetic (section 13). */
@@ -219,10 +231,10 @@ export function compareRows(options: OptionFacts[], now: string, names: Record<s
     row("fuel", "Fuel after", (o) => {
       const margin = o.unit ? formatMargin(o.available, o.required, o.unit) : undefined;
       const gap = !margin && o.gap && o.gap > 0 ? `−${formatQty(o.gap, o.unit ?? "kL")} short` : undefined;
-      return { text: margin ?? gap ?? formatRatio(o.ratio), sub: margin || gap ? `ratio ${formatRatio(o.ratio)}` : undefined, state: o.state, mono: true };
+      return { text: margin ?? gap ?? formatRatio(o.ratio), sub: margin || gap ? `ratio ${formatRatio(o.ratio)}` : undefined, state: o.state };
     }),
     row("deadline", "Last date to act", (o) => (o.deadline
-      ? { text: `${formatDate(o.deadline)} · ${daysText(daysUntil(now, o.deadline))}`, sub: o.bindingLever && o.levers.length > 1 ? `set by ${leverName(o.bindingLever).toLowerCase()}` : undefined, mono: true }
+      ? { text: `${formatDate(o.deadline)} · ${daysText(daysUntil(now, o.deadline))}`, sub: o.bindingLever && o.levers.length > 1 ? `set by ${leverName(o.bindingLever).toLowerCase()}` : undefined }
       : { text: "unknown" })),
     row("slack", "Slack", (o) => ({ text: slackText(o.slackDays, o.slackLeg), tone: o.slackDays !== null && o.slackDays <= 0 ? "amber" : undefined })),
     row("cost", "Cost (synthetic)", (o) => ({ text: costText(o.cost, o.costUnit) })),

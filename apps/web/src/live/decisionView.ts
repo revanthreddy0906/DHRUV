@@ -3,9 +3,9 @@ import { LEVER_ACTIONS } from "@dhruv/seed";
 import { evaluate, type Evaluation, type RankedOption, type StationEval } from "@dhruv/engine";
 import type { DecisionOptionView, DecisionView } from "@dhruv/store";
 import {
-  actorLabel, appliedLeversSentence, compareRows, consequenceChain, deadlineHeadline, decisionPhase, expiredText, followUpSentence, formatDate, formatDateTime,
+  actorLabel, appliedLeversSentence, b0Line, compareRows, consequenceChain, deadlineHeadline, decisionPhase, expiredText, followUpSentence, formatDate, formatDateTime,
   leverEffect, optionName, rankingReason, triggerPhrase, verifySentence,
-  type CompareRow, type DecisionPhase, type EngineStep, type OptionFacts, type RankCategory,
+  type CompareRow, type DeadlineHeadline, type DecisionPhase, type EngineStep, type OptionFacts, type RankCategory,
 } from "../format";
 import { approveReason } from "./ops";
 
@@ -51,7 +51,7 @@ export interface DecisionScreenData {
   waiting: boolean;
   /** A decision recorded on this device that the server refused; the decision is still open. */
   refused?: string;
-  deadline?: { lead?: string; text: string };
+  deadline?: DeadlineHeadline;
   /** ISO point of no return used on the timeline (live while awaiting). */
   pnr?: string;
   stationNow: { state: Light; fuelRatio: number | null; fuelState?: Light };
@@ -64,6 +64,8 @@ export interface DecisionScreenData {
   /** Engine steps for "Why the engine says this" (live while awaiting, recorded once decided). */
   why: EngineStep[];
   units: Record<string, string>;
+  /** The B0 footer for the trace drawer (awaiting only). */
+  b0?: string;
   outcome?: { title: string; actor?: string; at?: string; verified?: boolean; reason?: string };
   /** What the approval recorded (follow-up events) or, for engine-only levers, what it applied. */
   didLines: string[];
@@ -327,6 +329,7 @@ export function buildDecisionScreen(input: DecisionScreenInput): DecisionScreenD
     levers,
     why: awaiting ? (liveFuel?.trace ?? []) : recordedSteps,
     units: Object.fromEntries((liveFuel?.items ?? []).map((i) => [i.id, i.unit])),
+    b0: awaiting && liveFuel?.baselineB0 ? b0Line(liveFuel.baselineB0) : undefined,
     outcome,
     didLines,
     atApproval,

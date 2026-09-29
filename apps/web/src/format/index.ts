@@ -21,5 +21,5 @@ export {
 export {
   actorLabel, appliedLeversSentence, compareRows, consequenceChain, costText, daysText, daysUntil, deadlineHeadline, decisionPhase, expectedResultText, expiredText, followUpSentence,
   lastActDate, leverAxis, leverEffect, leverName, markerAlign, optionName, parseVerify, rankingReason, slackText, triggerPhrase, verifyInputs, verifySentence,
-  type Cell, type CellTone, type CompareRow, type DecisionPhase, type LeverAxis, type OptionFacts, type RankCategory, type VerifyInput,
+  type Cell, type CellTone, type CompareRow, type DeadlineHeadline, type DecisionPhase, type LeverAxis, type OptionFacts, type RankCategory, type VerifyInput,
 } from "./decision";

@@ -33,12 +33,15 @@ describe("deadlines", () => {
     expect(daysText(-2)).toBe("2 days ago");
   });
   it("leads with the PNR when there is one", () => {
-    expect(deadlineHeadline({ now: NOW, pnr: { date: "2027-02-03T00:00:00.000Z", daysLeft: 10 } })).toEqual({ text: "Decide by 3 Feb · 10 days" });
+    expect(deadlineHeadline({ now: NOW, pnr: { date: "2027-02-03T00:00:00.000Z", daysLeft: 10 } })).toEqual({ text: "Decide by 3 Feb · 10 days", prefix: "Decide by", date: "3 Feb", after: "· 10 days" });
   });
   it("falls back to the top-ranked option's deadline when no option restores GREEN", () => {
     expect(deadlineHeadline({ now: "2027-02-26T15:00:00.000Z", pnr: null, top: { label: "(a)", deadline: "2027-03-02T00:00:00.000Z" } })).toEqual({
       lead: "No option restores GREEN on its own",
       text: "Act by 2 Mar (option (a)) · 4 days",
+      prefix: "Act by",
+      date: "2 Mar",
+      after: "(option (a)) · 4 days",
     });
   });
 });

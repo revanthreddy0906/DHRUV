@@ -107,8 +107,11 @@
   @keyframes dh-cascade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   .dh-drain-out { animation: dh-drain var(--dur-slow) ease-in both; }
   @keyframes dh-drain { to { opacity: 0; transform: translateX(24px); } }
+  /* A dialog the user opened (the approval confirmation): opacity only, 150 ms. */
+  .dh-fade-in { animation: dh-fade 150ms ease-out both; }
+  @keyframes dh-fade { from { opacity: 0; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
-    .dh-cascade-in, .dh-drain-out { animation: none; }
+    .dh-cascade-in, .dh-drain-out, .dh-fade-in { animation: none; }
     * { transition-duration: 0ms !important; }
   }
 }
