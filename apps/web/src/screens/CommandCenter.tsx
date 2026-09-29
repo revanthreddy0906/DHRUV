@@ -138,7 +138,7 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
         <PageHeader title="Command center" subtitle="Is anything wrong, what must be decided by when, and how the stations are." actions={<SummaryCounts summary={view.summary} />} />
         <StatusLine text={view.status} />
         {view.incident && <IncidentStrip title={view.incident.title} confirmed={view.incident.confirmed} to="/incident" />}
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)_minmax(0,0.9fr)]">
+        <div className="grid items-start gap-6 xl:grid-cols-2 min-[87.5rem]:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)_minmax(0,0.9fr)]">
           <NeedsAttention items={view.attention} allClear={view.allClear} />
           {view.network && (
             <Card heading="Network position" pad="none" meta={`${view.network.nodes.filter((n) => n.kind === "station").length} stations · ${view.network.nodes.filter((n) => n.kind === "team").length} team`}>
@@ -146,7 +146,8 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
               <p className="border-t border-line px-4 py-2 text-xs text-fg-2">Solid lines are supply legs; dashed in a state colour, a delayed leg or an overdue team. Select a station to open it.</p>
             </Card>
           )}
-          <div className="space-y-6">
+          {/* Beside the band on wide screens; below 1400 px the two cards sit side by side under it. */}
+          <div className="grid items-start gap-6 xl:col-span-2 xl:grid-cols-2 min-[87.5rem]:col-span-1 min-[87.5rem]:grid-cols-1">
             <RecentEvents events={view.events} />
             <SeasonPanel season={view.season} />
           </div>

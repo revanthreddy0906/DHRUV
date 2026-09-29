@@ -1,7 +1,7 @@
 import * as React from "react";
-import { Sigma } from "lucide-react";
+import { ArrowRight, Sigma } from "lucide-react";
 import type { DimensionEval } from "@dhruv/engine";
-import type { Freshness, MissionEval } from "../data/types";
+import type { Freshness, Health, MissionEval } from "../data/types";
 import { DIMENSION_LABEL, dimensionHeadline, dimensionReason, formatAge, formatRatio } from "../format";
 import { cx, FreshnessChip, StateBadge } from "./primitives";
 
@@ -81,5 +81,19 @@ export function Disclosure({ title, children }: { title: string; children: React
       </summary>
       <div className="space-y-4 border-t border-line p-4">{children}</div>
     </details>
+  );
+}
+
+/** v2 C8 / R18: the stock-table baseline shown next to the engine. */
+export function BaselineB0Badge({ alerts, engineState, text }: { alerts: number; engineState: Health; text: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-line-strong px-2 py-1.5 text-xs">
+      <span className="font-mono font-semibold text-fg-2">B0</span>
+      <span className="text-fg-2">{text}</span>
+      <ArrowRight size={12} className="text-fg-2" aria-hidden />
+      <span className="text-fg-2">Engine:</span>
+      <StateBadge state={engineState} size="sm" />
+      {alerts === 0 && engineState !== "GREEN" && <span className="text-fg-2">A stock table sees nothing; the engine sees the missed cutoff.</span>}
+    </div>
   );
 }

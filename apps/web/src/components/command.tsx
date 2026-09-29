@@ -153,7 +153,7 @@ export function StationsTable({ rows, className, onShowMath }: {
                   {onShowMath && r.state !== "GREEN" && (
                     <button type="button" onClick={() => onShowMath(r.nodeId)} aria-label={`Show the math: ${r.name}`}
                       className="mr-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold text-accent hover:bg-accent-tint">
-                      <Sigma size={16} strokeWidth={1.75} aria-hidden />Show the math
+                      <Sigma size={16} strokeWidth={1.75} aria-hidden /><span className="hidden min-[87.5rem]:inline">Show the math</span>
                     </button>
                   )}
                   {r.href && (
@@ -236,13 +236,13 @@ export function NeedsAttention({ items, allClear, className }: { items: Attentio
 const LANE = ["bottom-4", "top-4", "bottom-9", "top-9"] as const;
 /**
  * Alternate labels above and below the line (season48's layout); a label that would overprint a
- * neighbour within 30 % in its row moves to the next free row. "Now" sits in the first row above.
+ * neighbour within 45 % in its row moves to the next free row (the card can be narrow). "Now" sits in the first row above.
  */
 function labelLanes(pcts: number[], nowPct: number): number[] {
   const last: number[] = [nowPct, -Infinity, -Infinity, -Infinity];
   return pcts.map((p, i) => {
     const order = i % 2 ? [1, 0, 3, 2] : [0, 1, 2, 3];
-    const lane = order.find((l) => Math.abs(p - last[l]!) >= 30) ?? order[0]!;
+    const lane = order.find((l) => Math.abs(p - last[l]!) >= 45) ?? order[0]!;
     last[lane] = p;
     return lane;
   });
