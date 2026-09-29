@@ -6,17 +6,7 @@ import {
 } from "lucide-react";
 import { cx } from "./primitives";
 import type { LinkStatus, Role } from "../data/types";
-import { ROLE_LABEL, SYNTHETIC_BANNER } from "../data/demo";
-
-/* ---------- Banner ---------- */
-
-export function SyntheticDataBanner() {
-  return (
-    <div role="note" className="flex h-7 shrink-0 items-center justify-center border-b border-line bg-elevated text-xs text-fg-2">
-      {SYNTHETIC_BANNER}
-    </div>
-  );
-}
+import { ROLE_LABEL } from "../data/demo";
 
 /* ---------- Link switch ---------- */
 
@@ -298,7 +288,6 @@ export function DhruvShell({ top, sidebar, banner, strip, children, drawer, simu
   return (
     <div className="relative flex flex-col overflow-hidden bg-bg text-fg" style={{ width, height }}>
       {top}
-      <SyntheticDataBanner />
       {banner}
       <div className="flex min-h-0 flex-1">
         {sidebar}

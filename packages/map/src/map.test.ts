@@ -89,7 +89,7 @@ describe("schematic fallback (no tiles)", () => {
     expect(svg).toContain("HX-1 ~11 min");
     expect(svg).toContain("SK-2: status conflict, kept DOWN");
     expect(svg).toContain("SK-2 (Skidoo) · 29 h ago · conflict");
-    expect(svg).toContain("Synthetic demonstration data");
+    expect(svg).toContain("Schematic (map tiles unavailable)");
     expect(svg).not.toMatch(/\blive\b/i);
   });
 

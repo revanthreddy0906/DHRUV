@@ -30,7 +30,7 @@
       {
         "name": "surface-elevated",
         "value": "#e9e6de",
-        "usage": "Table headers, the synthetic-data banner, hover fills, secondary buttons."
+        "usage": "Table headers, hover fills, secondary buttons."
       },
       {
         "name": "border",

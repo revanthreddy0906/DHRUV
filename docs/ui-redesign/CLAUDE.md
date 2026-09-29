@@ -103,7 +103,7 @@ only the theme file.
 | `bg` | `#f3f1eb` | App background (warm ivory) | – |
 | `chrome` | `#fbfaf7` | Top bar, sidebar, Demo dock | – |
 | `surface` | `#ffffff` | Cards, panels, drawers | – |
-| `surface-elevated` | `#e9e6de` | Table headers, hover, secondary buttons, synthetic notice | – |
+| `surface-elevated` | `#e9e6de` | Table headers, hover, secondary buttons | – |
 | `border` | `#d8d5cc` | Hairlines, card outlines | – |
 | `border-strong` | `#bdb8ac` | Secondary button outline, timeline connectors, gridlines | – |
 | `border-control` | `#7a7468` | Inputs, selects, checkboxes | 4.6 / 4.1 |
@@ -250,11 +250,11 @@ Left to right:
 Remove from the top bar: the role switcher, Online/Degraded/Offline switch, "SIMULATED LINK",
 +1 h / +6 h / +30 h, Reset, and the "DEMO" tag. All of these move to the Demo dock.
 
-### 7.2 Synthetic data notice
+### 7.2 Synthetic data notice (removed)
 
-One slim line (28 px, `surface-elevated`, 12 px text, centred) under the top bar:
-"Synthetic demonstration data. Not operational NCPOR data." Keep it on every screen. It is a
-note, not a warning: no icon colour.
+The slim "Synthetic demonstration data. Not operational NCPOR data." line under the top bar was
+removed on 29 Sep 2026 at the team's request, on every screen including login, the Field Lead
+view and the fallback map caption. Do not add it back.
 
 ### 7.3 Demo dock (new component `DemoDock`)
 
@@ -295,7 +295,7 @@ note, not a warning: no icon colour.
 
 ### 7.5 Offline banner
 
-When this device is Offline, show one amber line under the synthetic notice:
+When this device is Offline, show one amber line under the top bar:
 "Offline. Local operations active. 5 events pending, oldest 6 h 50 m."
 It is the only other full-width strip allowed.
 

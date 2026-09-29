@@ -177,7 +177,7 @@ export function renderSchematicSvg(model: MapModel, options: SchematicOptions = 
   const header = focus ? `${focus.incident_id} · ${focus.ageLabel}${focus.uncertaintyKm !== null ? ` · circle ${Math.round(focus.uncertaintyKm)} km` : ""}` : "Map";
   parts.push(`<text x="12" y="20">${esc(header)}</text>`);
   let y = height - 12;
-  parts.push(`<text x="12" y="${y}" class="muted caption">Schematic (map tiles unavailable) · Synthetic demonstration data. Not operational NCPOR data.</text>`);
+  parts.push(`<text x="12" y="${y}" class="muted caption">Schematic (map tiles unavailable)</text>`);
   for (const ex of focus?.nearest.excluded ?? []) {
     y -= 16;
     parts.push(`<text x="12" y="${y}" class="muted caption">${esc(`${ex.asset_id}: ${ex.reason}`)}</text>`);

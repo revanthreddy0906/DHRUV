@@ -3,7 +3,7 @@ import { CircleAlert, CircleCheck, CloudUpload, OctagonAlert, Signal, TriangleAl
 import type { CheckInStatus } from "../format";
 import type { LinkStatus, Role } from "../data/types";
 import { cx } from "./primitives";
-import { SyntheticDataBanner, UserMenu } from "./shell";
+import { UserMenu } from "./shell";
 
 /**
  * Field Lead mobile view (SPEC B): outdoors, gloves, glare, one hand, mostly offline. Presentational
@@ -194,7 +194,6 @@ export function FieldView({ model }: { model: FieldModel }) {
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-bg text-fg">
       <Header model={model} />
-      <SyntheticDataBanner />
       <main className="flex-1 space-y-4 overflow-auto p-4">
         <CheckInCard checkIn={model.checkIn} />
         {model.mission && <MissionCard mission={model.mission} />}

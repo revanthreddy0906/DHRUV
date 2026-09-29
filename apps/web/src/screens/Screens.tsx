@@ -3,7 +3,7 @@ import { TriangleAlert, Pencil, Plus, ClipboardCheck, ScanEye } from "lucide-rea
 import {
   MOMENTS,
   CARGO_START, CARGO_SLIP, CARGO_2600900, INVENTORY_START, INVENTORY_SLIP, ROLE_COVERAGE, MISSIONS, NAMED_PEOPLE, ASSETS, SK2_CONFLICT,
-  EV, SYSTEM_EVENTS, OUTBOX_BEAT9, SYNTHETIC_BANNER, DEVICES, ROUTE_DISTANCES, type MomentId,
+  EV, SYSTEM_EVENTS, OUTBOX_BEAT9, DEVICES, ROUTE_DISTANCES, type MomentId,
 } from "../data/demo";
 import { Frame } from "./Frame";
 import { DecisionScreen } from "../components/decisions";
@@ -291,7 +291,6 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg text-fg">
-      <div role="note" className="flex h-7 items-center justify-center border-b border-line bg-elevated text-xs text-fg-2">{SYNTHETIC_BANNER}</div>
       <div className="flex flex-1 items-center justify-center">
         <form className="w-[440px] rounded-lg border border-line bg-surface p-7" onSubmit={submit}>
           <div className="mb-6">

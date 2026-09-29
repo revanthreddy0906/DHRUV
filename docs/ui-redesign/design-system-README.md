@@ -5,7 +5,7 @@ The UI renders the output of one deterministic `evaluate(state, now)` engine. Co
 ## Content fundamentals
 
 - Name the product **DHRUV**, in capitals, set in `wordmark`. No logo exists; do not draw one.
-- Every screen carries `SyntheticDataBanner`: "Synthetic demonstration data. Not operational NCPOR data." It is a transparency note, never an error.
+- The `SyntheticDataBanner` line was removed on 29 Sep 2026 at the team's request (see CLAUDE.md 7.2).
 - Voice: plain operational English, sentence case, third person, no exclamation marks, no emoji. Numbers first, then the reason: "Fuel: C-104 misses vessel cutoff".
 - Use these phrases verbatim: "Fuel below required threshold." "Could be AMBER." "Verify before acting." "Point of no return." "Cargo excluded by vessel cutoff." "Decision required." "Local operations active." "4 events pending." "Last confirmed 9 h ago." "No active decisions. All monitored stations are within their thresholds."
 - Never write: "Oops", "Something went wrong", "AI says", "AI recommends", "Smart recommendation", "Optimize now", "live position" (unless under 1 h old), "first", "only", "real-time".
@@ -35,7 +35,7 @@ The UI renders the output of one deterministic `evaluate(state, now)` engine. Co
 
 **Spacing and shape.** 4 px scale (`space-1` … `space-6`). Cards pad `space-4`; station cards and large panels `space-5`. Radius `radius-sm` for tags and chips, `radius-md` for buttons and chips, `radius-lg` (12 px, the maximum) for cards and drawers.
 
-**Layout.** Desktop is designed at 1440 × 900. Command Center zones are locked: full-width top strip (`PnrStrip`); left column 30 % (`DecisionQueue`, then `RiskList`); centre 45 % (`StationCard` Maitri and Bharati, or `IncidentPanel` in emergency mode); right 25 % (mini `SchematicMap`, `EventTimeline`); bottom comms and sync strip. Chrome on every screen: `TopBar`, `SyntheticDataBanner`, `Sidebar`, and `SimulationOverlay` whenever the what-if drawer shows hypothetical results. Offline adds `OfflineBanner` under the banner.
+**Layout.** Desktop is designed at 1440 × 900. Command Center zones are locked: full-width top strip (`PnrStrip`); left column 30 % (`DecisionQueue`, then `RiskList`); centre 45 % (`StationCard` Maitri and Bharati, or `IncidentPanel` in emergency mode); right 25 % (mini `SchematicMap`, `EventTimeline`); bottom comms and sync strip. Chrome on every screen: `TopBar`, `Sidebar`, and `SimulationOverlay` whenever the what-if drawer shows hypothetical results. Offline adds `OfflineBanner` under the top bar.
 
 **Motion.** 150–250 ms transitions. The cascade reveals one step every 250 ms (`--cascade-step`) in propagation order (leg → cutoff → inbound excluded → ratio → station RED → F-27 AT_RISK) while `TraceDrawer` fills at the same pace. Sync drain removes items one by one in (priority, seq) order. `prefers-reduced-motion` shows the end state at once. No decorative animation.
 
