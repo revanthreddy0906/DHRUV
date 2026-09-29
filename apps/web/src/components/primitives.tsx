@@ -138,10 +138,44 @@ export function UnknownValue({ what }: { what: string }) {
 
 /* ---------- Surfaces ---------- */
 
-export function Card({ children, className, pad = "md", as: As = "section", ...rest }: { children: React.ReactNode; className?: string; pad?: "none" | "sm" | "md" | "lg"; as?: any } & React.HTMLAttributes<HTMLElement>) {
+/**
+ * A card. With `heading` it gets the header bar (title at left, `meta` and `action` at right, a
+ * hairline below) and its body takes the padding.
+ */
+export function Card({ children, className, pad = "md", as: As = "section", heading, meta, action, bodyClassName, ...rest }: {
+  children: React.ReactNode; className?: string; pad?: "none" | "sm" | "md" | "lg"; as?: any;
+  heading?: React.ReactNode; meta?: React.ReactNode; action?: React.ReactNode; bodyClassName?: string;
+} & Omit<React.HTMLAttributes<HTMLElement>, "title">) {
   const p = { none: "", sm: "p-3", md: "p-4", lg: "p-5" }[pad];
-  return <As className={cx("rounded-lg border border-line bg-surface", p, className)} {...rest}>{children}</As>;
+  if (heading === undefined) return <As className={cx("rounded-lg border border-line bg-surface", p, className)} {...rest}>{children}</As>;
+  return (
+    <As className={cx("overflow-hidden rounded-lg border border-line bg-surface", className)} {...rest}>
+      <header className="flex min-h-12 items-center gap-3 border-b border-line px-4 py-2.5">
+        <h2 className="min-w-0 flex-1 text-heading font-semibold text-fg">{heading}</h2>
+        {meta && <span className="text-xs text-fg-2">{meta}</span>}
+        {action}
+      </header>
+      <div className={cx(p, bodyClassName)}>{children}</div>
+    </As>
+  );
 }
+
+/** The top of every screen: title, one plain sentence under it, and the screen's actions at the right. */
+export function PageHeader({ title, subtitle, actions, children }: { title: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <div className="min-w-0 flex-1">
+        <h1 className="text-title font-semibold text-fg">{title}</h1>
+        {subtitle && <p className="mt-1 max-w-[100ch] text-sm text-fg-2">{subtitle}</p>}
+        {children}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </header>
+  );
+}
+
+/** One look for every input and select (h-9, the control border, white ground). */
+export const FIELD = "h-9 rounded-md border border-line-ctrl bg-surface px-2 text-sm text-fg";
 
 export function SectionHeader({ title, meta, action, className }: { title: string; meta?: React.ReactNode; action?: React.ReactNode; className?: string }) {
   return (

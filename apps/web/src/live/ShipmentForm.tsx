@@ -1,7 +1,7 @@
 import * as React from "react";
 import { STATION_NODES } from "@dhruv/seed";
 import type { PayloadOf, Seed } from "@dhruv/shared";
-import { Button, Card, Checkbox, SectionHeader } from "../components/primitives";
+import { Button, Card, Checkbox, SectionHeader, FIELD } from "../components/primitives";
 import { nodeLabel } from "./chrome";
 import { dayLabel } from "./describe";
 import { parseEtaInput } from "./format";
@@ -66,7 +66,7 @@ export function buildShipment(
   };
 }
 
-const field = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg";
+const field = FIELD;
 
 /**
  * HQ Ops creates an inbound shipment: one SHIPMENT_CREATED event through device.write(). The list

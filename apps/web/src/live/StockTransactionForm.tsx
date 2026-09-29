@@ -1,7 +1,7 @@
 import * as React from "react";
 import { EVENT_RULES, type OpEvent, type Seed } from "@dhruv/shared";
 import type { Evaluation } from "@dhruv/engine";
-import { Button, Card, SectionHeader } from "../components/primitives";
+import { Button, Card, SectionHeader, FIELD } from "../components/primitives";
 import type { InventoryView } from "../data/demo";
 import { WriteFeedback, useEventWriter } from "./writeStatus";
 import { findItem, useConsequencePreview } from "./useConsequencePreview";
@@ -34,7 +34,7 @@ export function validateStock(action: StockType, qtyInput: string, reason: strin
   return errors;
 }
 
-const input = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg";
+const input = FIELD;
 
 /**
  * One transaction card for a station's stock: Item, Action, Quantity (and Reason / Shipment), Submit.

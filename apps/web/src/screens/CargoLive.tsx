@@ -123,7 +123,7 @@ export function LiveCargoScreen() {
             <SectionHeader title={`Edit ETA · ${target?.id ?? ""} ${targetLeg ? `${nodeLabel(targetLeg.from_node)} → ${nodeLabel(targetLeg.to_node)}` : ""} · consequence preview`} />
             <form onSubmit={record} className="flex flex-wrap items-center gap-4">
               <label className="text-xs text-fg-2">Shipment{" "}
-                <select value={target?.id} onChange={(e) => setShipmentId(e.target.value)} className="ml-2 h-8 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-sm text-fg">
+                <select value={target?.id} onChange={(e) => setShipmentId(e.target.value)} className="ml-2 h-9 rounded-md border border-line-ctrl bg-surface px-2 font-mono text-sm text-fg">
                   {seed.shipments.map((s) => <option key={s.id} value={s.id}>{s.id}</option>)}
                 </select>
               </label>

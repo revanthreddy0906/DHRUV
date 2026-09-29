@@ -1,7 +1,7 @@
 import * as React from "react";
 import { EVENT_RULES, PERSON_STATUSES, type EventType } from "@dhruv/shared";
 import { NODES } from "@dhruv/seed";
-import { Button, Card, SectionHeader } from "../components/primitives";
+import { Button, Card, SectionHeader, FIELD } from "../components/primitives";
 import { nodeLabel } from "./chrome";
 import { parseEtaInput } from "./format";
 import { WriteFeedback, useEventWriter } from "./writeStatus";
@@ -30,7 +30,7 @@ export function personActionsFor(role: string) {
 /** Nodes a person can be moved to: every expedition node except where they are now. */
 export const MOVE_TARGETS = [NODES.MAITRI, NODES.BHARATI, NODES.CAPE_TOWN, NODES.HQ];
 
-const field = "h-8 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg";
+const field = FIELD;
 
 /**
  * Person, Action, then only the fields that action's payload needs. Writes PERSON_STATUS_SET or
