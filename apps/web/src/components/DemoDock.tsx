@@ -40,7 +40,7 @@ export function DemoDock({ role, link, onRoleChange, onLinkChange, onJump, onJum
     if (role === "FIELD_LEAD") return null;
     return (
       <button type="button" onClick={() => setOpen(true)} aria-expanded={false} aria-keyshortcuts="Shift+D"
-        className="fixed bottom-3 left-3 z-50 flex h-8 items-center gap-1.5 rounded-md border border-dashed border-line-strong bg-surface px-2.5 text-xs text-fg-2 hover:text-fg">
+        className="fixed bottom-3 left-3 z-50 flex h-8 items-center gap-1.5 rounded-md border border-dashed border-line-strong bg-chrome px-2.5 text-xs text-fg-2 hover:text-fg">
         <SlidersHorizontal size={14} aria-hidden />Demo controls
       </button>
     );
@@ -49,7 +49,7 @@ export function DemoDock({ role, link, onRoleChange, onLinkChange, onJump, onJum
   const btn = "h-8 rounded-md border border-line-strong bg-elevated px-2.5 text-xs text-fg hover:border-accent/60";
   return (
     <section role="dialog" aria-label="Demo controls" aria-keyshortcuts="Shift+D"
-      className="fixed bottom-3 left-3 z-50 w-[320px] space-y-4 rounded-lg border border-dashed border-line-strong bg-surface p-4 text-sm">
+      className="fixed bottom-3 left-3 z-50 w-[320px] space-y-4 rounded-lg border border-dashed border-line-strong bg-chrome p-4 text-sm">
       <header className="flex items-start gap-2">
         <div className="flex-1">
           <h2 className="text-heading font-semibold text-fg">Demo controls</h2>
