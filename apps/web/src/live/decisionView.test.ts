@@ -110,6 +110,7 @@ describe("season48 DEC-01 approved (beat 11)", () => {
   it("puts the outcome first, with the role only for a script approval", () => {
     expect(s.phase).toBe("APPROVED");
     expect(s.outcome).toMatchObject({ title: "Approved option (a): Hold vessel", actor: "HQ Ops", at, verified: true });
+    expect(s.chosenLabel).toBe("(a)");
   });
 
   it("shows a real approving device beside the role", () => {

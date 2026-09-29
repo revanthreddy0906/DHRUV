@@ -4,7 +4,7 @@ import type { Health } from "../data/types";
 import type { DecisionOptionColumn, DecisionScreenData, LeverRow } from "../live/decisionView";
 import { cx, Button, Checkbox, SectionHeader, StateBadge } from "./primitives";
 import { TraceGroups } from "./trace";
-import { daysText, expectedResultText, formatDate, formatDateTime, leverAxis, markerAlign, type Cell, type CompareRow } from "../format";
+import { daysText, expectedResultText, formatDate, formatDateTime, formatRatio, formatSimClock, leverAxis, markerAlign, type Cell, type CompareRow } from "../format";
 
 /* ---------- Queue item (the Command Center's decision rows) ---------- */
 
@@ -62,8 +62,10 @@ function CellView({ cell }: { cell: Cell }) {
  * emphasised; rows identical across every option are merged into one cell. When `selected` is
  * given, the column headers are a radio group.
  */
-export function OptionsTable({ options, rows, selected, onSelect, name = "decision-option" }: {
+export function OptionsTable({ options, rows, selected, onSelect, chosen, name = "decision-option" }: {
   options: DecisionOptionColumn[]; rows: CompareRow[]; selected?: string; onSelect?: (label: string) => void; name?: string;
+  /** The option that was approved (historical view). */
+  chosen?: string;
 }) {
   const many = options.length > 1;
   const pickable = !!onSelect;
@@ -77,7 +79,7 @@ export function OptionsTable({ options, rows, selected, onSelect, name = "decisi
         <tr className="border-b border-line">
           <th scope="col" className="p-3 text-left align-bottom text-xs font-normal text-fg-2">Option</th>
           {options.map((o) => {
-            const isSel = pickable && o.label === selected;
+            const isSel = pickable ? o.label === selected : o.label === chosen;
             return (
               <th key={o.label} scope="col" className={cx("p-3 text-left align-top font-normal", isSel && "bg-accent-tint")}>
                 <label className={cx("flex items-start gap-2", pickable && "cursor-pointer")}>
@@ -90,6 +92,7 @@ export function OptionsTable({ options, rows, selected, onSelect, name = "decisi
                     <span className="block text-fg">{o.name}</span>
                   </span>
                 </label>
+                {!pickable && o.label === chosen && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-fg"><CircleCheck size={16} strokeWidth={1.75} aria-hidden className="text-ok" />Approved</p>}
                 {o.top && (
                   <div className="mt-2">
                     <span className="inline-block rounded-sm border border-accent px-1.5 text-xs font-medium text-accent">Engine ranking 1</span>
@@ -112,7 +115,7 @@ export function OptionsTable({ options, rows, selected, onSelect, name = "decisi
                   <div className="flex flex-wrap items-baseline gap-x-2"><CellView cell={r.cells[0]!} /><span className="text-xs text-fg-3">All options</span></div>
                 </td>
               ) : r.cells.map((c, i) => (
-                <td key={options[i]!.label} className={cx("p-3 align-top", pickable && options[i]!.label === selected && "bg-accent-tint/40")}><CellView cell={c} /></td>
+                <td key={options[i]!.label} className={cx("p-3 align-top", options[i]!.label === (pickable ? selected : chosen) && "bg-accent-tint/40")}><CellView cell={c} /></td>
               ))}
             </tr>
           );
@@ -301,13 +304,13 @@ function DecisionBar({ data, chosen, viewer, preview, linkNote, busy, error, onA
 
 const PHASE_WORD: Record<DecisionScreenData["phase"], string> = { AWAITING: "Awaiting decision", APPROVED: "Approved", REJECTED: "Rejected", EXPIRED: "Expired" };
 
-function WhyEngine({ data }: { data: DecisionScreenData }) {
+function WhyEngine({ data, title = "Why the engine says this" }: { data: DecisionScreenData; title?: string }) {
   if (data.why.length === 0) return null;
   return (
     <details className="group rounded-lg border border-line bg-surface">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-heading font-semibold text-fg">
         <ChevronRight size={16} aria-hidden className="text-fg-2 transition-transform duration-150 group-open:rotate-90" />
-        Why the engine says this
+        {title}
       </summary>
       <div className="space-y-5 border-t border-line px-4 py-4"><TraceGroups steps={data.why} units={data.units} /></div>
     </details>
@@ -404,19 +407,72 @@ function AwaitingDecision({ data, viewer, now, preview, linkNote, busy, error, o
   );
 }
 
+function StationLine({ label, state, ratio }: { label: string; state?: Health; ratio: number | null }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs text-fg-2">{label}</div>
+      <div className="flex flex-wrap items-center gap-3">
+        {state && <StateBadge state={state} />}
+        <span className="text-sm text-fg">Fuel ratio <span className="font-mono tabular-nums">{formatRatio(ratio)}</span></span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A decided (or expired) decision: the outcome first, then what it did, then the options as they
+ * were proposed, collapsed and labelled as history.
+ */
 function DecidedDecision({ data }: DecisionScreenProps) {
   const o = data.outcome;
+  const approved = data.phase === "APPROVED";
   return (
     <div className="mx-auto w-full max-w-[1180px] space-y-8 p-6">
       <header className="space-y-2">
         <p className="flex items-center gap-3 text-xs text-fg-2"><span className="font-mono">{data.id}</span><span>{data.title}</span></p>
-        {o && <h1 className="text-title font-semibold text-fg">{o.title}</h1>}
-        {o?.actor && <p className="text-sm text-fg-2">By {o.actor}{o.at && <>, <span className="font-mono">{formatDateTime(o.at)}</span></>}</p>}
+        {o && (
+          <h1 className="flex items-center gap-2 text-title font-semibold text-fg">
+            {approved && <CircleCheck size={20} strokeWidth={1.75} aria-hidden className="text-ok" />}
+            {o.title}
+          </h1>
+        )}
+        {o?.actor && <p className="text-sm text-fg">By {o.actor}{o.at && <> at <span className="font-mono">{formatSimClock(o.at)}</span></>}</p>}
+        {approved && o?.verified !== undefined && <p className="text-sm text-fg-2">Inputs verified before approval: {o.verified ? "yes" : "no"}</p>}
+        {o?.reason && <p className="text-sm text-fg-2">Reason: <span className="text-fg">{o.reason}</span></p>}
+        {data.waiting && (
+          <p role="status" className="flex items-start gap-2 rounded-md border border-warn/45 bg-warn-tint px-3 py-2 text-sm text-fg">
+            <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+            {approved ? "Approved" : "Rejected"} on this device · waiting to send. HQ applies the same checks when it arrives.
+          </p>
+        )}
       </header>
-      <section>
-        <SectionHeader title={data.valuesNote} />
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface"><OptionsTable options={data.options} rows={data.rows} /></div>
-      </section>
+
+      {approved && (
+        <section>
+          <SectionHeader title={data.waiting ? "What it will record when sent" : "What it did"} />
+          <div className="space-y-4 rounded-lg border border-line bg-surface p-4">
+            {data.didLines.length > 0 && <ul className="list-disc space-y-1 pl-5 text-sm text-fg">{data.didLines.map((l) => <li key={l}>{l}</li>)}</ul>}
+            {(data.atApproval || data.nowLine) && (
+              <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+                {data.atApproval && <StationLine label={`${data.station}: ${data.atApproval.label.charAt(0).toLowerCase()}${data.atApproval.label.slice(1)}`} state={data.atApproval.state} ratio={data.atApproval.ratio} />}
+                {data.nowLine && <StationLine label={`${data.station}: now`} state={data.nowLine.state} ratio={data.nowLine.ratio} />}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {data.options.length > 0 && (
+        <details className="group rounded-lg border border-line bg-surface">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-heading font-semibold text-fg">
+            <ChevronRight size={16} aria-hidden className="text-fg-2 transition-transform duration-150 group-open:rotate-90" />
+            {data.valuesNote}
+          </summary>
+          <div className="overflow-x-auto border-t border-line"><OptionsTable options={data.options} rows={data.rows} chosen={data.chosenLabel} /></div>
+        </details>
+      )}
+
+      <WhyEngine data={data} title="Why the engine proposed this" />
     </div>
   );
 }

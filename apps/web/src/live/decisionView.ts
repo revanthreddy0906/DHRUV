@@ -67,6 +67,8 @@ export interface DecisionScreenData {
   /** The B0 footer for the trace drawer (awaiting only). */
   b0?: string;
   outcome?: { title: string; actor?: string; at?: string; verified?: boolean; reason?: string };
+  /** The approved option's label ("(a)"). */
+  chosenLabel?: string;
   /** What the approval recorded (follow-up events) or, for engine-only levers, what it applied. */
   didLines: string[];
   atApproval?: { label: string; state?: Light; ratio: number | null };
@@ -285,8 +287,10 @@ export function buildDecisionScreen(input: DecisionScreenInput): DecisionScreenD
   let outcome: DecisionScreenData["outcome"];
   let didLines: string[] = [];
   let atApproval: DecisionScreenData["atApproval"];
+  let chosenLabel: string | undefined;
   if (decision.status === "APPROVED") {
     const chosen = options.find((o) => o.optionId === decision.chosen_option_id);
+    chosenLabel = chosen?.label;
     const p = decided?.payload as PayloadOf<"DECISION_APPROVED"> | undefined;
     outcome = {
       title: chosen ? `Approved option ${chosen.label}: ${chosen.name}` : `Approved option ${decision.chosen_option_id ?? "unknown"}`,
@@ -331,6 +335,7 @@ export function buildDecisionScreen(input: DecisionScreenInput): DecisionScreenD
     units: Object.fromEntries((liveFuel?.items ?? []).map((i) => [i.id, i.unit])),
     b0: awaiting && liveFuel?.baselineB0 ? b0Line(liveFuel.baselineB0) : undefined,
     outcome,
+    chosenLabel,
     didLines,
     atApproval,
     nowLine: decision.status === "APPROVED" && liveStation ? { state: liveStation.state, ratio: liveFuel?.ratio ?? null } : undefined,
