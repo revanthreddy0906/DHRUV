@@ -5,6 +5,7 @@ import type { Band, DimensionEval as WebDimensionEval, FreshnessInfo, Health, Le
 import type { InventoryView } from "../data/demo";
 import { dayLabel } from "./describe";
 import { formatAge, formatShort } from "./format";
+import { parseVerify } from "../format";
 
 /** "19.5 lakh" for a synthetic cost (section 13 costs are in lakh INR). */
 export function formatCost(cost: number, costUnit: string): string {
@@ -285,13 +286,15 @@ export function adaptLiveEvaluation(evaluation: Evaluation, seed: Seed, now: str
   };
 }
 
-/** A recorded option in the screen's shape, with the live engine's band and verify flags on top. */
-/** Live verify reasons first; a recorded one that names the same input ("… (79h old)") only with an older age is dropped. */
+/**
+ * Live verify reasons first; a recorded one about an input the live engine already names is
+ * dropped ("Fuel count 112h old" and "INV-DSL count is STALE" are both the stock count).
+ */
 export const mergeVerify = (live: string[], recorded: string[]) => {
-  const key = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, "");
-  const seen = new Set(live.map(key));
-  return [...live, ...recorded.filter((t) => !seen.has(key(t)))];
+  const seen = new Set(live.map((t) => parseVerify(t).key));
+  return [...live, ...recorded.filter((t) => !seen.has(parseVerify(t).key))];
 };
+/** A recorded option in the screen's shape, with the live engine's band and verify flags on top. */
 export function adaptRecordedOption(r: DecisionOptionView, index: number, live: WebOptionEval | undefined): WebOptionEval {
   return {
     id: (r.label?.replace(/[()]/g, "") || String.fromCharCode(97 + index)) as WebOptionEval["id"],

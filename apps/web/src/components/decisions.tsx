@@ -1,51 +1,16 @@
 import * as React from "react";
-import { Scale, ArrowRight, ShieldCheck, TriangleAlert, Ban, CircleCheck, MessageSquareText, Printer, Timer } from "lucide-react";
-import type { Health, Lever, OptionEval, Role, TraceStep as TStep } from "../data/types";
-import { cx, STATE_META, StateBadge, RatioDisplay, ConfidenceBand, CountdownChip, Button, Checkbox, Tag, Card, SectionHeader } from "./primitives";
-import { TraceList } from "./trace";
+import { ChevronRight, CircleCheck, OctagonAlert, Sigma, TriangleAlert } from "lucide-react";
+import type { Health } from "../data/types";
+import type { DecisionOptionColumn, DecisionScreenData, LeverRow } from "../live/decisionView";
+import { cx, Button, Checkbox, SectionHeader, StateBadge } from "./primitives";
+import { TraceGroups } from "./trace";
+import { daysText, expectedResultText, formatDate, formatDateTime, formatRatio, formatSimClock, leverAxis, markerAlign, type Cell, type CompareRow } from "../format";
 
-/* ---------- Queue ---------- */
+/* ---------- Queue item (the Command Center's decision rows) ---------- */
 
 export interface QueueItem { id: string; title: string; station: string; deadline: string; daysLeft: number; current: { state: Health; ratio: number }; best: { state: Health; ratio: number }; approveReason?: string; straddle?: string }
 
-export function DecisionCard({ d, onOpen, selected }: { d: QueueItem; onOpen?: () => void; selected?: boolean }) {
-  return (
-    <button type="button" onClick={onOpen}
-      className={cx("w-full rounded-lg border bg-surface p-4 text-left transition-colors duration-150 hover:border-accent/60", selected ? "border-accent ring-1 ring-accent/40" : "border-bad/50")}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-xs font-semibold text-fg-2">{d.id} · {d.station}</span>
-        <span className="inline-flex items-center gap-1 rounded bg-bad-tint px-1.5 py-0.5 text-xs font-bold text-bad">Decision required</span>
-      </div>
-      <h3 className="mt-1.5 text-heading font-semibold leading-5 text-fg">{d.title}</h3>
-      <div className="mt-3 flex items-center gap-2">
-        <div className="flex flex-col"><span className="text-xs text-fg-2">Now</span><span className="flex items-center gap-1.5"><StateBadge state={d.current.state} size="sm" /><RatioDisplay value={d.current.ratio} size="sm" state={d.current.state} /></span></div>
-        <ArrowRight size={14} className="mt-3 text-fg-2" aria-hidden />
-        <div className="flex flex-col"><span className="text-xs text-fg-2">Best case</span><span className="flex items-center gap-1.5"><StateBadge state={d.best.state} size="sm" /><RatioDisplay value={d.best.ratio} size="sm" /></span></div>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {d.deadline === "no deadline" ? <Tag>No point of no return: every option stays open for now</Tag> : <CountdownChip date={d.deadline} daysLeft={d.daysLeft} label="Act by" />}
-        {d.straddle && <Tag tone="amber"><TriangleAlert size={11} aria-hidden />{d.straddle}</Tag>}
-      </div>
-      {d.approveReason && <p className="mt-2 text-xs text-fg-2">{d.approveReason}</p>}
-    </button>
-  );
-}
-
-export function DecisionQueue({ items, onOpen }: { items: QueueItem[]; onOpen?: (id: string) => void }) {
-  return (
-    <section aria-label="Decision queue">
-      <SectionHeader title="Decision queue" meta={<span className="font-mono text-xs text-fg-2">{items.length}</span>} />
-      {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line-strong p-4 text-sm text-fg-2">
-          <CircleCheck size={16} className="mb-1 text-ok" aria-hidden />
-          No active decisions. All monitored stations are within their thresholds.
-        </div>
-      ) : <div className="space-y-2">{items.map((d) => <DecisionCard key={d.id} d={d} onOpen={() => onOpen?.(d.id)} />)}</div>}
-    </section>
-  );
-}
-
-/* ---------- Lever windows (N1) ---------- */
+/* ---------- Day axis for "D Mon" labels (Cargo timelines) ---------- */
 
 const MON: Record<string, number> = { Jan: 0, Feb: 31, Mar: 59, Apr: 90, May: 120, Jun: 151, Jul: 181, Aug: 212, Sep: 243, Oct: 273, Nov: 304, Dec: 334 };
 /** Day index from 24 Jan 2027 for "D Mon" labels (render helper, not engine math). A trailing year is ignored. */
@@ -70,213 +35,444 @@ export function dayAxis(dates: (string | undefined)[], from: string, to: string,
   return { lo, hi, fits, pct: (d: string) => ((dayIdx(d) - lo) / (hi - lo)) * 100 };
 }
 
-export function LeverWindow({ levers, today = "24 Jan", pnr = "3 Feb", end = "1 Mar" }: { levers: Lever[]; today?: string; pnr?: string; end?: string }) {
-  const axis = dayAxis([today, pnr, ...levers.flatMap((l) => [l.deadline, l.cutoff])], "24 Jan", end, 4);
-  const span = 100;
-  const x = (d: string) => `${axis.pct(d)}%`;
-  // Weekly ticks: the season48 dates on its fixed axis, otherwise every 7 days from the axis start.
-  const ticks = axis.fits
-    ? ["24 Jan", "31 Jan", "7 Feb", "14 Feb", "21 Feb", "28 Feb"]
-    : Array.from({ length: Math.floor((axis.hi - axis.lo) / 7) + 1 }, (_, k) => idxLabel(axis.lo + 7 * k)).filter((t) => axis.pct(t) <= 95);
-  return (
-    <div className="rounded-lg border border-line bg-surface p-4">
-      <SectionHeader title="Decision windows · per lever" meta={<span className="text-xs text-fg-2">deadline = cutoff − lead</span>} />
-      <div className="relative ml-[152px] mt-2 h-4 font-mono text-xs text-fg-2">
-        {ticks.map((t) => <span key={t} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: x(t) }}>{t}</span>)}
-      </div>
-      <div className="relative">
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-[152px] right-0">
-          <div className="absolute inset-y-0 w-px bg-accent" style={{ left: x(today) }}><span className="absolute -top-1 left-1 font-mono text-xs text-accent">now</span></div>
-          {pnr && <div className="absolute inset-y-0 w-0.5 bg-bad" style={{ left: x(pnr) }}><span className="absolute bottom-0 left-1.5 whitespace-nowrap text-xs font-semibold text-bad">Point of no return {pnr}</span></div>}
-        </div>
-        <ul className="space-y-1.5 pb-5 pt-1">
-          {levers.map((l) => {
-            const expired = l.daysLeft < 0;
-            return (
-              <li key={l.id} className="flex items-center">
-                <div className="w-[152px] shrink-0 pr-3" title={l.effect}>
-                  <div className="font-mono text-xs font-semibold text-fg">{l.id}</div>
-                  <div className="truncate text-xs leading-4 text-fg-2">{l.effect}</div>
-                </div>
-                <div className="relative h-5 flex-1 rounded bg-bg">
-                  <div className={cx("absolute inset-y-1 rounded-sm", expired ? "bg-fg-3/40" : "bg-accent/35")} style={{ left: x(today), width: `calc(${x(l.deadline)} - ${x(today)})` }} />
-                  <div className="absolute inset-y-1 dh-stale rounded-sm border border-warn/40" style={{ left: x(l.deadline), width: `calc(${x(l.cutoff)} - ${x(l.deadline)})` }} title={`Lead ${l.leadDays} d`} />
-                  <div className="absolute -inset-y-0.5 w-0.5 bg-fg" style={{ left: x(l.deadline) }} />
-                  <span className={cx("absolute top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-xs text-fg", axis.pct(l.cutoff) / span > 0.6 ? "-translate-x-full pr-1.5" : "pl-1.5")} style={{ left: axis.pct(l.cutoff) / span > 0.6 ? x(l.deadline) : x(l.cutoff) }}>
-                    act by {l.deadline} · {l.daysLeft} d · cutoff {l.cutoff}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      <div className="flex flex-wrap gap-4 text-xs text-fg-2">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-5 rounded-sm bg-accent/35" />still possible</span>
-        <span className="flex items-center gap-1.5"><span className="dh-stale h-2 w-5 rounded-sm border border-warn/40" />lead time before hard cutoff</span>
-        <span className="flex items-center gap-1.5"><span className="h-3 w-0.5 bg-bad" />point of no return: after this no option reaches GREEN</span>
-      </div>
-    </div>
-  );
-}
+/* ---------- Shared pieces ---------- */
 
-/* ---------- Options ---------- */
-
-export function OptionCard({ o, selected, onSelect }: { o: OptionEval; selected?: boolean; onSelect?: () => void }) {
-  const slackState: Health = o.slack.startsWith("0 d") ? "AMBER" : "GREEN";
-  const expired = !!o.expired;
-  return (
-    <div role="radio" aria-checked={selected} aria-disabled={expired} tabIndex={expired ? -1 : 0} onClick={() => !expired && onSelect?.()}
-      onKeyDown={(e) => { if (!expired && (e.key === " " || e.key === "Enter")) { e.preventDefault(); onSelect?.(); } }}
-      className={cx("flex flex-col rounded-lg border bg-surface p-4 transition-colors duration-150",
-        expired ? "cursor-not-allowed border-dashed border-line opacity-50 grayscale" : "cursor-pointer hover:border-accent/60",
-        selected ? "border-accent ring-1 ring-accent/50" : !expired && "border-line")}>
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2">
-          <span className={cx("flex size-4 items-center justify-center rounded-full border", selected ? "border-accent" : "border-line-strong")}>{selected && <span className="size-2 rounded-full bg-accent" />}</span>
-          <span className="whitespace-nowrap text-sm font-semibold text-fg">Option ({o.id})</span>
-        </span>
-        {o.reachesTarget ? <Tag tone="green" className="whitespace-nowrap">reaches GREEN</Tag> : <Tag tone="red">partial</Tag>}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1">{o.levers.map((l) => <span key={l} className={cx("rounded border px-1.5 font-mono text-xs", l === o.bindingLever ? "border-warn/50 text-warn" : "border-line-strong text-fg-2")} title={l === o.bindingLever ? "Binding lever (earliest deadline)" : undefined}>{l}</span>)}</div>
-
-      <div className="mt-3 flex items-baseline gap-2">
-        <RatioDisplay value={o.resultingRatio} size="xl" state={o.resultingState === "GREEN" ? undefined : o.resultingState} />
-        <StateBadge state={o.resultingState} size="sm" />
-      </div>
-      {o.straddleText && (
-        <p className="mt-1.5 flex items-center gap-1.5 rounded-md border border-warn/50 bg-warn-tint px-2 py-1 text-xs font-semibold text-warn" role="status">
-          <TriangleAlert size={13} aria-hidden />{o.straddleText}
-        </p>
-      )}
-      {o.band && <ConfidenceBand className="mt-2" point={o.resultingRatio} band={o.band} />}
-      {o.residualGap !== undefined && <p className="mt-1 font-mono text-xs text-bad">residual gap {o.residualGap} kL</p>}
-
-      <dl className="mt-3 grid grid-cols-[56px_1fr] gap-x-2 gap-y-1 border-t border-line pt-2 text-xs">
-        <dt className="text-fg-2">Act by</dt><dd className="font-mono font-semibold text-fg">{o.deadline}{o.bindingLever && <span className="block text-xs font-normal text-fg-2">binding: {o.bindingLever}</span>}</dd>
-        <dt className="text-fg-2">Slack</dt><dd className={cx("font-mono", slackState === "AMBER" ? "font-semibold text-warn" : "text-fg-2")}>{o.slack}</dd>
-        <dt className="text-fg-2">Cost</dt><dd className="font-mono text-fg">{o.cost} <span className="text-xs text-fg-2">synthetic</span></dd>
-      </dl>
-      {o.requiresVerify.length > 0 && !expired && (
-        <div className="mt-2 rounded-md border border-warn/40 bg-warn-tint/60 p-2">
-          <p className="flex items-center gap-1 text-xs font-semibold text-warn"><ShieldCheck size={12} aria-hidden />Verify before acting</p>
-          <ul className="mt-1 space-y-0.5 font-mono text-xs text-fg">{o.requiresVerify.map((r) => <li key={r}>· {r}</li>)}</ul>
-        </div>
-      )}
-      {expired && <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-fg"><Ban size={13} aria-hidden />Expired · {o.expired}</p>}
-    </div>
-  );
-}
-
-/* ---------- Verify gate ---------- */
-
-export function VerifyGate({ items, checked, onChange }: { items: string[]; checked: boolean; onChange: (v: boolean) => void }) {
-  if (items.length === 0) return <p className="flex items-center gap-1.5 text-xs text-fg-2"><CircleCheck size={13} className="text-ok" aria-hidden />All inputs FRESH or AGING without straddle. No verification required.</p>;
-  return (
-    <div className="rounded-lg border border-warn/50 bg-warn-tint p-3">
-      <Checkbox checked={checked} onChange={onChange}
-        label={<span className="font-semibold">I have verified these inputs before acting</span>}
-        description={<span>{items.join(" · ")}. Recorded as <span className="font-mono">verify_ack</span> on the approval.</span>} />
-    </div>
-  );
-}
-
-/* ---------- Decision Detail (an approval console, not a modal) ---------- */
-
-export interface DecisionStatus { tone: "ok" | "warn" | "bad"; text: string }
-
-const STATUS_STYLE: Record<DecisionStatus["tone"], { box: string; Icon: typeof CircleCheck; icon: string }> = {
-  ok: { box: "border-ok/40 bg-ok-tint", Icon: CircleCheck, icon: "text-ok" },
-  warn: { box: "border-warn/50 bg-warn-tint", Icon: Timer, icon: "text-warn" },
-  bad: { box: "border-bad/50 bg-bad-tint", Icon: Ban, icon: "text-bad" },
+const TONE: Record<NonNullable<Cell["tone"]>, { text: string; Icon: typeof CircleCheck }> = {
+  green: { text: "text-ok", Icon: CircleCheck },
+  amber: { text: "text-warn", Icon: TriangleAlert },
+  red: { text: "text-bad", Icon: OctagonAlert },
 };
 
-export function DecisionDetail({ id, title, station, current, trigger, pnr, trace, levers, options, role, today, approved, onApprove, onReject, onExplain, onPrint,
-  blocked, optionBlocked, status, busy, error, note }: {
-  id: string; title: string; station: string; current: { state: Health; ratio: number; text: string }; trigger: string; pnr: { date: string; daysLeft: number } | null;
-  trace: TStep[]; levers: Lever[]; options: OptionEval[]; role: Role; today?: string; approved?: string;
-  onApprove?: (opt: string, verifyAck: boolean) => void; onReject?: (reason: string) => void; onExplain?: () => void; onPrint?: () => void;
-  /** Live permission reasons (section 4). Without it the design default applies: HQ Ops only. */
-  blocked?: { approve?: string; reject?: string };
-  /** Why a specific option cannot be approved (expired, not in the recorded proposal). */
-  optionBlocked?: (optionId: string) => string | undefined;
-  /** Outcome shown instead of the approval controls (approved, rejected, waiting to sync). */
-  status?: DecisionStatus;
-  busy?: boolean;
-  error?: string;
-  /** Shown under the controls, e.g. how the approval will be recorded on this link. */
-  note?: string;
+function CellView({ cell }: { cell: Cell }) {
+  const tone = cell.tone ? TONE[cell.tone] : undefined;
+  return (
+    <div className="space-y-0.5">
+      <div className={cx("flex flex-wrap items-center gap-x-2 gap-y-1 whitespace-pre-line tabular-nums", tone ? tone.text : "text-fg", tone && "font-medium")}>
+        {tone && <tone.Icon size={16} strokeWidth={1.75} aria-hidden className="shrink-0" />}
+        <span>{cell.text}</span>
+        {cell.state && <StateBadge state={cell.state} size="sm" />}
+      </div>
+      {cell.sub && <div className="text-xs text-fg-2">{cell.sub}</div>}
+    </div>
+  );
+}
+
+/**
+ * Options as columns, the same rows in the same order for each. Rows where the options differ are
+ * emphasised; rows identical across every option are merged into one cell. When `selected` is
+ * given, the column headers are a radio group.
+ */
+export function OptionsTable({ options, rows, selected, onSelect, chosen, name = "decision-option" }: {
+  options: DecisionOptionColumn[]; rows: CompareRow[]; selected?: string; onSelect?: (label: string) => void; name?: string;
+  /** The option that was approved (historical view). */
+  chosen?: string;
 }) {
-  const [sel, setSel] = React.useState<string>(options[0]?.id);
+  const many = options.length > 1;
+  const pickable = !!onSelect;
+  const table = (
+    <table className="w-full table-fixed border-collapse text-sm">
+      <colgroup>
+        <col className="w-40" />
+        {options.map((o) => <col key={o.label} />)}
+      </colgroup>
+      <thead>
+        <tr className="border-b border-line">
+          <th scope="col" className="p-3 text-left align-bottom text-xs font-normal text-fg-2">Option</th>
+          {options.map((o) => {
+            const isSel = pickable ? o.label === selected : o.label === chosen;
+            return (
+              <th key={o.label} scope="col" className={cx("p-3 text-left align-top font-normal", isSel && "bg-accent-tint")}>
+                <label className={cx("flex items-start gap-2", pickable && "cursor-pointer")}>
+                  {pickable && (
+                    <input type="radio" name={name} value={o.label} checked={isSel} onChange={() => onSelect?.(o.label)}
+                      className="mt-1 size-4 shrink-0 cursor-pointer accent-accent" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-fg">Option {o.label}</span>
+                    <span className="block text-fg">{o.name}</span>
+                  </span>
+                </label>
+                {!pickable && o.label === chosen && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-fg"><CircleCheck size={16} strokeWidth={1.75} aria-hidden className="text-ok" />Approved</p>}
+                {o.top && (
+                  <div className="mt-2">
+                    <span className="inline-block rounded-sm border border-accent px-1.5 text-xs font-medium text-accent">Engine ranking 1</span>
+                    <p className="mt-1 text-xs text-fg-2">{o.top}</p>
+                  </div>
+                )}
+              </th>
+            );
+          })}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => {
+          const merged = many && !r.differs;
+          return (
+            <tr key={r.key} className="border-b border-line last:border-b-0">
+              <th scope="row" className={cx("p-3 text-left align-top", r.differs ? "font-semibold text-fg" : "font-normal text-fg-2")}>{r.label}</th>
+              {merged ? (
+                <td colSpan={options.length} className="p-3 align-top text-fg-2">
+                  <div className="flex flex-wrap items-baseline gap-x-2"><CellView cell={r.cells[0]!} /><span className="text-xs text-fg-3">All options</span></div>
+                </td>
+              ) : r.cells.map((c, i) => (
+                <td key={options[i]!.label} className={cx("p-3 align-top", options[i]!.label === (pickable ? selected : chosen) && "bg-accent-tint/40")}><CellView cell={c} /></td>
+              ))}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+  return pickable ? <fieldset><legend className="sr-only">Choose an option</legend>{table}</fieldset> : table;
+}
+
+/* ---------- Deadlines (per-lever timeline) ---------- */
+
+/**
+ * One row per lever: time left to act (today to its deadline), then the lead time to its hard
+ * cutoff. Today and the point of no return run through every row. All text sits beside the bars,
+ * never on them, so nothing clips.
+ */
+export function LeverTimeline({ levers, now, pnr }: { levers: LeverRow[]; now: string; pnr?: string }) {
+  const axis = leverAxis(now, [pnr, ...levers.flatMap((l) => [l.deadline, l.cutoff])]);
+  const x = (iso: string) => `${axis.pct(iso)}%`;
+  const nowPct = axis.pct(now);
+  const marker = (iso: string, label: string, tone: string) => {
+    const p = axis.pct(iso);
+    return (
+      <span className={cx("absolute top-0 whitespace-nowrap text-xs font-medium", tone, markerAlign(p) === "end" ? "-translate-x-full pr-1.5" : "pl-1.5")} style={{ left: x(iso) }}>{label}</span>
+    );
+  };
+  const lines = (
+    <>
+      <span aria-hidden className="absolute inset-y-0 w-px bg-accent" style={{ left: x(now) }} />
+      {pnr && <span aria-hidden className="absolute inset-y-0 w-0.5 bg-bad" style={{ left: x(pnr) }} />}
+    </>
+  );
+  return (
+    <div className="grid grid-cols-[minmax(160px,200px)_minmax(0,1fr)_minmax(150px,190px)] gap-x-4">
+      <div />
+      <div className="relative h-10">
+        {marker(now, "Today", "text-accent")}
+        {pnr && <span className="absolute top-5 left-0 right-0">{marker(pnr, `Point of no return ${formatDate(pnr)}`, "text-bad")}</span>}
+        {lines}
+      </div>
+      <div />
+      <div />
+      <div className="relative h-5 font-mono text-xs text-fg-3">
+        {axis.ticks.map((t) => <span key={t.iso} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${t.pct}%` }}>{t.label}</span>)}
+        {lines}
+      </div>
+      <div />
+      {levers.map((l) => {
+        const open = Date.parse(l.deadline) > Date.parse(now);
+        return (
+          <React.Fragment key={l.id}>
+            <div className="border-t border-line py-2.5">
+              <div className="text-sm font-medium text-fg">{l.name}</div>
+              {l.effect && <div className="text-xs text-fg-2">{l.effect}</div>}
+            </div>
+            <div className="relative border-t border-line">
+              {lines}
+              <div className="absolute inset-x-0 top-1/2 h-3 -translate-y-1/2">
+                {open && <span className="absolute inset-y-0 rounded-l-sm bg-accent/25" style={{ left: `${Math.max(0, nowPct)}%`, width: `calc(${x(l.deadline)} - ${Math.max(0, nowPct)}%)` }} />}
+                <span className="absolute inset-y-0 rounded-r-sm border border-line-strong bg-surface" style={{ left: x(l.deadline), width: `calc(${x(l.cutoff)} - ${x(l.deadline)})` }} />
+                <span aria-hidden className="absolute -inset-y-1 w-0.5 bg-fg" style={{ left: x(l.deadline) }} />
+              </div>
+            </div>
+            <div className="border-t border-line py-2.5 text-sm">
+              {open
+                ? <div className="text-fg">Act by <span className="font-mono">{formatDate(l.deadline)}</span> · {daysText(l.daysLeft)}</div>
+                : <div className="text-fg-2">Closed <span className="font-mono">{formatDate(l.deadline)}</span></div>}
+              <div className="text-xs text-fg-2">Cutoff <span className="font-mono">{formatDate(l.cutoff)}</span> · {l.leadDays} d lead</div>
+            </div>
+          </React.Fragment>
+        );
+      })}
+      <div />
+      <div className="col-span-2 mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-fg-2">
+        <span className="flex items-center gap-1.5"><span aria-hidden className="h-2.5 w-5 rounded-sm bg-accent/25" />Time left to act</span>
+        <span className="flex items-center gap-1.5"><span aria-hidden className="h-2.5 w-5 rounded-sm border border-line-strong bg-surface" />Lead time before the hard cutoff</span>
+        {pnr && <span className="flex items-center gap-1.5"><span aria-hidden className="h-3 w-0.5 bg-bad" />Point of no return: after this no option restores GREEN</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Approval confirmation ---------- */
+
+function ApproveDialog({ option, station, fuelNow, preview, viewer, verified, linkNote, busy, onCancel, onConfirm }: {
+  option: DecisionOptionColumn; station: string; fuelNow: number | null; preview: string[]; viewer: string; verified: boolean; linkNote?: string; busy?: boolean;
+  onCancel: () => void; onConfirm: () => void;
+}) {
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  React.useEffect(() => {
+    // Cancel (the first button) takes focus: the safe default for a commit.
+    boxRef.current?.querySelector("button")?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-fg/40 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div ref={boxRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="dh-fade-in w-full max-w-lg rounded-lg border border-line bg-surface p-5">
+        <h2 id={titleId} className="text-title font-semibold text-fg">Approve option {option.label}: {option.name}?</h2>
+        <dl className="mt-4 space-y-4 text-sm">
+          <div>
+            <dt className="text-xs text-fg-2">What will be recorded</dt>
+            <dd className="mt-1"><ul className="list-disc space-y-1 pl-5 text-fg">{preview.map((l) => <li key={l}>{l}</li>)}</ul></dd>
+          </div>
+          <div>
+            <dt className="text-xs text-fg-2">Expected result</dt>
+            <dd className="mt-1 tabular-nums text-fg">{expectedResultText(station, fuelNow, option.facts.ratio, option.facts.state)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-fg-2">Recorded as</dt>
+            <dd className="mt-1 text-fg">{viewer}{verified ? ", with the inputs verified" : ""}</dd>
+          </div>
+        </dl>
+        {linkNote && <p className="mt-4 text-xs text-fg-2">{linkNote}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" disabled={busy} onClick={onConfirm}>{busy ? "Recording…" : `Approve option ${option.label}`}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Decision bar ---------- */
+
+function DecisionBar({ data, chosen, viewer, preview, linkNote, busy, error, onApprove, onReject }: {
+  data: DecisionScreenData; chosen: DecisionOptionColumn; viewer: string; preview: (levers: string[]) => string[]; linkNote?: string; busy?: boolean; error?: string;
+  onApprove?: (optionId: string, verifyAck: boolean) => void; onReject?: (reason: string) => void;
+}) {
   const [ack, setAck] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   const [rejecting, setRejecting] = React.useState(false);
   const [reason, setReason] = React.useState("");
-  const chosen = options.find((o) => o.id === sel)!;
-  const needsVerify = chosen.requiresVerify.length > 0;
-  const roleReason = blocked ? blocked.approve : role !== "HQ_OPS" ? "Only HQ Ops can approve decisions touching vessels" : undefined;
-  const rejectReason = blocked ? blocked.reject : role !== "HQ_OPS" ? "Only HQ Ops can reject vessel decisions" : undefined;
-  const gateReason = roleReason ?? optionBlocked?.(sel) ?? (needsVerify && !ack ? "Tick the verification above to enable Approve" : undefined);
-  const outcome = status ?? (approved ? { tone: "ok" as const, text: approved } : undefined);
+  React.useEffect(() => { setAck(false); setConfirming(false); }, [chosen.label]);
+  const needsVerify = !!chosen.verifySentence;
+  const approveReason = chosen.blocked ?? (needsVerify && !ack ? "Tick the verification above to approve" : undefined);
+  const reasonId = React.useId();
   return (
-    <div className="grid h-full grid-cols-[400px_minmax(0,1fr)] gap-5 p-5">
-      <div className="flex min-h-0 flex-col gap-4">
-        <Card pad="lg">
-          <div className="flex items-center gap-2 font-mono text-xs text-fg-2"><Scale size={13} aria-hidden />{id} · {station}</div>
-          <h1 className="mt-1 text-heading font-semibold leading-6 text-fg">{title}</h1>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <StateBadge state={current.state} size="lg" />
-            <RatioDisplay value={current.ratio} size="xl" state={current.state} />
-            <span className="text-sm text-fg-2">{current.text}</span>
-          </div>
-          <p className="mt-3 text-sm text-fg-2"><span className="text-xs font-semibold">Trigger</span> <span className="ml-1 text-fg">{trigger}</span></p>
-          <div className="mt-3 flex items-center gap-2">{pnr ? <CountdownChip date={pnr.date} daysLeft={pnr.daysLeft} label="Point of no return" /> : <span className="text-xs text-fg-2">No point of no return in the proposal</span>}</div>
-        </Card>
-        <Card className="min-h-0 flex-1 overflow-auto">
-          <SectionHeader title="Trace · propagation order" />
-          <TraceList steps={trace} />
-        </Card>
-      </div>
-
-      <div className="flex min-h-0 flex-col gap-4 overflow-auto">
-        <div>
-          <SectionHeader title={`Options · ${options.length} of max 3`} meta={<span className="text-xs text-fg-2">engine ranking · reaches target first, then earliest deadline</span>} />
-          <div role="radiogroup" aria-label="Options" className="grid grid-cols-3 gap-3">
-            {options.map((o) => <OptionCard key={o.id} o={o} selected={o.id === sel} onSelect={() => { setSel(o.id); setAck(false); }} />)}
-          </div>
-        </div>
-        <LeverWindow levers={levers} today={today} pnr={pnr ? pnr.date.replace(" 2027", "") : ""} />
-        <div className="sticky bottom-0 z-10 -mx-1 bg-bg px-1 pb-1 pt-2">
-        {outcome ? (
-          <div role="status" className={cx("flex items-center gap-2 rounded-lg border p-3 text-sm text-fg", STATUS_STYLE[outcome.tone].box)}>
-            {React.createElement(STATUS_STYLE[outcome.tone].Icon, { size: 16, className: STATUS_STYLE[outcome.tone].icon, "aria-hidden": true })}{outcome.text}
-          </div>
-        ) : (
-          <Card>
-            <VerifyGate items={needsVerify ? chosen.requiresVerify : []} checked={ack} onChange={setAck} />
-            {rejecting && (
-              <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-line-strong p-3">
-                <label className="flex min-w-72 flex-1 flex-col gap-1 text-xs text-fg-2">Reason for rejecting (recorded in DECISION_REJECTED)
-                  <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className="h-9 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg" />
-                </label>
-                <Button variant="danger" disabled={busy || !reason.trim()} onClick={() => onReject?.(reason.trim())}>Confirm reject</Button>
-                <Button variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
+    <div className="sticky bottom-0 z-10 border-t border-line bg-surface">
+      <div className="mx-auto max-w-[1180px] space-y-2 px-6 py-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="text-sm text-fg-2">Selected: <span className="font-semibold text-fg">Option {chosen.label}: {chosen.name}</span></p>
+            {needsVerify && (
+              <div className="rounded-md border border-warn/45 bg-warn-tint px-3 py-2">
+                <Checkbox checked={ack} onChange={setAck} label={chosen.verifySentence} description="Verify before acting." />
               </div>
             )}
-            <div className="mt-3 flex flex-wrap items-start gap-2">
-              <Button variant="secondary" onClick={() => setRejecting(true)} disabled={busy || rejecting} disabledReason={rejectReason}>Reject</Button>
-              <Button variant="primary" onClick={() => onApprove?.(sel, ack)} disabled={busy} disabledReason={gateReason}>{busy ? "Recording…" : `Approve option (${sel})`}</Button>
-              <span className="ml-auto flex gap-2">
-                <Button variant="ghost" icon={<MessageSquareText size={15} />} onClick={onExplain}>AI explain</Button>
-                <Button icon={<Printer size={15} />} onClick={onPrint}>Print brief</Button>
-              </span>
+          </div>
+          {!rejecting && (
+            <div className="flex flex-wrap items-start gap-2">
+              <Button onClick={() => setRejecting(true)} disabled={busy} disabledReason={data.rejectBlocked}>Reject</Button>
+              <Button variant="primary" onClick={() => setConfirming(true)} disabled={busy} disabledReason={approveReason}>
+                Approve option {chosen.label}: {chosen.name}
+              </Button>
             </div>
-            {error && <p role="alert" className="mt-2 flex items-center gap-1.5 text-xs text-fg"><Ban size={13} className="text-bad" aria-hidden />{error}</p>}
-            {note && <p className="mt-2 text-xs text-fg-2">{note}</p>}
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-fg-2"><Timer size={12} aria-hidden />Nothing changes operational state until DECISION_APPROVED is recorded. Approval emits VESSEL_UPDATED and LEG_UPDATED as SYSTEM events.</p>
-          </Card>
+          )}
+        </div>
+        {rejecting && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label htmlFor={reasonId} className="flex min-w-72 flex-1 flex-col gap-1 text-xs text-fg-2">
+              Reason for rejecting (required)
+              <input id={reasonId} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className="h-9 rounded-md border border-line-ctrl bg-surface px-2 text-sm text-fg" />
+            </label>
+            <Button variant="danger" disabled={busy || !reason.trim()} onClick={() => onReject?.(reason.trim())}>Reject decision</Button>
+            <Button variant="ghost" onClick={() => { setRejecting(false); setReason(""); }}>Cancel</Button>
+          </div>
         )}
+        <div aria-live="polite" className="space-y-1">
+          {error && <p role="alert" className="flex items-center gap-1.5 text-sm text-fg"><OctagonAlert size={16} className="text-bad" aria-hidden />{error}</p>}
+          {linkNote && <p className="text-xs text-fg-2">{linkNote}</p>}
         </div>
       </div>
+      {confirming && (
+        <ApproveDialog option={chosen} station={data.station} fuelNow={data.stationNow.fuelRatio} preview={preview(chosen.levers)} viewer={viewer} verified={needsVerify && ack}
+          linkNote={linkNote} busy={busy} onCancel={() => setConfirming(false)} onConfirm={() => { setConfirming(false); onApprove?.(chosen.optionId, needsVerify && ack); }} />
+      )}
+    </div>
+  );
+}
+
+/* ---------- The screen ---------- */
+
+const PHASE_WORD: Record<DecisionScreenData["phase"], string> = { AWAITING: "Awaiting decision", APPROVED: "Approved", REJECTED: "Rejected", EXPIRED: "Expired" };
+
+function WhyEngine({ data, title = "Why the engine says this" }: { data: DecisionScreenData; title?: string }) {
+  if (data.why.length === 0) return null;
+  return (
+    <details className="group rounded-lg border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-heading font-semibold text-fg">
+        <ChevronRight size={16} aria-hidden className="text-fg-2 transition-transform duration-150 group-open:rotate-90" />
+        {title}
+      </summary>
+      <div className="space-y-5 border-t border-line px-4 py-4"><TraceGroups steps={data.why} units={data.units} /></div>
+    </details>
+  );
+}
+
+export interface DecisionScreenProps {
+  data: DecisionScreenData;
+  /** Who an approval is recorded as: "HQ Ops on HQ-WEB-01". */
+  viewer: string;
+  now: string;
+  preview: (levers: string[]) => string[];
+  linkNote?: string;
+  busy?: boolean;
+  error?: string;
+  onShowMath?: () => void;
+  onApprove?: (optionId: string, verifyAck: boolean) => void;
+  onReject?: (reason: string) => void;
+}
+
+/**
+ * Decision detail (section 9.3), built around the decision: the question and its deadline first,
+ * then what happened, the options side by side, the per-lever deadlines and the decision bar.
+ */
+export function DecisionScreen(props: DecisionScreenProps) {
+  const { data } = props;
+  if (data.phase !== "AWAITING") return <DecidedDecision {...props} />;
+  return <AwaitingDecision {...props} />;
+}
+
+function AwaitingDecision({ data, viewer, now, preview, linkNote, busy, error, onShowMath, onApprove, onReject }: DecisionScreenProps) {
+  const initial = (data.options.find((o) => o.top && !o.blocked) ?? data.options.find((o) => !o.blocked) ?? data.options[0])?.label;
+  const [sel, setSel] = React.useState(initial);
+  const chosen = data.options.find((o) => o.label === sel) ?? data.options[0];
+  const d = data.deadline;
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="mx-auto w-full max-w-[1180px] flex-1 space-y-8 p-6">
+        <header className="space-y-3">
+          <p className="flex items-center gap-3 text-xs text-fg-2"><span className="font-mono">{data.id}</span><span>{PHASE_WORD[data.phase]}</span></p>
+          <h1 className="text-title font-semibold text-fg">{data.title}</h1>
+          {d && (
+            <div aria-live="polite" className={cx("inline-block rounded-lg border px-4 py-3", data.pnr ? "border-bad/50 bg-bad-tint" : "border-warn/45 bg-warn-tint")}>
+              {d.lead && <p className="text-sm text-fg">{d.lead}</p>}
+              <p className={cx("flex flex-wrap items-baseline gap-x-2 font-semibold", data.pnr ? "text-bad" : "text-warn")}>
+                <span className="text-title">{d.prefix}</span>
+                <span className="font-mono text-headline tabular-nums">{d.date}</span>
+                <span className="text-title">{d.after}</span>
+              </p>
+            </div>
+          )}
+          {data.refused && (
+            <p role="status" className="flex items-start gap-2 rounded-md border border-warn/45 bg-warn-tint px-3 py-2 text-sm text-fg">
+              <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" aria-hidden />{data.refused}
+            </p>
+          )}
+        </header>
+
+        {data.chain.length > 0 && (
+          <section>
+            <SectionHeader title="What happened" action={onShowMath && <Button size="sm" icon={<Sigma size={16} aria-hidden />} onClick={onShowMath}>Show the math</Button>} />
+            <ol aria-label="Consequence chain" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg">
+              {data.chain.map((step, i) => (
+                <li key={step} className="flex items-center gap-2">
+                  {i > 0 && <ChevronRight size={16} aria-hidden className="text-fg-3" />}
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+            {data.trigger && <p className="mt-1 text-xs text-fg-2">Trigger recorded by {data.trigger.actor}, <span className="font-mono">{formatDateTime(data.trigger.at)}</span></p>}
+          </section>
+        )}
+
+        {data.options.length > 0 && chosen && (
+          <section>
+            <SectionHeader title="Options" meta={<span className="text-xs text-fg-2">{data.valuesNote}</span>} />
+            <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+              <OptionsTable options={data.options} rows={data.rows} selected={chosen.label} onSelect={setSel} />
+            </div>
+          </section>
+        )}
+
+        {data.levers.length > 0 && (
+          <section>
+            <SectionHeader title="Deadlines" />
+            <div className="rounded-lg border border-line bg-surface p-4"><LeverTimeline levers={data.levers} now={now} pnr={data.pnr} /></div>
+          </section>
+        )}
+
+        <WhyEngine data={data} />
+      </div>
+      {chosen && <DecisionBar key={data.id} data={data} chosen={chosen} viewer={viewer} preview={preview} linkNote={linkNote} busy={busy} error={error} onApprove={onApprove} onReject={onReject} />}
+    </div>
+  );
+}
+
+function StationLine({ label, state, ratio }: { label: string; state?: Health; ratio: number | null }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs text-fg-2">{label}</div>
+      <div className="flex flex-wrap items-center gap-3">
+        {state && <StateBadge state={state} />}
+        <span className="text-sm text-fg">Fuel ratio <span className="font-mono tabular-nums">{formatRatio(ratio)}</span></span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A decided (or expired) decision: the outcome first, then what it did, then the options as they
+ * were proposed, collapsed and labelled as history.
+ */
+function DecidedDecision({ data }: DecisionScreenProps) {
+  const o = data.outcome;
+  const approved = data.phase === "APPROVED";
+  return (
+    <div className="mx-auto w-full max-w-[1180px] space-y-8 p-6">
+      <header className="space-y-2">
+        <p className="flex items-center gap-3 text-xs text-fg-2"><span className="font-mono">{data.id}</span><span>{data.title}</span></p>
+        {o && (
+          <h1 className="flex items-center gap-2 text-title font-semibold text-fg">
+            {approved && <CircleCheck size={20} strokeWidth={1.75} aria-hidden className="text-ok" />}
+            {o.title}
+          </h1>
+        )}
+        {o?.actor && <p className="text-sm text-fg">By {o.actor}{o.at && <> at <span className="font-mono">{formatSimClock(o.at)}</span></>}</p>}
+        {approved && o?.verified !== undefined && <p className="text-sm text-fg-2">Inputs verified before approval: {o.verified ? "yes" : "no"}</p>}
+        {o?.reason && <p className="text-sm text-fg-2">Reason: <span className="text-fg">{o.reason}</span></p>}
+        {data.waiting && (
+          <p role="status" className="flex items-start gap-2 rounded-md border border-warn/45 bg-warn-tint px-3 py-2 text-sm text-fg">
+            <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+            {approved ? "Approved" : "Rejected"} on this device · waiting to send. HQ applies the same checks when it arrives.
+          </p>
+        )}
+      </header>
+
+      {approved && (
+        <section>
+          <SectionHeader title={data.waiting ? "What it will record when sent" : "What it did"} />
+          <div className="space-y-4 rounded-lg border border-line bg-surface p-4">
+            {data.didLines.length > 0 && <ul className="list-disc space-y-1 pl-5 text-sm text-fg">{data.didLines.map((l) => <li key={l}>{l}</li>)}</ul>}
+            {(data.atApproval || data.nowLine) && (
+              <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+                {data.atApproval && <StationLine label={`${data.station}: ${data.atApproval.label.charAt(0).toLowerCase()}${data.atApproval.label.slice(1)}`} state={data.atApproval.state} ratio={data.atApproval.ratio} />}
+                {data.nowLine && <StationLine label={`${data.station}: now`} state={data.nowLine.state} ratio={data.nowLine.ratio} />}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {data.options.length > 0 && (
+        <details className="group rounded-lg border border-line bg-surface">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-heading font-semibold text-fg">
+            <ChevronRight size={16} aria-hidden className="text-fg-2 transition-transform duration-150 group-open:rotate-90" />
+            {data.valuesNote}
+          </summary>
+          <div className="overflow-x-auto border-t border-line"><OptionsTable options={data.options} rows={data.rows} chosen={data.chosenLabel} /></div>
+        </details>
+      )}
+
+      <WhyEngine data={data} title="Why the engine proposed this" />
     </div>
   );
 }

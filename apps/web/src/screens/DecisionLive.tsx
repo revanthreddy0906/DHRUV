@@ -2,34 +2,23 @@ import * as React from "react";
 import { Link, Navigate } from "react-router-dom";
 import { SearchX } from "lucide-react";
 import type { ApproveRequest, ApproveResponse, RejectRequest } from "@dhruv/shared";
-import { decisionsView, type DecisionOptionView } from "@dhruv/store";
-import { DecisionDetail, type DecisionStatus } from "../components/decisions";
-import type { OptionEval } from "../data/types";
-import { useDevice, type LiveDevice } from "../live/DeviceProvider";
-import { adaptRecordedOption, mergeVerify } from "../live/adapter";
+import { season48 } from "@dhruv/seed";
+import { decisionsView } from "@dhruv/store";
+import { DecisionScreen } from "../components/decisions";
+import { TraceDrawer } from "../components/trace";
+import { actorLabel, formatSimClock } from "../format";
+import { useDevice } from "../live/DeviceProvider";
 import { nodeLabel } from "../live/chrome";
-import { dayLabel, describeEvent } from "../live/describe";
-import { formatShort } from "../live/format";
-import { approveReason, daysLeft, fullDate, useLiveOps } from "../live/ops";
+import { approvalPreview, buildDecisionScreen } from "../live/decisionView";
+import { useLiveOps } from "../live/ops";
 import { Frame, QuietLine, REFRESHING_AFTER_RESET } from "./Frame";
 
-const sameLevers = (a: string[], b: string[]) => a.length === b.length && a.every((l) => b.includes(l));
-
-function outcomeText(device: LiveDevice, decision: ReturnType<typeof decisionsView>[number], optionLabel: (id: string) => string): DecisionStatus | undefined {
-  if (decision.status === "PROPOSED") return undefined;
-  const snap = device.snapshot;
-  const waiting = !!decision.decided_event_id && !!snap?.pendingIds.has(decision.decided_event_id);
-  const verb = decision.status === "APPROVED" ? `Approved option ${optionLabel(decision.chosen_option_id ?? "?")}` : "Rejected";
-  const who = `${decision.decided_by ?? "unknown device"} at ${decision.decided_at ? formatShort(decision.decided_at) : "?"}`;
-  if (waiting) return { tone: "warn", text: `${verb} on this device (${who}). Recorded as an event, waiting to sync; the server applies the same checks when it arrives.` };
-  return { tone: decision.status === "APPROVED" ? "ok" : "bad", text: `${verb} by ${who}.` };
-}
-
 /**
- * Decision Detail for the signed-in device (F3). The decision, its recorded options and deadlines,
- * the trigger and the outcome come from events. Approve and reject go to the API when this
- * device's link is up; otherwise they are written as DECISION_APPROVED / DECISION_REJECTED events
- * and sync later (section 9: offline station-level decisions sync as events).
+ * Decision Detail for the signed-in device (F3). The decision, its recorded options and outcome
+ * come from events; while it awaits a decision the option values are the live engine's for the
+ * decision's station. Approve and reject go to the API when this device's link is up; otherwise
+ * they are written as DECISION_APPROVED / DECISION_REJECTED events and sync later (section 9:
+ * offline station-level decisions sync as events).
  */
 export function LiveDecisionDetail({ id }: { id: string }) {
   const device = useDevice()!;
@@ -37,17 +26,27 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   const snap = device.snapshot;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string>();
+  const [showMath, setShowMath] = React.useState(false);
+
+  const data = React.useMemo(() => {
+    if (!snap || !ops) return undefined;
+    const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
+    const decision = decisionsView(events).find((d) => d.id === id);
+    if (!decision) return undefined;
+    return buildDecisionScreen({
+      decision, events, allEvents: snap.events, pendingIds: snap.pendingIds, rejected: snap.rejected, seed: snap.seed ?? season48,
+      evaluation: ops.evaluation, now: snap.now, identity: device.session.identity, stationName: nodeLabel,
+    });
+  }, [snap, ops, id, device.session.identity]);
 
   // Frame shows "Checking this device's data…" until the data is confirmed; a reset's reload says so.
   if (!device.dataConfirmed) return <Frame moment="start" nav="decisions">{null}</Frame>;
   if (device.refreshing) return <Frame moment="start" nav="decisions"><QuietLine>{REFRESHING_AFTER_RESET}</QuietLine></Frame>;
   if (!snap || !ops) return null;
   const { identity } = device.session;
-  const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
-  const decision = decisionsView(events).find((d) => d.id === id);
 
-  if (!decision) {
-    const others = decisionsView(events);
+  if (!data) {
+    const others = decisionsView(snap.events.filter((e) => !snap.rejected.has(e.event_id)));
     return (
       <Frame moment="start" nav="decisions">
         <div className="flex h-full items-center justify-center p-8">
@@ -73,44 +72,8 @@ export function LiveDecisionDetail({ id }: { id: string }) {
   }
 
   const now = snap.now;
-  // A decision this device recorded offline that the server then refused.
-  const refused = snap.events.find(
-    (e) => snap.rejected.has(e.event_id) && (e.type === "DECISION_APPROVED" || e.type === "DECISION_REJECTED") && (e.payload as { decision_id: string }).decision_id === id,
-  );
-
-  const realFor = (o: OptionEval): DecisionOptionView | undefined => decision.options.find((r) => sameLevers(r.levers, o.levers));
-  // The recorded proposal is the authority for which options exist (ids, levers, deadlines,
-  // ratios at proposal time). The live engine adds what changes with data age: the band, the
-  // straddle and verify-first. Proposals without engine fields fall back to the live options.
-  const liveFor = (levers: string[]) => ops.options.find((o) => sameLevers(o.levers, levers));
-  const recorded = decision.options.filter((r) => r.ratio !== undefined && r.state !== undefined);
-  const rawOptions = recorded.length > 0
-    ? recorded.map((r, i) => adaptRecordedOption(r, i, liveFor(r.levers)))
-    : ops.options;
-  const options = rawOptions.map((o): OptionEval => {
-    const real = realFor(o);
-    const expired = real?.deadline && Date.parse(real.deadline) < Date.parse(now) ? `Deadline ${dayLabel(real.deadline)} has passed` : o.expired;
-    return { ...o, deadline: real?.deadline ? dayLabel(real.deadline) : o.deadline, requiresVerify: mergeVerify(o.requiresVerify, real?.requiresVerify ?? []), expired };
-  });
-  const optionBlocked = (optionId: string) => {
-    const o = options.find((x) => x.id === optionId);
-    if (!o) return undefined;
-    if (o.expired) return o.expired;
-    if (!realFor(o)) return `Option (${o.id}) is engine output not yet in the recorded proposal`;
-    return approveReason(decision, identity.role, identity.node_id, o.levers);
-  };
-
-  // Lever windows (R08) from the engine, counted down on this device's clock.
-  const levers = ops.levers;
-
-  const trigger = events.find((e) => e.event_id === decision.trigger_event_id);
-  const station = ops.stations.find((s) => s.nodeId === decision.node_id) ?? ops.maitriStation;
-  const currentFuel = station.dimensions.find((d) => d.key === "FUEL");
-  const current = currentFuel
-    ? { state: currentFuel.state, ratio: currentFuel.ratio ?? 0, text: currentFuel.state === "GREEN" ? "Fuel within thresholds" : "Fuel below required threshold" }
-    : { state: station.state, ratio: 0, text: "No fuel line for this station" };
-  const trace = ops.traceSteps;
   const online = snap.link === "ONLINE";
+  const decision = data;
 
   const act = async (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -125,25 +88,21 @@ export function LiveDecisionDetail({ id }: { id: string }) {
     }
   };
 
-  const approve = (optionId: string, verifyAck: boolean) => {
-    const o = options.find((x) => x.id === optionId);
-    const real = o && realFor(o);
-    if (!real) return;
+  const approve = (optionId: string, verifyAck: boolean) =>
     void act(async () => {
       if (online) {
-        const body: ApproveRequest = { chosen_option_id: real.id, verify_ack: verifyAck, observed_at: now };
+        const body: ApproveRequest = { chosen_option_id: optionId, verify_ack: verifyAck, observed_at: now };
         await device.call<ApproveResponse>(`/decisions/${id}/approve`, { method: "POST", body: JSON.stringify(body) });
       } else {
         await device.write({
           type: "DECISION_APPROVED",
           entity_type: "decision",
           entity_id: id,
-          node_id: decision.node_id,
-          payload: { decision_id: id, chosen_option_id: real.id, approver: identity.device_id, verify_ack: verifyAck },
+          node_id: decision.nodeId,
+          payload: { decision_id: id, chosen_option_id: optionId, approver: identity.device_id, verify_ack: verifyAck },
         });
       }
     });
-  };
 
   const reject = (reason: string) =>
     void act(async () => {
@@ -151,39 +110,29 @@ export function LiveDecisionDetail({ id }: { id: string }) {
         const body: RejectRequest = { reason, observed_at: now };
         await device.call(`/decisions/${id}/reject`, { method: "POST", body: JSON.stringify(body) });
       } else {
-        await device.write({ type: "DECISION_REJECTED", entity_type: "decision", entity_id: id, node_id: decision.node_id, payload: { decision_id: id, reason } });
+        await device.write({ type: "DECISION_REJECTED", entity_type: "decision", entity_id: id, node_id: decision.nodeId, payload: { decision_id: id, reason } });
       }
     });
 
-  // The recorded option id (OPT-1) as the operator sees it: "(a) · OPT-1".
-  const optionLabel = (realId: string) => {
-    const shown = options.find((o) => realFor(o)?.id === realId);
-    return shown ? `(${shown.id}) · ${realId}` : realId;
-  };
-
-  const refusedText = refused ? `The server refused the ${refused.type === "DECISION_APPROVED" ? "approval" : "rejection"} recorded on this device: ${snap.rejected.get(refused.event_id)}. The decision is still open.` : undefined;
+  const effects = Object.fromEntries(data.options.flatMap((o) => Object.entries(o.facts.effects ?? {})));
+  const seed = snap.seed ?? season48;
 
   return (
-    <Frame moment="start" nav="decisions">
-      <DecisionDetail
+    <Frame moment="start" nav="decisions"
+      drawer={showMath && (
+        <TraceDrawer title={`${data.station} · Fuel`} state={data.stationNow.fuelState} subtitle={`As seen by ${identity.device_id} at ${formatSimClock(now)}`}
+          steps={data.why} units={data.units} b0={data.b0} onClose={() => setShowMath(false)} />
+      )}>
+      <DecisionScreen
         key={id}
-        id={id}
-        title={`${nodeLabel(decision.node_id)} fuel ${current.state === "GREEN" ? "decision" : "below required threshold"}`}
-        station={nodeLabel(decision.node_id)}
-        current={current}
-        trigger={trigger ? `${trigger.type} ${describeEvent(trigger)} · ${trigger.device_id} · ${formatShort(trigger.observed_at)}` : `Proposed ${formatShort(decision.proposed_at)}`}
-        pnr={decision.pnr ? { date: fullDate(decision.pnr), daysLeft: daysLeft(now, decision.pnr) } : (ops.pnr ? { date: ops.pnr.date, daysLeft: ops.pnr.daysLeft } : null)}
-        trace={trace}
-        levers={levers}
-        options={options}
-        role={identity.role}
-        today={dayLabel(now)}
-        blocked={{ approve: identity.role === "STATION_LEADER" ? undefined : approveReason(decision, identity.role, identity.node_id), reject: identity.role !== "HQ_OPS" ? "Only HQ Ops can reject decisions" : undefined }}
-        optionBlocked={optionBlocked}
-        status={outcomeText(device, decision, optionLabel)}
+        data={data}
+        viewer={actorLabel(identity.role, identity.device_id)}
+        now={now}
+        preview={(levers) => approvalPreview(levers, seed, effects)}
+        linkNote={online ? undefined : `Link ${snap.link.toLowerCase()} (simulated). Local operations active: the decision is recorded on this device and sent when the link allows. HQ applies the same checks then.`}
         busy={busy}
-        error={error ?? refusedText}
-        note={online ? undefined : `Link ${snap.link.toLowerCase()} (simulated): the decision is written on this device as an event and syncs when the link allows. The server applies the same checks then.`}
+        error={error}
+        onShowMath={() => setShowMath(true)}
         onApprove={approve}
         onReject={reject}
       />
