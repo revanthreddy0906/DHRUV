@@ -3,7 +3,7 @@ import { TriangleAlert, Pencil, Plus, ClipboardCheck, ScanEye } from "lucide-rea
 import {
   MOMENTS,
   CARGO_START, CARGO_SLIP, CARGO_2600900, INVENTORY_START, INVENTORY_SLIP, ROLE_COVERAGE, MISSIONS, NAMED_PEOPLE, ASSETS, SK2_CONFLICT,
-  EV, SYSTEM_EVENTS, OUTBOX_BEAT9, SYNTHETIC_BANNER, DEVICES, ROUTE_DISTANCES, type MomentId,
+  EV, SYSTEM_EVENTS, OUTBOX_BEAT9, DEVICES, ROUTE_DISTANCES, type MomentId,
 } from "../data/demo";
 import { Frame } from "./Frame";
 import { DecisionScreen } from "../components/decisions";
@@ -291,12 +291,17 @@ export function LoginScreen({ error = false, initialRole = "STATION_LEADER", onS
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg text-fg">
-      <div role="note" className="flex h-7 items-center justify-center border-b border-line bg-elevated text-xs text-fg-2">{SYNTHETIC_BANNER}</div>
       <div className="flex flex-1 items-center justify-center">
-        <form className="w-[440px] rounded-lg border border-line bg-surface p-6" onSubmit={submit}>
+        <form className="w-[440px] rounded-lg border border-line bg-surface p-7" onSubmit={submit}>
           <div className="mb-6">
-            <div className="font-mono text-title font-semibold tracking-[0.2em]">DHRUV</div>
-            <p className="mt-1 text-sm text-fg-2">Know what a delay breaks, by when to act, and how far to trust the data.</p>
+            <div className="flex items-center gap-3">
+              <span aria-hidden className="flex size-9 items-center justify-center rounded-sm border border-accent font-mono text-sm font-semibold text-accent">D</span>
+              <span className="leading-tight">
+                <span className="block font-mono text-title font-semibold tracking-[0.24em]">DHRUV</span>
+                <span className="block text-xs text-fg-2">Polar operations</span>
+              </span>
+            </div>
+            <p className="mt-3 text-sm text-fg-2">Know what a delay breaks, by when to act, and how far to trust the data.</p>
           </div>
           <fieldset>
             <legend className="mb-1 text-xs text-fg-2">Role</legend>

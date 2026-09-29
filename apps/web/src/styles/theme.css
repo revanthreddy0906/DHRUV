@@ -1,37 +1,38 @@
-/* DHRUV design tokens — "Polar light" (team decision; replaces the Bible §17 dark palette).
+/* DHRUV design tokens — "Warm polar" (frontend-redesign; adapted for WCAG AA from the v0 mock).
    docs/ui-redesign/CLAUDE.md section 4. This is the only file in src/ that holds colour values.
    Import once from the app entry: @import "tailwindcss"; @import "./styles/theme.css";          */
 
 :root {
   /* Surfaces */
-  --bg: #f3f6f9;
+  --bg: #f3f1eb;
   --surface: #ffffff;
-  --surface-elevated: #eaeff4;
-  --border: #d5dde6;
-  --border-strong: #b9c6d4;
-  --border-control: #6b7c93; /* inputs, selects, checkboxes */
+  --chrome: #fbfaf7; /* top bar, sidebar, demo dock */
+  --surface-elevated: #e9e6de;
+  --border: #d8d5cc;
+  --border-strong: #bdb8ac;
+  --border-control: #7a7468; /* inputs, selects, checkboxes */
 
   /* Text */
-  --text-primary: #0f1b2d;
-  --text-secondary: #4a5b70;
-  --text-muted: #5a6a80;
+  --text-primary: #222725;
+  --text-secondary: #58635d;
+  --text-muted: #656c66;
 
   /* State (always with a word + icon). GREEN is never tinted on overview screens. */
-  --state-green: #137337;
-  --state-amber: #a14a0a;
-  --state-red: #c81e1e;
-  --state-green-tint: #e6f4ea;
-  --state-amber-tint: #fdf0e1;
-  --state-red-tint: #fcebea;
+  --state-green: #3d6b4b;
+  --state-amber: #8f5a12;
+  --state-red: #b23a2c;
+  --state-green-tint: #e7efe8;
+  --state-amber-tint: #f7ebd3;
+  --state-red-tint: #f8e3df;
 
   /* Interaction only, never a state */
-  --accent: #0369a1;
-  --accent-tint: #e0eff9;
+  --accent: #955e36; /* copper */
+  --accent-tint: #f3e6da;
   --on-accent: #ffffff;
   --focus-ring: var(--accent);
 
   /* The one shadow: right-hand drawers only */
-  --drawer-shadow: 0 8px 24px rgba(15, 27, 45, 0.12);
+  --drawer-shadow: 0 8px 24px rgba(34, 39, 37, 0.12);
 
   /* Motion */
   --dur-fast: 150ms;
@@ -45,6 +46,7 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-chrome: var(--chrome);
   --color-elevated: var(--surface-elevated);
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
@@ -98,6 +100,12 @@
   /* CRITICAL value: the only place the 135° hatch is allowed. */
   .dh-critical {
     background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--state-red) 14%, transparent) 0 6px, transparent 6px 12px);
+  }
+  /* The network schematic's quiet 32 px grid (Command). */
+  .dh-grid {
+    background-image: linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
   /* SIMULATION overlay stripes */
   .dh-sim-stripes {

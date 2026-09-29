@@ -2,20 +2,20 @@
   "name": "DHRUV",
   "version": 1,
   "meta": {
-    "source": "DHRUV 'Polar light' palette (team decision replacing the Bible §17 dark palette); apps/web/src/styles/theme.css"
+    "source": "DHRUV 'Warm polar' palette (frontend-redesign, adapted from the v0 mock in docs/ui-redesign/reference/v0-warm-polar; replaces 'Polar light'); apps/web/src/styles/theme.css"
   },
   "color": {
     "themes": [
       {
         "id": "light",
-        "name": "Polar light"
+        "name": "Warm polar"
       }
     ],
     "tokens": [
       {
         "name": "bg",
-        "value": "#f3f6f9",
-        "usage": "App background behind every surface; cool grey so white cards separate on a projector."
+        "value": "#f3f1eb",
+        "usage": "App background behind every surface; warm ivory so white cards separate on a projector."
       },
       {
         "name": "surface",
@@ -23,78 +23,83 @@
         "usage": "Cards, panels, drawers, top bar, sidebar."
       },
       {
+        "name": "chrome",
+        "value": "#fbfaf7",
+        "usage": "Top bar, sidebar and the Demo dock: the frame around the content, a step lighter than bg."
+      },
+      {
         "name": "surface-elevated",
-        "value": "#eaeff4",
-        "usage": "Table headers, the synthetic-data banner, hover fills, secondary buttons."
+        "value": "#e9e6de",
+        "usage": "Table headers, hover fills, secondary buttons."
       },
       {
         "name": "border",
-        "value": "#d5dde6",
+        "value": "#d8d5cc",
         "usage": "Hairline dividers and card outlines. Decorative only; never the only cue for a control."
       },
       {
         "name": "border-strong",
-        "value": "#b9c6d4",
+        "value": "#bdb8ac",
         "usage": "Secondary button outline, chart gridlines, timeline connectors."
       },
       {
         "name": "border-control",
-        "value": "#6b7c93",
+        "value": "#7a7468",
         "usage": "Input, select and checkbox borders: 4.3:1 on surface, 3.7:1 on surface-elevated."
       },
       {
         "name": "text-primary",
-        "value": "#0f1b2d",
+        "value": "#222725",
         "usage": "Body text, values and headings on bg, surface, surface-elevated and every tint (14.7:1 or better)."
       },
       {
         "name": "text-secondary",
-        "value": "#4a5b70",
+        "value": "#58635d",
         "usage": "Labels, metadata, ages, captions on bg, surface, surface-elevated and every tint (5.9:1 or better)."
       },
       {
         "name": "text-muted",
-        "value": "#5a6a80",
+        "value": "#656c66",
         "usage": "Quieter metadata (device ids, tick labels, footnotes) on bg, surface, surface-elevated and every tint (4.7:1 or better)."
       },
       {
         "name": "state-green",
-        "value": "#137337",
+        "value": "#3d6b4b",
         "usage": "GREEN: sufficient. Always with the word GREEN and a check icon. 5.9:1 on surface, 5.1:1 or better on every ground and tint."
       },
       {
         "name": "state-amber",
-        "value": "#a14a0a",
+        "value": "#8f5a12",
         "usage": "AMBER: attention, aging, uncertainty, verify. Always with the word and a triangle icon. 6.0:1 on surface, 5.1:1 or better on every ground and tint."
       },
       {
         "name": "state-red",
-        "value": "#c81e1e",
+        "value": "#b23a2c",
         "usage": "RED: below threshold or blocked. Always with the word and an octagon icon. 5.7:1 on surface, 4.9:1 or better on every ground and tint. Green and red are close in lightness: never rely on hue alone."
       },
       {
         "name": "state-green-tint",
-        "value": "#e6f4ea",
+        "value": "#e7efe8",
         "usage": "Ground behind a GREEN badge or a GREEN approval confirmation."
       },
       {
         "name": "state-amber-tint",
-        "value": "#fdf0e1",
+        "value": "#f7ebd3",
         "usage": "Ground behind AMBER badges, verify gates, straddle flags, pending-sync counter."
       },
       {
         "name": "state-red-tint",
-        "value": "#fcebea",
+        "value": "#f8e3df",
         "usage": "Ground behind RED badges, RED dimension chips, PNR strip, incident strip."
       },
       {
         "name": "accent",
-        "value": "#0369a1",
+        "value": "#955e36",
         "usage": "Actions, selection, links (Show the math), focus ring, now-marker. Interaction only, never a state. 5.9:1 on surface."
       },
       {
         "name": "accent-tint",
-        "value": "#e0eff9",
+        "value": "#f3e6da",
         "usage": "Selected nav item and selected scenario ground."
       },
       {

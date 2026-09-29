@@ -7,7 +7,6 @@ import type {
   Role, StationEval, Tier, TraceStep,
 } from "./types";
 
-export const SYNTHETIC_BANNER = "Synthetic demonstration data. Not operational NCPOR data.";
 
 export const THRESHOLDS = { green: 1.05, amberLow: 0.95 } as const;
 

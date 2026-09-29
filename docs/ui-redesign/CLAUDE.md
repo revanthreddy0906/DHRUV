@@ -1,4 +1,4 @@
-# CLAUDE.md — DHRUV frontend redesign ("Polar light")
+# CLAUDE.md — DHRUV frontend redesign ("Warm polar")
 
 This file governs the UI/UX redesign of `apps/web`. It sits on top of the repo's existing
 rules (README "Contributing", the handoff doc's section 10). Where they conflict on anything
@@ -55,7 +55,7 @@ is a calm, professional operations product.
 9. **Git: commit only, never push, never touch develop.**
    - Never run `git push` in any form (including `--force`, `--force-with-lease`, or pushing tags).
      Pushing is always done by the human. When work is ready, say so and stop.
-   - Commit only on the current working branch (`ui/polar-light`). Before every commit, run
+   - Commit only on the current working branch (`frontend-redesign`; earlier work used `ui/polar-light`). Before every commit, run
      `git branch --show-current` and stop if it is `develop` or `main`.
    - Never check out, commit to, merge into, rebase, reset or rewrite `develop` or `main`.
      Reading them (`git log develop..HEAD`, `git diff develop`) is fine.
@@ -90,33 +90,39 @@ is a calm, professional operations product.
 9. **Every number still opens its math in one click** (Show the math / row expand). Hiding
    detail is not deleting it.
 
-## 4. Visual tokens ("Polar light", from the team design system)
+## 4. Visual tokens ("Warm polar")
 
-Replace the dark palette entirely. Put these in the Tailwind 4 theme file (look for
-`apps/web/src/styles/theme.css` or wherever `@theme` lives) and map utilities to them. Remove every
-hard-coded colour from components. `grep -rn "#[0-9a-fA-F]\{3,6\}" apps/web/src` should
-return only the theme file when you are done.
+The palette was "Polar light" (cool greys, blue accent) until 29 Sep 2026. It is now "Warm polar",
+adapted from the v0 mock in `docs/ui-redesign/reference/v0-warm-polar/`. The mock's own hues were
+darkened until every text use passes WCAG AA (ratios below are on `surface` / `bg`). Put these in
+`apps/web/src/styles/theme.css` only. `grep -rn "#[0-9a-fA-F]\{3,6\}" apps/web/src` must return
+only the theme file.
 
-| Token | Hex | Use |
-|---|---|---|
-| `bg` | `#f3f6f9` | App background |
-| `surface` | `#ffffff` | Cards, panels, drawers, top bar, sidebar |
-| `surface-elevated` | `#eaeff4` | Table headers, hover, secondary buttons, synthetic notice |
-| `border` | `#d5dde6` | Hairlines, card outlines |
-| `border-strong` | `#b9c6d4` | Secondary button outline, timeline connectors, gridlines |
-| `border-control` | `#6b7c93` | Inputs, selects, checkboxes |
-| `text-primary` | `#0f1b2d` | Body, values, headings |
-| `text-secondary` | `#4a5b70` | Labels, metadata, ages |
-| `text-muted` | `#5a6a80` | Device ids, footnotes, tick labels |
-| `state-green` | `#137337` | GREEN word and icon only (no fill on overview screens) |
-| `state-amber` | `#a14a0a` | AMBER, aging, verify |
-| `state-red` | `#c81e1e` | RED, blocked, below threshold |
-| `state-green-tint` | `#e6f4ea` | Only for an approval confirmation |
-| `state-amber-tint` | `#fdf0e1` | Ground behind AMBER rows, verify gate, pending sync |
-| `state-red-tint` | `#fcebea` | Ground behind RED rows, PNR pill, incident strip |
-| `accent` | `#0369a1` | Interaction only: primary buttons, links, selection, focus, now-marker. Never a state |
-| `accent-tint` | `#e0eff9` | Selected nav item, selected option |
-| `on-accent` | `#ffffff` | Text on accent fill |
+| Token | Hex | Use | Contrast |
+|---|---|---|---|
+| `bg` | `#f3f1eb` | App background (warm ivory) | – |
+| `chrome` | `#fbfaf7` | Top bar, sidebar, Demo dock | – |
+| `surface` | `#ffffff` | Cards, panels, drawers | – |
+| `surface-elevated` | `#e9e6de` | Table headers, hover, secondary buttons | – |
+| `border` | `#d8d5cc` | Hairlines, card outlines | – |
+| `border-strong` | `#bdb8ac` | Secondary button outline, timeline connectors, gridlines | – |
+| `border-control` | `#7a7468` | Inputs, selects, checkboxes | 4.6 / 4.1 |
+| `text-primary` | `#222725` | Body, values, headings | 15.2 / 13.4 |
+| `text-secondary` | `#58635d` | Labels, metadata, ages | 6.3 / 5.5 |
+| `text-muted` | `#656c66` | Device ids, footnotes, tick labels | 5.4 / 4.8 |
+| `state-green` | `#3d6b4b` | GREEN word and icon only (no fill on overview screens) | 6.2 / 5.5 |
+| `state-amber` | `#8f5a12` | AMBER, aging, verify | 5.8 / 5.1 |
+| `state-red` | `#b23a2c` | RED, blocked, below threshold | 5.9 / 5.3 |
+| `state-green-tint` | `#e7efe8` | Only for an approval confirmation | – |
+| `state-amber-tint` | `#f7ebd3` | Ground behind AMBER rows, verify gate, pending sync | amber on it 4.9 |
+| `state-red-tint` | `#f8e3df` | Ground behind RED rows, PNR pill, incident strip | red on it 4.8 |
+| `accent` | `#955e36` | Interaction only (copper): primary buttons, links, selection, focus, now-marker. Never a state | 5.3 / 4.7; white on it 5.3 |
+| `accent-tint` | `#f3e6da` | Selected nav item, selected option | – |
+| `on-accent` | `#ffffff` | Text on accent fill | – |
+
+Copper (`accent`) and `state-red` are close in lightness and differ by hue. That is acceptable only
+because a state is always a word plus an icon and copper is never a state. If a screen makes them
+hard to tell apart, the fallback accent is pine `#315c4b` (7.6:1).
 
 Focus ring: 2 px solid `accent`, 2 px offset, on every interactive element.
 
@@ -244,11 +250,11 @@ Left to right:
 Remove from the top bar: the role switcher, Online/Degraded/Offline switch, "SIMULATED LINK",
 +1 h / +6 h / +30 h, Reset, and the "DEMO" tag. All of these move to the Demo dock.
 
-### 7.2 Synthetic data notice
+### 7.2 Synthetic data notice (removed)
 
-One slim line (28 px, `surface-elevated`, 12 px text, centred) under the top bar:
-"Synthetic demonstration data. Not operational NCPOR data." Keep it on every screen. It is a
-note, not a warning: no icon colour.
+The slim "Synthetic demonstration data. Not operational NCPOR data." line under the top bar was
+removed on 29 Sep 2026 at the team's request, on every screen including login, the Field Lead
+view and the fallback map caption. Do not add it back.
 
 ### 7.3 Demo dock (new component `DemoDock`)
 
@@ -289,7 +295,7 @@ note, not a warning: no icon colour.
 
 ### 7.5 Offline banner
 
-When this device is Offline, show one amber line under the synthetic notice:
+When this device is Offline, show one amber line under the top bar:
 "Offline. Local operations active. 5 events pending, oldest 6 h 50 m."
 It is the only other full-width strip allowed.
 

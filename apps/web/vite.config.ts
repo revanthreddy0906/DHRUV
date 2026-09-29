@@ -24,8 +24,8 @@ export default defineConfig({
         name: 'DHRUV',
         short_name: 'DHRUV',
         description: 'Polar expedition operational decision support',
-        theme_color: '#f3f6f9',
-        background_color: '#f3f6f9',
+        theme_color: '#f3f1eb',
+        background_color: '#f3f1eb',
         display: 'standalone'
       }
     })

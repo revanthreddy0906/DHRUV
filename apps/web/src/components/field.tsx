@@ -3,7 +3,7 @@ import { CircleAlert, CircleCheck, CloudUpload, OctagonAlert, Signal, TriangleAl
 import type { CheckInStatus } from "../format";
 import type { LinkStatus, Role } from "../data/types";
 import { cx } from "./primitives";
-import { SyntheticDataBanner, UserMenu } from "./shell";
+import { UserMenu } from "./shell";
 
 /**
  * Field Lead mobile view (SPEC B): outdoors, gloves, glare, one hand, mostly offline. Presentational
@@ -49,9 +49,12 @@ const LINK_ICON: Record<LinkStatus, typeof Wifi> = { ONLINE: Wifi, DEGRADED: Sig
 function Header({ model }: { model: FieldModel }) {
   const Icon = LINK_ICON[model.link.status];
   return (
-    <header className="shrink-0 border-b border-line bg-surface px-4 py-3">
+    <header className="shrink-0 border-b border-line bg-chrome px-4 py-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-heading font-semibold text-fg">{model.team} · {model.station}</div>
+        <div className="flex items-center gap-2.5">
+          <span aria-hidden className="flex size-7 items-center justify-center rounded-sm border border-accent font-mono text-xs font-semibold text-accent">D</span>
+          <span className="text-heading font-semibold text-fg">{model.team} · {model.station}</span>
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-fg">{model.clock.date} <span className="font-mono tabular-nums">{model.clock.time}</span></span>
           {model.user && <UserMenu role={model.user.role} station={model.station} deviceId={model.user.deviceId} onSignOut={model.user.onSignOut} />}
@@ -191,7 +194,6 @@ export function FieldView({ model }: { model: FieldModel }) {
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-bg text-fg">
       <Header model={model} />
-      <SyntheticDataBanner />
       <main className="flex-1 space-y-4 overflow-auto p-4">
         <CheckInCard checkIn={model.checkIn} />
         {model.mission && <MissionCard mission={model.mission} />}

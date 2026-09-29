@@ -116,12 +116,12 @@ export function IncidentPanel({ inc = INCIDENT, conflictOpen, compact, onEscalat
       <div className={cx("grid gap-4", compact ? "grid-cols-1" : "grid-cols-[1.1fr_1fr]")}>
         <div className="space-y-4">
           <PositionCard inc={inc} />
-          <Card><SectionHeader title="Snapshot · every line shows its age" /><SnapshotTable inc={inc} conflictOpen={conflictOpen} rows={rows} /></Card>
+          <Card><SectionHeader title="Snapshot" meta={<span className="text-xs text-fg-2">Every line shows its age</span>} /><SnapshotTable inc={inc} conflictOpen={conflictOpen} rows={rows} /></Card>
         </div>
         <div className="space-y-4">
           {!compact && (map ?? <MapPanel><LocalAreaMap /></MapPanel>)}
           <div>
-            <SectionHeader title="Candidate responders · autonomy cost from the what-if engine" />
+            <SectionHeader title="Candidate responders" meta={<span className="text-xs text-fg-2">Autonomy cost from the what-if engine</span>} />
             <ul className="space-y-2">{inc.responders.map((r) => <ResponderRow key={r.id} r={r} conflictOpen={r.status === "CONFLICT" || (conflictOpen && r.excluded)} />)}</ul>
             {inc.responders.length === 0 && <p className="text-xs text-fg-2">No capable asset with a known position on this device.</p>}
           </div>

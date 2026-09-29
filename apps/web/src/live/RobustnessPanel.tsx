@@ -71,7 +71,7 @@ export function RobustnessPanel({ seed, events, now, node }: { seed: Seed; event
                     value={deviation[u.name]}
                     disabled={noFeeder || !enabled[u.name]}
                     onChange={(e) => setDeviation((s) => ({ ...s, [u.name]: Number(e.target.value) }))}
-                    className="h-8 w-16 rounded-md border border-line-ctrl bg-bg px-2 text-right font-mono text-sm text-fg disabled:opacity-50"
+                    className="h-9 w-16 rounded-md border border-line-ctrl bg-surface px-2 text-right font-mono text-sm text-fg disabled:opacity-50"
                   />
                   {meta.unit}
                 </label>

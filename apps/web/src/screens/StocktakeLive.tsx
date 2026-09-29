@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { compareEvents, stockBalance, type OpEvent } from "@dhruv/shared";
-import { Button, Card, SectionHeader, cx } from "../components/primitives";
+import { Button, Card, SectionHeader, cx, FIELD } from "../components/primitives";
 import { RecordedBy, TD, TH, WhereCell } from "../components/records";
 import { formatAgo, formatDateTime, formatQty, needsVarianceReason, variance, varianceReview } from "../format";
 import { nodeLabel } from "../live/chrome";
@@ -10,7 +10,7 @@ import type { LiveOps } from "../live/ops";
 import { validateStock } from "../live/StockTransactionForm";
 import { STOCKTAKE_VARIANCE_REASON_FRACTION, VARIANCE_REVIEW_FRACTION } from "../ui-config";
 
-const input = "h-9 rounded-md border border-line-ctrl bg-surface px-2 text-sm text-fg";
+const input = FIELD;
 const pct = (f: number) => `${Math.round(f * 100)} %`;
 
 /**

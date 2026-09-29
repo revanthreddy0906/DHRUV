@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { evaluate, reduce } from "@dhruv/engine";
 import type { OpEvent, Seed } from "@dhruv/shared";
 import { LegTimeline, ShipmentRow } from "../components/ops";
-import { Button, Card, SectionHeader, cx } from "../components/primitives";
+import { Button, Card, FIELD, PageHeader, SectionHeader, cx } from "../components/primitives";
 import { formatRatio } from "../format";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
@@ -14,7 +14,7 @@ import { nodeLabel } from "../live/chrome";
 import { dayLabel } from "../live/describe";
 import { parseEtaInput } from "../live/format";
 import { shipmentsOf } from "../live/shipments";
-import { Frame } from "./Frame";
+import { Frame, QuietLine } from "./Frame";
 
 export function LiveCargoScreen() {
   const device = useDevice();
@@ -33,16 +33,7 @@ export function LiveCargoScreen() {
   const view = React.useMemo(() => (ops ? shipmentsOf(ops.seed, ops.events, ops.now) : null), [ops]);
 
   if (!device || !ops || !view) {
-    return (
-      <Frame moment="start" nav="cargo">
-        <div className="flex h-full flex-col items-center justify-center p-8">
-          <div className="flex flex-col items-center gap-3 text-fg-2">
-            <div className="size-6 animate-spin rounded-full border-2 border-line-ctrl border-t-accent" />
-            <span className="text-xs">Loading this device's expedition state.</span>
-          </div>
-        </div>
-      </Frame>
-    );
+    return <Frame moment="start" nav="cargo"><QuietLine>Loading this device's expedition state.</QuietLine></Frame>;
   }
 
   const { seed, events, now } = ops;
@@ -100,41 +91,31 @@ export function LiveCargoScreen() {
           </div>
         </aside>
       ) : undefined}>
-      <div className="space-y-4 p-6">
-        <div className="flex items-end gap-3">
-          <div>
-            <h1 className="text-title font-semibold text-fg">Cargo</h1>
-            {vessel && (
-              <>
-                <p className="mt-0.5 text-sm text-fg-2">Inbound to {[...new Set(seed.shipments.map((s) => nodeLabel(s.dest_node_id)))].join(" and ") || nodeLabel("MAITRI")}.</p>
-                <p className="text-sm text-fg-2">{seed.vessels[0]!.name}: load cutoff <span className="font-semibold text-fg">{dayLabel(vessel.loadCutoff)}</span>, departs {dayLabel(vessel.departure)}, station closing {dayLabel(vessel.stationClosingDate)}.</p>
-              </>
-            )}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1 px-2 text-xs text-fg-2 hover:text-fg"><Network size={13} aria-hidden />Connections</Link>
-            <Button icon={<PackagePlus size={14} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
-            <Button icon={<Pencil size={14} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
-          </div>
-        </div>
+      <div className="space-y-6 p-6">
+        <PageHeader title="Cargo"
+          subtitle={vessel ? <>Inbound to {[...new Set(seed.shipments.map((s) => nodeLabel(s.dest_node_id)))].join(" and ") || nodeLabel("MAITRI")}. {seed.vessels[0]!.name}: load cutoff <span className="font-semibold text-fg">{dayLabel(vessel.loadCutoff)}</span>, departs {dayLabel(vessel.departure)}, station closing {dayLabel(vessel.stationClosingDate)}.</> : undefined}
+          actions={<>
+            <Link to={`/graph?focus=${seed.shipments[0]?.id ?? ""}`} className="flex items-center gap-1.5 px-2 text-sm text-fg-2 hover:text-fg"><Network size={16} aria-hidden />Connections</Link>
+            <Button icon={<PackagePlus size={16} />} onClick={() => setCreating(true)} disabledReason={isHq ? undefined : "Shipments are created by HQ Ops"}>New shipment</Button>
+            <Button icon={<Pencil size={16} />} onClick={() => setEdit(true)} disabledReason={isHq ? undefined : "Leg delays are recorded by HQ Ops"}>Edit ETA</Button>
+          </>} />
 
         {edit && isHq && (
-          <Card className="border-accent/60">
-            <SectionHeader title={`Edit ETA · ${target?.id ?? ""} ${targetLeg ? `${nodeLabel(targetLeg.from_node)} → ${nodeLabel(targetLeg.to_node)}` : ""} · consequence preview`} />
-            <form onSubmit={record} className="flex flex-wrap items-center gap-4">
-              <label className="text-xs text-fg-2">Shipment{" "}
-                <select value={target?.id} onChange={(e) => setShipmentId(e.target.value)} className="ml-2 h-8 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-sm text-fg">
+          <Card heading={`Edit ETA · ${target?.id ?? ""} ${targetLeg ? `${nodeLabel(targetLeg.from_node)} → ${nodeLabel(targetLeg.to_node)}` : ""}`} meta="The preview runs the engine on this device; nothing is recorded until you press Record delay">
+            <form onSubmit={record} className="flex flex-wrap items-end gap-4">
+              <label className="text-xs text-fg-2">Shipment
+                <select value={target?.id} onChange={(e) => setShipmentId(e.target.value)} className={cx(FIELD, "mt-1 block font-mono")}>
                   {seed.shipments.map((s) => <option key={s.id} value={s.id}>{s.id}</option>)}
                 </select>
               </label>
-              <label className="text-xs text-fg-2">New ETA{" "}
+              <label className="text-xs text-fg-2">New ETA
                 <input value={newEtaInput} onChange={(e) => setNewEtaInput(e.target.value)} className="ml-2 h-8 w-24 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-sm text-fg" />
               </label>
-              <label className="text-xs text-fg-2">Reason{" "}
+              <label className="text-xs text-fg-2">Reason
                 <input value={reasonInput} onChange={(e) => setReasonInput(e.target.value)} className="ml-2 h-8 w-56 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg" />
               </label>
               {preview?.before && preview.after && (
-                <p aria-live="polite" className={cx("text-sm", preview.after.state === "RED" ? "font-semibold text-bad" : preview.after.state === "AMBER" ? "font-semibold text-warn" : "text-fg")}>
+                <p aria-live="polite" className={cx("basis-full rounded-md px-3 py-2 text-sm", preview.after.state === "RED" ? "bg-bad-tint font-semibold text-bad" : preview.after.state === "AMBER" ? "bg-warn-tint font-semibold text-warn" : "bg-elevated text-fg")}>
                   <span className="text-fg-2">If recorded: </span>
                   {nodeLabel(target!.dest_node_id)} fuel ratio {formatRatio(preview.before.ratio)} → {formatRatio(preview.after.ratio)}, {preview.before.state === preview.after.state ? "stays" : "turns"} {preview.after.state}.
                   {preview.pnr && ` Point of no return ${dayLabel(preview.pnr)}.`}

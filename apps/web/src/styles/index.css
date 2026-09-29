@@ -3,7 +3,7 @@
 @import "tailwindcss";
 @import "./theme.css";
 
-/* Leaflet on the Polar light palette. */
+/* Leaflet on the Warm polar palette. */
 .dhruv-map.leaflet-container { background: var(--bg); font-family: var(--font-sans); }
 .dhruv-map .leaflet-tooltip { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border-strong); box-shadow: none; font-size: 12px; }
 .dhruv-map .leaflet-tooltip.dhruv-map-label { font-family: var(--font-mono); font-weight: 600; padding: 1px 5px; }
