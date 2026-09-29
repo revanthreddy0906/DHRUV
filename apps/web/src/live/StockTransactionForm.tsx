@@ -1,7 +1,7 @@
 import * as React from "react";
 import { EVENT_RULES, type OpEvent, type Seed } from "@dhruv/shared";
 import type { Evaluation } from "@dhruv/engine";
-import { Button, Card, SectionHeader, FIELD } from "../components/primitives";
+import { Button, Card, FIELD } from "../components/primitives";
 import type { InventoryView } from "../data/demo";
 import { WriteFeedback, useEventWriter } from "./writeStatus";
 import { findItem, useConsequencePreview } from "./useConsequencePreview";
@@ -78,8 +78,7 @@ export function StockTransactionForm({ role, node, seed, rows, events, now, eval
 
   if (actions.length === 0) {
     return (
-      <Card>
-        <SectionHeader title="Stock transactions" />
+      <Card heading="Stock transactions">
         <p className="text-sm text-fg-2">Read only. Stock is counted, issued and received by the Station Leader (HQ Ops may count).</p>
       </Card>
     );
@@ -128,8 +127,7 @@ export function StockTransactionForm({ role, node, seed, rows, events, now, eval
   const fieldError = (msg?: string) => (touched && msg ? <span className="mt-1 block text-xs text-bad">{msg}</span> : null);
 
   return (
-    <Card>
-      <SectionHeader title="Stock transaction" meta={<span className="text-xs text-fg-2">Saved on this device first, then synced</span>} />
+    <Card heading="Stock transaction" meta="Saved on this device first, then synced">
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         {!fixedItemId && (
           <label className="text-xs text-fg-2">Item

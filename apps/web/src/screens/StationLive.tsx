@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { FlaskConical, Network, Sigma } from "lucide-react";
-import { Button, Card, GateBanner, SectionHeader, StateBadge } from "../components/primitives";
+import { Button, Card, GateBanner, StateBadge, cx } from "../components/primitives";
 import { DimensionsTable, Disclosure, MissionList } from "../components/station";
 import { BaselineB0Badge } from "../components/readiness";
 import { TraceDrawer } from "../components/trace";
@@ -73,21 +73,24 @@ export function LiveStationScreen() {
       </>}>
       <div className="space-y-6 p-6">
         <header className="flex flex-wrap items-start gap-x-8 gap-y-3">
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-title font-semibold text-fg">{view.name}</h1>
-              <StateBadge state={st.state} />
+          <div className="flex min-w-0 flex-1 gap-4">
+            <span aria-hidden className="mt-0.5 flex h-10 w-14 shrink-0 items-center justify-center rounded-sm border border-line-strong bg-surface font-mono text-sm font-semibold text-accent">{view.name.slice(0, 3).toUpperCase()}</span>
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-title font-semibold text-fg">{view.name}</h1>
+                <StateBadge state={st.state} />
+              </div>
+              <p className="text-sm text-fg">{stationReason(st)}</p>
+              <p className="text-xs text-fg-2">
+                {link ? (link.own ? `Link ${link.status.toLowerCase()} (this device)` : link.age === "just now" ? "Last heard just now" : `Last heard ${link.age} ago`) : ""}
+                {pob !== undefined && <span className="ml-4">POB {pob}</span>}
+              </p>
             </div>
-            <p className="text-sm text-fg">{stationReason(st)}</p>
-            <p className="text-xs text-fg-2">
-              {link ? (link.own ? `Link ${link.status.toLowerCase()} (this device)` : link.age === "just now" ? "Last heard just now" : `Last heard ${link.age} ago`) : ""}
-              {pob !== undefined && <span className="ml-4">POB {pob}</span>}
-            </p>
           </div>
           {driving && st.state !== "GREEN" && (
             <div className="text-right">
               <div className="text-xs text-fg-2">{DIMENSION_LABEL[driving.key]}</div>
-              <div className="font-mono text-headline font-semibold tabular-nums text-fg">{dimensionHeadline(driving)}</div>
+              <div className={cx("font-mono text-headline font-semibold tabular-nums", st.state === "RED" ? "text-bad" : "text-warn")}>{dimensionHeadline(driving)}</div>
             </div>
           )}
           <div className="flex items-center gap-2 self-center">
@@ -98,24 +101,22 @@ export function LiveStationScreen() {
 
         {(st.gates ?? []).length > 0 && <div className="space-y-2">{st.gates!.map((g) => <GateBanner key={g.id}>{g.message}</GateBanner>)}</div>}
 
-        <Card pad="none" className="overflow-hidden">
+        <Card heading="Dimensions" meta="Worst dimension sets the station's state" pad="none">
           <DimensionsTable dimensions={st.dimensions} now={ops.now} onShowMath={setTraceKey} />
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <section>
-            <SectionHeader title="Fuel outlook" />
+        <div className="grid items-start gap-6 xl:grid-cols-2">
+          <Card heading="Fuel outlook">
             {fuel?.slipTolerance ? (
               <p className="text-sm text-fg">
                 {view.slip.text}.{view.slip.kind === "breach" && <span className="text-fg-2"> Arithmetic at current burn, not a prediction.</span>}
               </p>
             ) : <p className="text-sm text-fg-2">This station has no diesel line in the seed, so its fuel outlook is unknown.</p>}
-          </section>
+          </Card>
           {view.missions.length > 0 && (
-            <section>
-              <SectionHeader title="Missions" />
+            <Card heading="Missions" pad="none" bodyClassName="px-4">
               <MissionList missions={view.missions} />
-            </section>
+            </Card>
           )}
         </div>
 

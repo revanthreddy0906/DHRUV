@@ -2,7 +2,7 @@ import * as React from "react";
 import { ArrowRight, Check, Cloud, Database, HardDrive, Server } from "lucide-react";
 import { compareEvents, EVENT_RULES, stockBalance, type OpEvent, type StorageResponse } from "@dhruv/shared";
 import { getMeta } from "@dhruv/store";
-import { Card, SectionHeader, Tag, cx } from "../components/primitives";
+import { Card, PageHeader, Tag, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveOps } from "../live/ops";
 import { nodeLabel } from "../live/chrome";
@@ -118,18 +118,11 @@ export function LiveDataScreen() {
 
   return (
     <Frame moment="start" nav="data">
-      <div className="space-y-4 p-5">
-        <div>
-          <h1 className="text-title font-semibold text-fg">Where data lives</h1>
-          <p className="mt-0.5 max-w-[90ch] text-sm text-fg-2">
-            Every change is one event. It is written to this device first, queued in its outbox, and appended to the server's log when the link allows.
-            Stock levels, decisions and readiness are not stored anywhere: they are computed from the events each time.
-          </p>
-        </div>
+      <div className="space-y-6 p-6">
+        <PageHeader title="Where data lives" subtitle="Every change is one event. It is written to this device first, queued in its outbox, and appended to the server's log when the link allows. Stock levels, decisions and readiness are not stored anywhere: they are computed from the events each time." />
 
         <div className="grid gap-4 xl:grid-cols-[1fr_1.35fr_1fr]">
-          <Card>
-            <SectionHeader title="This device" meta={<HardDrive size={14} className="text-fg-2" aria-hidden />} />
+          <Card heading="This device" meta={<HardDrive size={16} aria-hidden />}>
             <p className="mb-2 text-xs text-fg-2">Browser IndexedDB database <span className={cx(mono, "text-fg")}>dhruv-{identity.device_id}</span>. It works with no network at all.</p>
             <Stat label="events" note="every event this device holds, its own and pulled" value={events.length} />
             <Stat label="  of which local only" note="clock and link switches, never synced" value={localOnly} />
@@ -147,8 +140,7 @@ export function LiveDataScreen() {
             </div>
           </Card>
 
-          <Card>
-            <SectionHeader title="Follow one event" meta={<Database size={14} className="text-fg-2" aria-hidden />} />
+          <Card heading="Follow one event" meta={<Database size={16} aria-hidden />}>
             <label className="text-xs text-fg-2">Event
               <select aria-label="Event" value={event?.event_id ?? ""} onChange={(e) => setPicked(e.target.value)} className="mt-1 block h-8 w-full rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg">
                 {events.slice(0, 60).map((e) => <option key={e.event_id} value={e.event_id}>{e.device_id} · {e.seq} · {e.type} · {describeEvent(e).slice(0, 60)}</option>)}
@@ -157,8 +149,7 @@ export function LiveDataScreen() {
             {event ? <EventJourney event={event} pending={snap.pendingIds.has(event.event_id)} refused={snap.rejected.get(event.event_id)} own={event.device_id === identity.device_id} /> : <p className="mt-3 text-sm text-fg-2">No events yet. Record a stock count or any other action, then come back.</p>}
           </Card>
 
-          <Card>
-            <SectionHeader title="Server" meta={<Server size={14} className="text-fg-2" aria-hidden />} />
+          <Card heading="Server" meta={<Server size={16} aria-hidden />}>
             {storage ? (
               <>
                 <p className="mb-2 text-xs text-fg-2">{storage.engine} file <span className={cx(mono, "text-fg")}>{storage.file.split("/").pop()}</span> · journal {storage.journal_mode}</p>
@@ -181,8 +172,7 @@ export function LiveDataScreen() {
           </Card>
         </div>
 
-        <Card>
-          <SectionHeader title={`State is computed, not stored · ${nodeLabel(node ?? "")}`} meta={<Cloud size={14} className="text-fg-2" aria-hidden />} />
+        <Card heading={`State is computed, not stored · ${nodeLabel(node ?? "")}`} meta={<Cloud size={16} aria-hidden />}>
           <div className="flex flex-wrap items-start gap-6">
             <label className="text-xs text-fg-2">Item
               <select aria-label="Computed item" value={item?.id ?? ""} onChange={(e) => setItemId(e.target.value)} className="mt-1 block h-8 w-60 rounded-md border border-line-ctrl bg-bg px-2 text-sm text-fg">

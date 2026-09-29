@@ -1,7 +1,7 @@
 import * as React from "react";
 import { STATION_NODES } from "@dhruv/seed";
 import type { PayloadOf, Seed } from "@dhruv/shared";
-import { Button, Card, Checkbox, SectionHeader, FIELD } from "../components/primitives";
+import { Button, Card, Checkbox, FIELD } from "../components/primitives";
 import { nodeLabel } from "./chrome";
 import { dayLabel } from "./describe";
 import { parseEtaInput } from "./format";
@@ -104,8 +104,7 @@ export function ShipmentForm({ seed, vessels, onDone }: { seed: Seed; vessels: V
   };
 
   return (
-    <Card className="border-accent/60">
-      <SectionHeader title="New shipment" meta={<span className="text-xs text-fg-2">Records SHIPMENT_CREATED · HQ Ops</span>} />
+    <Card heading="New shipment" meta="Recorded by HQ Ops">
       <form onSubmit={onSubmit} noValidate className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] items-start gap-4">
         <label className="text-xs text-fg-2">Shipment id
           <input aria-label="Shipment id" value={input.id} onChange={(e) => set("id", e.target.value)} className={`${field} mt-1 block w-full font-mono`} />{err("id")}

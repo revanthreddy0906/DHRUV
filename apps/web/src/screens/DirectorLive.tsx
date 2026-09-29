@@ -74,7 +74,7 @@ export function LiveDirector() {
     return (
       <div className="min-h-screen bg-bg p-8 text-sm text-fg">
         <div className="max-w-xl border-2 border-dashed border-warn p-4">
-          <p className="font-bold text-warn">Demo control</p>
+          <p className="font-semibold text-warn">Demo control</p>
           <p className="mt-2">The Director needs an HQ Ops session in this tab (the admin endpoints are HQ Ops only).</p>
           <Link to="/login?role=HQ_OPS" className="mt-3 inline-block text-accent underline">Sign in as HQ Ops</Link>
         </div>
@@ -119,7 +119,7 @@ export function LiveDirector() {
       <div className="w-[920px] max-w-full rounded-lg border-2 border-dashed border-line-strong bg-surface p-4 text-sm text-fg">
         <div className="mb-3 flex items-center gap-2 border-b border-line pb-2">
           <Clapperboard size={15} className="text-warn" aria-hidden />
-          <span className="font-bold text-warn">Demo control</span>
+          <span className="font-semibold text-warn">Demo control</span>
           <span className="text-fg-2">not part of the product · as {device.session.identity.device_id}</span>
           <Link to="/command" className="border border-line-strong px-2 py-1 text-fg-2 hover:text-fg">← Command</Link>
           <button type="button" disabled={busy} onClick={() => void run("Reset to Start", async () => { const on = await director.reset(scenario.id); setActive(scenario.id); setBeats({}); setLinks({ [NODES.MAITRI]: "ONLINE", [NODES.BHARATI]: "ONLINE" }); return `server reset to ${scenario.id}, ${on.length} tab(s) cleared`; })}
@@ -147,7 +147,7 @@ export function LiveDirector() {
               <li key={b.beat} className={cx("border px-2 py-1", state?.status === "done" || byHand ? "border-line text-fg-2" : state?.status === "error" ? "border-bad/60" : b.where === "operator" ? "border-accent/60" : "border-line-strong")}>
                 <div className="flex items-center gap-2">
                   <button type="button" disabled={busy || stale} onClick={() => runBeat(b.beat)} title={b.where === "operator" ? "Do it for me" : undefined}
-                    className="w-16 shrink-0 border border-line-strong py-0.5 text-center font-bold hover:border-warn disabled:opacity-50">Beat {b.beat}</button>
+                    className="w-16 shrink-0 border border-line-strong py-0.5 text-center font-semibold hover:border-warn disabled:opacity-50">Beat {b.beat}</button>
                   <span className={cx("w-16 shrink-0", b.where === "operator" ? "text-accent" : "text-fg-2")}>{b.where === "operator" ? "by hand" : b.where}</span>
                   <span className="flex-1">
                     {b.label}

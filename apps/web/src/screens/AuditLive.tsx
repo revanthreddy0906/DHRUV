@@ -11,6 +11,7 @@ import { describeEvent } from "../live/describe";
 import { formatShort } from "../live/format";
 import { useFactEvents } from "../live/incident";
 import { useLiveOps } from "../live/ops";
+import { PageHeader } from "../components/primitives";
 import { Frame } from "./Frame";
 
 /** What an open conflict holds up, in operator terms. */
@@ -97,14 +98,9 @@ export function LiveAuditScreen() {
 
   return (
     <Frame moment="start" nav="audit">
-      <div className="space-y-4 p-5">
-        <div>
-          <h1 className="text-title font-semibold text-fg">Audit</h1>
-          <p className="mt-0.5 text-sm text-fg-2">
-            Append-only event log as held by {identity.device_id}. Events are never edited; corrections are new events. Observed times are demo time; recorded-at-server times are the server's real clock.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-6 p-6">
+        <PageHeader title="Audit" subtitle={`Append-only event log as held by ${identity.device_id}. Events are never edited; corrections are new events. Observed times are demo time; recorded-at-server times are the server's real clock.`} />
+        <div className={selected ? "grid items-start gap-6 xl:grid-cols-2" : ""}>
           <div className="space-y-3">
             <ReviewQueue conflicts={open.map(toCard)} onReview={(id) => setReviewing(id)} />
             {resolved.length > 0 && (

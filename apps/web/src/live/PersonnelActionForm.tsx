@@ -1,7 +1,7 @@
 import * as React from "react";
 import { EVENT_RULES, PERSON_STATUSES, type EventType } from "@dhruv/shared";
 import { NODES } from "@dhruv/seed";
-import { Button, Card, SectionHeader, FIELD } from "../components/primitives";
+import { Button, Card, FIELD } from "../components/primitives";
 import { nodeLabel } from "./chrome";
 import { parseEtaInput } from "./format";
 import { WriteFeedback, useEventWriter } from "./writeStatus";
@@ -48,8 +48,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
 
   if (actions.length === 0 || people.length === 0) {
     return (
-      <Card>
-        <SectionHeader title="Personnel action" />
+      <Card heading="Personnel action">
         <p className="text-sm text-fg-2">{people.length === 0 ? `No one is at ${nodeLabel(node)} now.` : "Read only for this role."}</p>
       </Card>
     );
@@ -91,8 +90,7 @@ export function PersonnelActionForm({ role, node, people, now }: { role: string;
   };
 
   return (
-    <Card>
-      <SectionHeader title="Personnel action" meta={<span className="text-xs text-fg-2">Saved on this device first, then synced</span>} />
+    <Card heading="Personnel action" meta="Saved on this device first, then synced">
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <label className="text-xs text-fg-2">Person
           <select aria-label="Person" value={person.id} onChange={(e) => { setPersonId(e.target.value); setStatus(undefined); }} className={`${field} mt-1 block w-60`}>

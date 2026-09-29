@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Filter, SearchX } from "lucide-react";
 import type { OpEventRow } from "../data/types";
-import { cx, PriorityTierBadge, Button } from "./primitives";
+import { cx, FIELD, PriorityTierBadge, Button } from "./primitives";
 
 export interface AuditFilterState { device: string; role: string; type: string; entity: string; tier: string }
 const EMPTY: AuditFilterState = { device: "", role: "", type: "", entity: "", tier: "" };
@@ -10,7 +10,7 @@ export function AuditFilters({ rows, value, onChange }: { rows: OpEventRow[]; va
   const opts = (k: keyof OpEventRow) => Array.from(new Set(rows.map((r) => String(r[k])))).sort();
   const Sel = ({ k, label, src }: { k: keyof AuditFilterState; label: string; src: string[] }) => (
     <label className="flex flex-col gap-0.5 text-xs text-fg-2">{label}
-      <select value={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.value })} className="h-8 min-w-32 rounded-md border border-line-ctrl bg-bg px-2 font-mono text-xs normal-case text-fg">
+      <select value={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.value })} className={cx(FIELD, "min-w-32")}>
         <option value="">all</option>{src.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>

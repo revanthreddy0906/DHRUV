@@ -169,14 +169,17 @@ export function RoleCoverage({ roles }: { roles: { role: string; have: number; n
 }
 
 export function MissionRow({ m, doubleAssigned, canEdit = true, reason }: { m: MissionEval; doubleAssigned?: boolean; canEdit?: boolean; reason?: string }) {
-  const tone = m.status === "OK" || m.status === "DEFERRED" ? "border-line-strong text-fg-2" : m.status === "AT_RISK" ? "border-warn/50 text-warn bg-warn-tint" : "border-bad/50 text-bad bg-bad-tint";
-  const Icon = m.status === "OK" || m.status === "DEFERRED" ? STATE_META.GREEN.Icon : m.status === "AT_RISK" ? STATE_META.AMBER.Icon : STATE_META.RED.Icon;
+  // Routine statuses stay plain; only a mission at risk or blocked takes colour (section 3.1).
+  const quiet = m.status === "OK" || m.status === "DEFERRED";
+  const tone = quiet ? "text-fg-2" : m.status === "AT_RISK" ? "font-semibold text-warn bg-warn-tint px-1.5 py-0.5" : "font-semibold text-bad bg-bad-tint px-1.5 py-0.5";
+  const Icon = quiet ? null : m.status === "AT_RISK" ? STATE_META.AMBER.Icon : STATE_META.RED.Icon;
+  const word = { OK: "On plan", DEFERRED: "Deferred", AT_RISK: "At risk", BLOCKED: "Blocked" }[m.status as string] ?? m.status;
   return (
     <tr className="border-t border-line align-top">
-      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-sm font-bold text-fg">{m.id}</td>
+      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-sm font-semibold text-fg">{m.id}</td>
       <td className="py-2.5 pr-3"><div className="text-sm text-fg">{m.name}</div><div className="font-mono text-xs text-fg-2">{m.dates} · diesel {m.fuel}</div></td>
       <td className="py-2.5 pr-3 text-xs text-fg-2">{[...m.people, ...m.assets].join(", ") || "2 people (generated)"}</td>
-      <td className="py-2.5 pr-3"><span className={cx("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-bold", tone)}><Icon size={12} aria-hidden />{m.status}</span>
+      <td className="py-2.5 pr-3"><span className={cx("inline-flex items-center gap-1 rounded-sm text-xs", tone)}>{Icon && <Icon size={14} aria-hidden />}{word}</span>
         {doubleAssigned && <Tag tone="amber" className="ml-1"><UserX size={11} aria-hidden />double-assigned</Tag>}
         <div className="mt-1 text-xs text-fg-2">{m.why}</div></td>
       <td className="py-2.5 text-right"><Button size="sm" disabledReason={canEdit ? undefined : reason}>Set status</Button></td>

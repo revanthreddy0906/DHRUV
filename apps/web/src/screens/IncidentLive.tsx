@@ -4,7 +4,7 @@ import { RouteDiagram } from "../components/route";
 import { routeView } from "../live/route";
 import { ShieldCheck } from "lucide-react";
 import { IncidentPanel } from "../components/incident";
-import { Card, SectionHeader, cx } from "../components/primitives";
+import { Card, PageHeader, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { LiveMap } from "../live/LiveMap";
 import { nodeLabel } from "../live/chrome";
@@ -79,7 +79,7 @@ export function LiveIncidentScreen() {
   const ops = useLiveOps();
   return (
     <Frame moment="start" nav="incident">
-      <div className="p-5"><LiveIncidentPanel /></div>
+      <div className="p-6"><LiveIncidentPanel /></div>
     </Frame>
   );
 }
@@ -104,13 +104,9 @@ export function LiveMapScreen() {
   return (
     <Frame moment="start" nav="map">
       <div className="space-y-6 p-6">
-        <div>
-          <h1 className="text-title font-semibold text-fg">Map</h1>
-          <p className="mt-0.5 text-sm text-fg-2">Positions are last known, each with its age. Tiles: NASA Blue Marble; the schematic is used when tiles are unavailable.</p>
-        </div>
+        <PageHeader title="Map" subtitle="Positions are last known, each with its age. Tiles: NASA Blue Marble; the schematic is used when tiles are unavailable." />
         {route && (
-          <Card>
-            <SectionHeader title={`Route of ${route.shipmentId}`} meta={<span className="text-xs text-fg-2">{route.name}</span>} />
+          <Card heading={`Route of ${route.shipmentId}`} meta={route.name}>
             <RouteDiagram route={route} />
           </Card>
         )}
@@ -118,14 +114,12 @@ export function LiveMapScreen() {
           <LiveMap model={all} view="antarctic" height={520} />
           <div className="space-y-6">
             {focus?.incident && (
-              <section>
-                <SectionHeader title={`Incident area · ${incidentId}`} />
+              <Card heading={`Incident area · ${incidentId}`} pad="none">
                 <LiveMap model={focus} view="incident" height={300} />
-              </section>
+              </Card>
             )}
             <section>
-              <SectionHeader title="Assets" />
-              <Card pad="none">
+              <Card heading="Assets" meta="Problems first" pad="none">
                 <ul className="divide-y divide-line">
                   {exceptions.map((a) => (
                     <li key={a.id} className="flex h-10 items-center justify-between gap-2 px-4 text-sm">
