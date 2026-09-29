@@ -1,0 +1,330 @@
+'use client'
+
+import { useState } from 'react'
+import {
+  Activity,
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  Bell,
+  Check,
+  ChevronDown,
+  Circle,
+  Clock3,
+  Compass,
+  FileText,
+  GitBranch,
+  Info,
+  LayoutDashboard,
+  Map,
+  Menu,
+  MoreHorizontal,
+  Package,
+  Radio,
+  Scale,
+  Search,
+  Settings,
+  Ship,
+  Siren,
+  Wifi,
+  X,
+  Zap,
+} from 'lucide-react'
+
+const navItems = [
+  { label: 'Command center', icon: LayoutDashboard },
+  { label: 'Decisions', icon: Scale, count: 3 },
+  { label: 'Incident capture', icon: Siren, alert: true },
+  { label: 'What-if simulation', icon: GitBranch },
+]
+
+const stations = [
+  { name: 'Maitri', code: 'MAI', state: 'AMBER', resource: 'Fuel', stock: '68.4 kL', ratio: '0.982', resupply: '03 Feb', fresh: '4 h ago', position: 'ok' },
+  { name: 'Bharati', code: 'BHA', state: 'GREEN', resource: '—', stock: '92.0 kL', ratio: '1.164', resupply: '18 Feb', fresh: '2 h ago', position: 'ok' },
+]
+
+const events = [
+  { time: '20:35', type: 'LEG_DELAYED', source: 'HQ-WEB-01', detail: 'MV Vasundhara ETA slipped by 36 h', tone: 'amber' },
+  { time: '19:48', type: 'STOCKTAKE', source: 'MAITRI-TAB-01', detail: 'Fuel tank 04 count recorded', tone: 'copper' },
+  { time: '18:02', type: 'CHECK_IN', source: 'FT3-TAB-01', detail: 'Field team FT-3 checked in', tone: 'green' },
+  { time: '16:24', type: 'LEG_CONTACT', source: 'HQ-WEB-02', detail: 'Cape Town relay acknowledged', tone: 'green' },
+  { time: '14:10', type: 'ASSET_STATUS', source: 'BHARATI-TAB', detail: 'Desalination unit B-02 operational', tone: 'green' },
+]
+
+const decisionQueue = [
+  { id: 'DEC-01', station: 'Maitri', title: 'Fuel reserve breach', text: 'MV Vasundhara delay reaches PNR', due: '03 Feb · 10 days', tone: 'red', description: 'Fuel reserves at Maitri are approaching critical minimum due to vessel delay. Immediate action required.' },
+  { id: 'DEC-02', station: 'Maitri', title: 'Conserve diesel', text: 'Extend runway by 4.2 days', due: '26 Jan · 2 days', tone: 'amber', description: 'Implementing fuel conservation measures can extend operational runway significantly.' },
+  { id: 'DEC-03', station: 'Bharati', title: 'Cargo acceptance', text: 'Confirm 18 Feb resupply window', due: '08 Feb · 15 days', tone: 'green', description: 'Bharati is ready to receive the next scheduled resupply cargo.' },
+]
+
+const incidents = [
+  { id: 'INC-001', title: 'Fuel tank sensor malfunction', station: 'Maitri', time: '20:15', severity: 'red', status: 'open' },
+  { id: 'INC-002', title: 'Communications delay', station: 'Bharati', time: '18:45', severity: 'amber', status: 'investigating' },
+  { id: 'INC-003', title: 'Equipment self-test failed', station: 'Maitri', time: '16:30', severity: 'amber', status: 'resolved' },
+]
+
+const simulations = [
+  { name: 'Scenario A: Extended delay', vessel: 'MV Vasundhara +60h', impact: 'Critical fuel breach', outcome: 'require evacuation' },
+  { name: 'Scenario B: Conservation protocol', vessel: 'Standard schedule', impact: 'Extended runway', outcome: 'operational buffer' },
+  { name: 'Scenario C: Dual logistics', vessel: 'MV Samudra + MV Vasundhara', impact: 'Fuel optimization', outcome: 'extended season' },
+]
+
+function StatusDot({ tone }: { tone: 'green' | 'amber' | 'red' | 'neutral' | 'copper' }) {
+  const colors = {
+    green: 'bg-[#83A58B]',
+    amber: 'bg-[#D5A04D]',
+    red: 'bg-[#D36B5F]',
+    neutral: 'bg-[#938D81]',
+    copper: 'bg-[#C18A5B]'
+  }
+  return <span className={`inline-block h-2 w-2 rounded-full ${colors[tone]}`} />
+}
+
+function StatPill({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'green' | 'amber' | 'red' | 'neutral' }) {
+  const colors = {
+    amber: 'text-[#D5A04D]',
+    red: 'text-[#D36B5F]',
+    green: 'text-[#83A58B]',
+    neutral: 'text-[#222725]'
+  }
+  return (
+    <div className="flex items-center gap-2 border-l border-[#D8D5CC] pl-4 first:border-l-0 first:pl-0">
+      <StatusDot tone={tone} />
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[#797467]">{label}</div>
+        <div className={`font-mono text-[13px] ${colors[tone]}`}>{value}</div>
+      </div>
+    </div>
+  )
+}
+
+function NetworkSchematic() {
+  return (
+    <div className="relative min-h-[320px] overflow-hidden rounded-b-xl border border-[#39362F] bg-[#171B18] p-4 shadow-inner">
+      <div className="network-grid absolute inset-0 opacity-60" />
+      <div className="absolute left-4 top-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#797467]"><Compass size={13} className="text-[#C18A5B]" /> Network schematic <span className="text-[#D8D5CC]">/</span> 24 Jan 2027</div>
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 640 280" fill="none" aria-label="Antarctic network schematic" role="img">
+        <path className="signal-path" d="M115 190 C190 130 220 100 300 140 S425 205 520 112" stroke="#7C9D83" strokeWidth="1" strokeDasharray="5 5" opacity=".7" />
+        <path d="M115 190 C190 130 220 100 300 140" stroke="#C18A5B" strokeWidth="2" strokeDasharray="7 6" opacity=".8" />
+        <path d="M300 140 C370 170 435 215 520 112" stroke="#D5A04D" strokeWidth="1.5" strokeDasharray="3 7" opacity=".7" />
+        <circle className="station-pulse" cx="115" cy="190" r="17" fill="none" stroke="#C18A5B" strokeWidth="1" opacity=".45" /><circle className="station-pulse" cx="300" cy="140" r="17" fill="none" stroke="#D5A04D" strokeWidth="1" opacity=".45" /><circle className="station-pulse" cx="520" cy="112" r="17" fill="none" stroke="#83A58B" strokeWidth="1" opacity=".45" /><circle cx="115" cy="190" r="10" fill="#202824" stroke="#C18A5B" strokeWidth="2" /><circle cx="300" cy="140" r="10" fill="#202824" stroke="#D5A04D" strokeWidth="2" /><circle cx="520" cy="112" r="10" fill="#202824" stroke="#83A58B" strokeWidth="2" />
+        <circle cx="115" cy="190" r="3" fill="#C18A5B" /><circle cx="300" cy="140" r="3" fill="#D5A04D" /><circle cx="520" cy="112" r="3" fill="#83A58B" />
+        <circle cx="415" cy="199" r="6" fill="#FFFFFF" stroke="#C18A5B" strokeWidth="1.5" /><circle cx="415" cy="199" r="2" fill="#C18A5B" />
+      </svg>
+      <div className="absolute bottom-[55px] left-[53px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"><div className="text-[11px] font-medium text-[#F0EDE5]">Goa HQ</div><div className="font-mono text-[10px] text-[#A9B3AA]">HQ-OPS / ONLINE</div></div>
+      <div className="absolute left-[44%] top-[40%]"><div className="text-[11px] font-medium text-[#F0EDE5]">Maitri</div><div className="font-mono text-[10px] text-[#D5A04D]">AMBER / 0.982</div></div>
+      <div className="absolute right-[13%] top-[27%]"><div className="text-[11px] font-medium text-[#F0EDE5]">Bharati</div><div className="font-mono text-[10px] text-[#83A58B]">GREEN / 1.164</div></div>
+      <div className="absolute bottom-[43px] left-[62%] flex items-center gap-2"><div className="text-right"><div className="text-[11px] font-medium text-[#F0EDE5]">FT-3</div><div className="font-mono text-[10px] text-[#83A58B]">CHECKED IN</div></div><Radio size={13} className="text-[#C18A5B]" /></div>
+      <div className="absolute bottom-3 left-4 flex items-center gap-4 text-[10px] text-[#797467]"><span className="flex items-center gap-1.5"><StatusDot tone="green" /> confirmed</span><span className="flex items-center gap-1.5"><StatusDot tone="amber" /> attention</span><span className="flex items-center gap-1.5"><span className="h-px w-4 bg-[#C18A5B]" /> relay path</span></div>
+    </div>
+  )
+}
+
+function CommandCenter() {
+  const [selectedDecision, setSelectedDecision] = useState(0)
+  
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#C18A5B]"><Activity size={13} /> Operations overview</div>
+          <h1 className="text-2xl font-medium tracking-[-0.02em] text-[#222725]">Command center</h1>
+          <p className="mt-1 text-[13px] text-[#797467]">A decision surface for the Antarctic network.</p>
+        </div>
+        <div className="flex items-center gap-5"><StatPill label="Network" value="1 attention" tone="amber" /><StatPill label="Open incidents" value="01" tone="red" /><StatPill label="Last sync" value="20:35" tone="green" /></div>
+      </div>
+
+      <section className="mb-5 grid items-start grid-cols-1 gap-4 xl:grid-cols-[1.05fr_1.45fr_0.9fr]">
+        <div className="premium-card border border-[#D8D5CC] bg-[#FFFFFF]"><div className="flex items-center justify-between border-b border-[#D8D5CC] px-4 py-3"><div className="flex items-center gap-2 text-[12px] font-medium"><Bell size={14} className="text-[#C18A5B]" /> Decision queue</div><span className="font-mono text-[10px] text-[#A9B3AA]">03 awaiting</span></div><div className="divide-y divide-[#D8D5CC]">{decisionQueue.map((d, i) => <button key={d.id} onClick={() => setSelectedDecision(i)} className={`decision-card relative w-full px-4 py-4 text-left transition-colors hover:bg-[#F7F4EE] border-l-[3px] ${d.tone === 'red' ? 'border-l-[#D36B5F]' : d.tone === 'amber' ? 'border-l-[#D5A04D]' : 'border-l-[#83A58B]'} ${selectedDecision === i ? 'bg-[#F7F4EE] shadow-[inset_0_0_0_1px_rgba(183,121,70,0.2)]' : ''}`}>{selectedDecision === i && <span className="absolute bottom-0 left-0 top-0 w-0.5 bg-[#C18A5B]" />}<div className="mb-2 flex items-center justify-between"><span className="font-mono text-[10px] text-[#A9B3AA]">{d.id} <span className="mx-1 text-[#D8D5CC]">/</span> {d.station}</span><span className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wider ${d.tone === 'red' ? 'text-[#D36B5F]' : d.tone === 'amber' ? 'text-[#D5A04D]' : 'text-[#83A58B]'}`}><StatusDot tone={d.tone as any} /> {d.tone}</span></div><div className="text-[13px] font-medium text-[#222725]">{d.title}</div><div className="mt-1 text-[12px] text-[#58635D]">{d.text}</div><div className="mt-3 flex items-center justify-between"><span className="font-mono text-[11px] text-[#D5A04D]">{d.due}</span><ChevronDown size={14} className={`text-[#797467] transition-transform ${selectedDecision === i ? 'rotate-180' : ''}`} /></div></button>)}</div></div>
+
+        <div className="premium-card border border-[#D8D5CC] bg-[#FFFFFF]"><div className="flex items-center justify-between border-b border-[#D8D5CC] px-4 py-3"><div className="flex items-center gap-2 text-[12px] font-medium"><Map size={14} className="text-[#C18A5B]" /> Network position</div><span className="font-mono text-[10px] text-[#A9B3AA]">2 stations · 1 team</span></div><NetworkSchematic /></div>
+
+        <div className="premium-card border border-[#D8D5CC] bg-[#FFFFFF]"><div className="flex items-center justify-between border-b border-[#D8D5CC] px-4 py-3"><div className="flex items-center gap-2 text-[12px] font-medium"><FileText size={14} className="text-[#C18A5B]" /> Event stream</div><button className="text-[#797467] hover:text-[#D7A77A]"><MoreHorizontal size={16} /></button></div><div className="divide-y divide-[#D8D5CC]">{events.map((e) => <div key={e.time} className="group relative px-4 py-3 transition-colors hover:bg-[#F7F4EE]"><div className="mb-1 flex items-center justify-between"><span className="font-mono text-[10px] text-[#C18A5B]">{e.time}</span><StatusDot tone={e.tone as any} /></div><div className="font-mono text-[10px] tracking-wide text-[#58635D]">{e.type}</div><div className="mt-1 text-[11px] leading-4 text-[#797467]">{e.detail}</div><div className="mt-1 font-mono text-[9px] text-[#797467]">{e.source}</div></div>)}</div></div>
+      </section>
+
+      <section className="premium-card mb-5 overflow-hidden border border-[#D8D5CC] bg-[#FFFFFF]"><div className="flex items-center justify-between border-b border-[#D8D5CC] px-4 py-3"><div className="flex items-center gap-2 text-[12px] font-medium"><Package size={14} className="text-[#C18A5B]" /> Station readiness</div><button className="text-[11px] text-[#C18A5B]">Open station view <ArrowUpRight size={12} className="ml-1 inline" /></button></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#191916] text-[10px] uppercase tracking-[0.14em] text-[#797467]"><tr><th className="px-4 py-3 font-normal">Station</th><th className="px-4 py-3 font-normal">Readiness</th><th className="px-4 py-3 font-normal">Critical resource</th><th className="px-4 py-3 text-right font-normal">Stock</th><th className="px-4 py-3 text-right font-normal">Ratio</th><th className="px-4 py-3 font-normal">Next resupply</th><th className="px-4 py-3 font-normal">Freshness</th></tr></thead><tbody className="divide-y divide-[#D8D5CC]">{stations.map((s) => <tr key={s.name} className={s.state === 'AMBER' ? 'bg-[#D5A04D]/[0.045]' : ''}><td className="px-4 py-4"><div className="flex items-center gap-3"><div className="flex h-7 w-7 items-center justify-center border border-[#D8D5CC] font-mono text-[10px] text-[#C18A5B]">{s.code}</div><div><div className="text-[13px] font-medium">{s.name} Station</div><div className="font-mono text-[10px] text-[#A9B3AA]">78°S / network node</div></div></div></td><td className="px-4 py-4"><span className={`inline-flex items-center gap-2 text-[11px] font-medium ${s.state === 'AMBER' ? 'text-[#D5A04D]' : 'text-[#83A58B]'}`}><StatusDot tone={s.state === 'AMBER' ? 'amber' : 'green'} />{s.state}</span></td><td className="px-4 py-4 text-[12px] text-[#58635D]">{s.resource}</td><td className="px-4 py-4 text-right font-mono text-[12px] text-[#222725]">{s.stock}</td><td className={`px-4 py-4 text-right font-mono text-[12px] font-medium ${s.state === 'AMBER' ? 'text-[#D5A04D]' : 'text-[#83A58B]'}`}>{s.ratio}</td><td className="px-4 py-4 font-mono text-[12px] text-[#797467]">{s.resupply}</td><td className="px-4 py-4 text-[12px] text-[#58635D]">{s.fresh}</td></tr>)}</tbody></table></div></section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]"><div className="border border-[#805536] bg-[#FFFFFF] p-5"><div className="flex items-start gap-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D36B5F]/50 bg-[#D36B5F]/10 text-[#D36B5F]"><AlertTriangle size={17} /></div><div className="flex-1"><div className="mb-1 flex flex-wrap items-center gap-3"><span className="font-mono text-[10px] tracking-[0.14em] text-[#D36B5F]">ATTENTION REQUIRED</span><span className="font-mono text-[10px] text-[#A9B3AA]">DEC-01 / MAITRI</span></div><h2 className="text-[15px] font-medium">Fuel reserve breach is approaching</h2><p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#58635D]">MV Vasundhara&apos;s 36-hour delay moves Maitri&apos;s reserve breach to <span className="font-mono text-[#D5A04D]">03 Feb</span>. A decision to conserve diesel or hold the next vessel is required before the point of no return.</p><button className="focus-ring mt-4 flex items-center gap-2 bg-[#C18A5B] px-3 py-2 text-[11px] font-medium text-[#F3F1EB] transition-colors hover:bg-[#D7A77A]">Review decision <ArrowUpRight size={13} /></button></div></div></div><div className="border border-[#D8D5CC] bg-[#FFFFFF] p-5"><div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[#797467]"><Ship size={14} className="text-[#C18A5B]" /> Next resupply</div><div className="font-mono text-2xl text-[#E8DDCB]">03 FEB</div><div className="mt-1 text-[12px] text-[#58635D]">MV Vasundhara · Cape Town</div><div className="mt-4 flex items-center justify-between border-t border-[#D8D5CC] pt-3"><span className="text-[11px] text-[#797467]">Window confidence</span><span className="flex items-center gap-2 text-[11px] text-[#D5A04D]"><StatusDot tone="amber" /> aging data</span></div></div></section>
+    </>
+  )
+}
+
+function DecisionsPage() {
+  return (
+    <>
+      <div className="mb-6">
+        <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#C18A5B]"><Scale size={13} /> Decision management</div>
+        <h1 className="text-2xl font-medium tracking-[-0.02em] text-[#222725]">Decisions</h1>
+        <p className="mt-1 text-[13px] text-[#797467]">Strategic decisions pending review and action.</p>
+      </div>
+
+      <div className="grid gap-4">
+        {decisionQueue.map((decision) => (
+          <div key={decision.id} className="premium-card border border-[#D8D5CC] bg-[#FFFFFF] p-5">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium uppercase ${decision.tone === 'red' ? 'bg-[#D36B5F]/10 text-[#D36B5F]' : decision.tone === 'amber' ? 'bg-[#D5A04D]/10 text-[#D5A04D]' : 'bg-[#83A58B]/10 text-[#83A58B]'}`}>
+                    <StatusDot tone={decision.tone as any} /> {decision.tone}
+                  </span>
+                  <span className="font-mono text-[10px] text-[#A9B3AA]">{decision.id}</span>
+                </div>
+                <h2 className="text-[16px] font-medium text-[#222725] mb-2">{decision.title}</h2>
+                <p className="text-[13px] text-[#58635D]">{decision.description}</p>
+              </div>
+              <button className="text-[11px] text-[#C18A5B] hover:text-[#D7A77A] font-medium">Action</button>
+            </div>
+            <div className="border-t border-[#D8D5CC] pt-3 mt-4 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#797467]">Station</span>
+                <span className="ml-2 font-mono text-[11px] text-[#222725]">{decision.station}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#797467]">Due</span>
+                <span className="ml-2 font-mono text-[11px] text-[#D5A04D]">{decision.due}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function IncidentCapturePage() {
+  return (
+    <>
+      <div className="mb-6">
+        <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#C18A5B]"><Siren size={13} /> Incident management</div>
+        <h1 className="text-2xl font-medium tracking-[-0.02em] text-[#222725]">Incident capture</h1>
+        <p className="mt-1 text-[13px] text-[#797467]">Active incidents and issue tracking.</p>
+      </div>
+
+      <div className="grid gap-4">
+        {incidents.map((incident) => (
+          <div key={incident.id} className="premium-card border border-[#D8D5CC] bg-[#FFFFFF] p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium uppercase ${incident.severity === 'red' ? 'bg-[#D36B5F]/10 text-[#D36B5F]' : 'bg-[#D5A04D]/10 text-[#D5A04D]'}`}>
+                    <StatusDot tone={incident.severity as any} /> {incident.status}
+                  </span>
+                  <span className="font-mono text-[10px] text-[#A9B3AA]">{incident.id}</span>
+                </div>
+                <h2 className="text-[15px] font-medium text-[#222725]">{incident.title}</h2>
+                <div className="mt-3 flex items-center gap-4">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-[#797467]">Station</span>
+                    <span className="ml-2 font-mono text-[11px] text-[#58635D]">{incident.station}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-[#797467]">Reported</span>
+                    <span className="ml-2 font-mono text-[11px] text-[#58635D]">{incident.time}</span>
+                  </div>
+                </div>
+              </div>
+              <button className="text-[11px] text-[#C18A5B] hover:text-[#D7A77A] font-medium">Details</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function ConfigurationPage() {
+  const sections = [
+    { title: 'Network identity', items: [['Organization', 'National Centre for Polar and Ocean Research'], ['Season', 'Summer 2026–27'], ['Environment', 'Synthetic demonstration']] },
+    { title: 'Sync and devices', items: [['Connection', 'Online · synced 20:35'], ['Event log', 'Local capture active'], ['Device health', 'All systems nominal']] },
+    { title: 'Access controls', items: [['Current operator', 'HQ Ops / HQ-WEB-01'], ['Session policy', 'Offline-first enabled'], ['Last audit', '24 Jan 2027 · 18:10']] },
+  ]
+  return (
+    <>
+      <div className="mb-6">
+        <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#C18A5B]"><Settings size={13} /> System configuration</div>
+        <h1 className="text-2xl font-medium tracking-[-0.02em] text-[#222725]">Configuration</h1>
+        <p className="mt-1 text-[13px] text-[#797467]">Network settings, devices, and operator access.</p>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        {sections.map((section) => (
+          <section key={section.title} className="premium-card border border-[#D8D5CC] bg-[#FFFFFF]">
+            <div className="border-b border-[#D8D5CC] px-4 py-3 text-[12px] font-medium">{section.title}</div>
+            <div className="divide-y divide-[#D8D5CC]">
+              {section.items.map(([label, value]) => <div key={label} className="px-4 py-4"><div className="text-[10px] uppercase tracking-[0.14em] text-[#797467]">{label}</div><div className="mt-1 text-[12px] text-[#222725]">{value}</div></div>)}
+            </div>
+          </section>
+        ))}
+      </div>
+      <section className="mt-4 border border-[#D8D5CC] bg-[#FFFFFF] p-5"><div className="flex items-start gap-3"><Info size={16} className="mt-0.5 text-[#C18A5B]" /><div><h2 className="text-[13px] font-medium">Demonstration environment</h2><p className="mt-1 text-[12px] leading-5 text-[#797467]">This workspace uses synthetic operational data for interface demonstration. No production NCPOR data is connected.</p></div></div></section>
+    </>
+  )
+}
+
+function SimulationPage() {
+  return (
+    <>
+      <div className="mb-6">
+        <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#C18A5B]"><GitBranch size={13} /> Scenario planning</div>
+        <h1 className="text-2xl font-medium tracking-[-0.02em] text-[#222725]">What-if simulation</h1>
+        <p className="mt-1 text-[13px] text-[#797467]">Explore operational scenarios and outcomes.</p>
+      </div>
+
+      <div className="grid gap-4">
+        {simulations.map((sim, i) => (
+          <div key={i} className="premium-card border border-[#D8D5CC] bg-[#FFFFFF] p-5">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex-1">
+                <h2 className="text-[15px] font-medium text-[#222725] mb-3">{sim.name}</h2>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#797467] mb-1">Vessel</div>
+                    <div className="font-mono text-[12px] text-[#222725]">{sim.vessel}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#797467] mb-1">Impact</div>
+                    <div className="text-[12px] text-[#D5A04D]">{sim.impact}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#797467] mb-1">Outcome</div>
+                    <div className="text-[12px] text-[#83A58B]">{sim.outcome}</div>
+                  </div>
+                </div>
+              </div>
+              <button className="text-[11px] text-[#C18A5B] hover:text-[#D7A77A] font-medium">Run</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+export default function Page() {
+  const [activeNav, setActiveNav] = useState('Command center')
+  const [showMenu, setShowMenu] = useState(false)
+
+  return (
+    <main className="min-h-screen bg-[#F3F1EB] text-[#222725]">
+      <header className="fixed inset-x-0 top-0 z-30 h-16 border-b border-[#D8D5CC] bg-[#FBFAF7]/95 backdrop-blur-sm">
+        <div className="flex h-full items-center px-5">
+          <div className="flex w-[232px] shrink-0 items-center gap-3 border-r border-[#D8D5CC] pr-6"><div className="flex h-7 w-7 items-center justify-center border border-[#C18A5B] text-[#C18A5B]"><span className="font-mono text-[12px]">D</span></div><div><div className="font-mono text-[15px] font-medium tracking-[0.28em] text-[#222725]">DHRUV</div><div className="text-[9px] uppercase tracking-[0.14em] text-[#797467]">polar operations</div></div></div>
+          <div className="flex items-center gap-3 pl-5"><div className="text-[11px] uppercase tracking-[0.14em] text-[#797467]">Season</div><div className="flex items-center gap-2 text-[13px] text-[#58635D]">Summer 2026–27 <ChevronDown size={13} className="text-[#797467]" /></div></div>
+          <div className="ml-auto flex items-center gap-6"><div className="hidden items-center gap-2 text-[12px] text-[#58635D] md:flex"><Wifi size={15} className="text-[#83A58B]" /><span>Online</span><span className="font-mono text-[11px] text-[#797467]">/ synced 20:35</span></div><div className="h-4 w-px bg-[#D8D5CC]" /><div className="flex items-center gap-2 text-[12px] text-[#58635D]"><Clock3 size={14} className="text-[#C18A5B]" /><span className="font-mono text-[11px]">24 Jan 2027 · 20:42</span></div><button onClick={() => setShowMenu(!showMenu)} className="focus-ring relative flex h-8 w-8 items-center justify-center border border-[#805536] bg-[#E9E6DE] font-mono text-[11px] text-[#D7A77A]">HQ{showMenu && <div className="absolute right-0 top-10 w-52 border border-[#D8D5CC] bg-[#FFFFFF] p-3 text-left shadow-2xl"><div className="text-[11px] text-[#222725]">HQ Ops</div><div className="mt-1 font-mono text-[10px] text-[#A9B3AA]">HQ-WEB-01</div><div className="mt-3 border-t border-[#D8D5CC] pt-3 text-[11px] text-[#58635D]">Sign out</div></div>}</button></div>
+        </div>
+      </header>
+
+      <aside className="fixed bottom-0 left-0 top-16 z-20 hidden w-[232px] border-r border-[#D8D5CC] bg-[#FBFAF7] lg:block"><div className="px-4 py-6"><div className="mb-3 px-3 text-[10px] uppercase tracking-[0.18em] text-[#797467]">Operations</div>{navItems.map(({ label, icon: Icon, count, alert }) => <button key={label} onClick={() => setActiveNav(label)} className={`focus-ring group relative mb-1 flex w-full items-center gap-3 px-3 py-2.5 text-left text-[13px] transition-colors ${activeNav === label ? 'bg-[#E9E6DE] text-[#222725] shadow-[inset_3px_0_0_#B77946]' : 'text-[#58635D] hover:bg-[#FFFFFF] hover:text-[#222725]'}`}>{activeNav === label && <span className="absolute bottom-1.5 left-0 top-1.5 w-0.5 bg-[#C18A5B]" />}<Icon size={16} className={alert ? 'text-[#D36B5F]' : activeNav === label ? 'text-[#D7A77A]' : 'text-[#797467]'} /><span>{label}</span>{count && <span className="ml-auto flex h-5 min-w-5 items-center justify-center bg-[#805536]/30 px-1.5 font-mono text-[10px] text-[#D7A77A]">{count}</span>}</button>)}<div className="my-6 border-t border-[#D8D5CC]" /><div className="mb-3 px-3 text-[10px] uppercase tracking-[0.18em] text-[#797467]">System</div><button onClick={() => setActiveNav('Configuration')} className={`focus-ring flex w-full items-center gap-3 px-3 py-2.5 text-[13px] ${activeNav === 'Configuration' ? 'bg-[#E9E6DE] text-[#222725]' : 'text-[#58635D] hover:bg-[#FFFFFF]'}`}><Settings size={16} className={activeNav === 'Configuration' ? 'text-[#D7A77A]' : 'text-[#797467]'} />Configuration</button></div><div className="absolute bottom-0 inset-x-0 border-t border-[#D8D5CC] p-4"><div className="flex items-center gap-2 text-[10px] text-[#797467]"><span className="h-1.5 w-1.5 rounded-full bg-[#83A58B]" /> device healthy</div><div className="mt-2 font-mono text-[10px] text-[#A9B3AA]">v0.9.4 · offline-first</div></div></aside>
+
+      <div className="pt-16 lg:pl-[232px]"><div className="border-b border-[#D8D5CC] bg-[#E9E6DE] px-5 py-2 text-center text-[10px] uppercase tracking-[0.18em] text-[#797467]">Synthetic demonstration data <span className="mx-2 text-[#805536]">·</span> Not operational NCPOR data</div>
+        <div className="mx-auto max-w-[1440px] p-5 lg:p-7">
+          {activeNav === 'Command center' && <CommandCenter />}
+          {activeNav === 'Decisions' && <DecisionsPage />}
+          {activeNav === 'Incident capture' && <IncidentCapturePage />}
+          {activeNav === 'What-if simulation' && <SimulationPage />}
+          {activeNav === 'Configuration' && <ConfigurationPage />}
+        </div>
+      </div>
+      <footer className="fixed bottom-0 right-0 z-10 hidden h-8 items-center justify-between border-t border-[#D8D5CC] bg-[#FBFAF7] px-5 text-[10px] text-[#797467] lg:flex lg:left-[232px]"><span className="flex items-center gap-2"><Wifi size={12} className="text-[#83A58B]" /> Link healthy <span className="text-[#D8D5CC]">·</span> 0 pending events</span><span className="font-mono">SIM 24 JAN 2027 · 20:42:18 IST</span><span className="flex items-center gap-2"><Zap size={12} className="text-[#C18A5B]" /> Local event log active</span></footer>
+    </main>
+  )
+}
