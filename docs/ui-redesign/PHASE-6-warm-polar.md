@@ -135,3 +135,7 @@ Reverted:
 - "Where data lives" stays out of the nav (`57e90f0`).
 
 So the sections of this note above on the chrome and the Command Center describe what was reverted.
+
+Later the same day, at the team's request, the network map came back to Command inside Medha's
+layout: a "Network position" card at the top of the right-hand column, above the Season panel.
+The rest of her Command layout is unchanged.

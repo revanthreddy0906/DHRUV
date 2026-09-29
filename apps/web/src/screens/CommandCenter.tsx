@@ -4,7 +4,12 @@ import { Frame } from "./Frame";
 import { IncidentStrip, NeedsAttention, RecentEvents, SeasonPanel, StationsTable, StatusLine, type AttentionView } from "../components/command";
 import { TraceDrawer, traceText } from "../components/trace";
 import { WhatIfDrawer } from "../components/whatif";
-import { cx } from "../components/primitives";
+import { Card, SectionHeader, cx } from "../components/primitives";
+import { NetworkSchematic } from "../components/network";
+import { evaluate } from "@dhruv/engine";
+import { DIRECTOR_BEATS, season48 } from "@dhruv/seed";
+import { replayBeats } from "../live/beatReplay";
+import { networkView } from "../live/network";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveChrome } from "../live/chrome";
 import { liveCommandView, type CommandView } from "../live/command";
@@ -77,6 +82,15 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
   const [sim, setSim] = React.useState(whatIf);
   const [mathNode, setMathNode] = React.useState<string>();
 
+  // Network position: this device's engine and events, or (signed out) the season48 script replayed to the slip.
+  const network = React.useMemo(() => {
+    if (ops) return networkView(ops.seed, ops.events, ops.evaluation, ops.now);
+    const start = momentProp === "start";
+    const events = start ? [] : replayBeats(season48, DIRECTOR_BEATS, { upTo: "2" });
+    const now = start ? "2027-01-24T08:00:00.000Z" : "2027-01-24T08:11:00.000Z";
+    return networkView(season48, events, evaluate({ seed: season48, events }, now), now);
+  }, [ops, momentProp]);
+
   if (device && !ops) {
     return <Frame moment="start" nav="command"><p className="p-8 text-center text-sm text-fg-2">Loading this device's expedition state.</p></Frame>;
   }
@@ -108,6 +122,13 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
           <NeedsAttention items={view.attention} allClear={view.allClear} />
           <div className="space-y-6">
+            <section aria-label="Network position">
+              <SectionHeader title="Network position" meta={<span className="text-xs text-fg-2">Select a station to open it</span>} />
+              <Card pad="none">
+                <NetworkSchematic view={network} height={280} />
+                <p className="border-t border-line px-4 py-2 text-xs text-fg-2">Solid lines are supply legs. Dashed in a state colour: a delayed leg or an overdue team.</p>
+              </Card>
+            </section>
             <SeasonPanel season={view.season} />
             <RecentEvents events={view.events} />
           </div>
