@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  actorLabel, appliedLeversSentence, compareRows, consequenceChain, costText, daysText, deadlineHeadline, decisionPhase, expiredText, followUpSentence,
+  actorLabel, appliedLeversSentence, compareRows, consequenceChain, costText, daysText, deadlineHeadline, decisionPhase, expectedResultText, expiredText, followUpSentence,
   leverAxis, leverEffect, leverName, markerAlign, optionName, parseVerify, rankingReason, slackText, triggerPhrase, verifyInputs, verifySentence,
   type OptionFacts,
 } from "./decision";
@@ -213,5 +213,12 @@ describe("leverAxis", () => {
   it("runs a marker label inward near the right edge", () => {
     expect(markerAlign(20)).toBe("start");
     expect(markerAlign(80)).toBe("end");
+  });
+});
+
+describe("expectedResultText", () => {
+  it("shows the fuel ratio now and after the option", () => {
+    expect(expectedResultText("Maitri", 0.696969696969697, 1.0606060606060606, "GREEN")).toBe("Maitri fuel 0.697 → 1.061, GREEN");
+    expect(expectedResultText("Maitri", null, 0.8754, "RED")).toBe("Maitri fuel unknown → 0.875, RED");
   });
 });

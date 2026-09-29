@@ -19,7 +19,7 @@ export {
   type DeviceOutboxView, type EntryPlace, type HistoryRow, type LedgerRow, type StockItemRef, type Variance,
 } from "./ledger";
 export {
-  actorLabel, appliedLeversSentence, compareRows, consequenceChain, costText, daysText, daysUntil, deadlineHeadline, decisionPhase, expiredText, followUpSentence,
+  actorLabel, appliedLeversSentence, compareRows, consequenceChain, costText, daysText, daysUntil, deadlineHeadline, decisionPhase, expectedResultText, expiredText, followUpSentence,
   lastActDate, leverAxis, leverEffect, leverName, markerAlign, optionName, parseVerify, rankingReason, slackText, triggerPhrase, verifyInputs, verifySentence,
   type Cell, type CellTone, type CompareRow, type DecisionPhase, type LeverAxis, type OptionFacts, type RankCategory, type VerifyInput,
 } from "./decision";

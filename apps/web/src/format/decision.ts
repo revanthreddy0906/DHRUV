@@ -385,3 +385,10 @@ export function leverAxis(now: string, dates: (string | undefined)[]): LeverAxis
 export function markerAlign(pct: number): "start" | "end" {
   return pct > 60 ? "end" : "start";
 }
+
+/* ---------- Approval confirmation ---------- */
+
+/** "Maitri fuel 0.697 → 1.061, GREEN": the fuel ratio now and the option's, both the engine's. */
+export function expectedResultText(station: string, from: number | null | undefined, to: number, state: Light): string {
+  return `${station} fuel ${formatRatio(from)} → ${formatRatio(to)}, ${state}`;
+}
