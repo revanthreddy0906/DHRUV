@@ -205,7 +205,8 @@ export interface CompareRow { key: string; label: string; cells: Cell[]; differs
 /** "19.5 lakh INR", "none (comfort and ops impact)". Costs are synthetic (section 13). */
 export function costText(cost: number | undefined, unit = ""): string {
   if (cost === undefined) return "unknown";
-  if (cost <= 0) return unit && !unit.includes("lakh") ? `None (${unit})` : "None";
+  // A zero cost in a money unit is just "None"; a non-money unit says what the cost is instead.
+  if (cost <= 0) return unit && !/lakh|INR/.test(unit) ? `None (${unit})` : "None";
   return unit.includes("lakh") ? `${cost.toFixed(1)} lakh INR` : `${(cost / 100000).toFixed(1)} lakh INR`;
 }
 
@@ -220,8 +221,9 @@ const sameCell = (a: Cell, b: Cell) => a.text === b.text && a.sub === b.sub;
 /**
  * The comparison table: the same rows in the same order for every option. `differs` marks a row
  * whose cells are not all the same, so it can be emphasised; identical rows can be merged.
+ * `historical` (a decided decision's proposal) shows deadlines without a countdown.
  */
-export function compareRows(options: OptionFacts[], now: string, names: Record<string, string> = {}): CompareRow[] {
+export function compareRows(options: OptionFacts[], now: string, names: Record<string, string> = {}, opts: { historical?: boolean } = {}): CompareRow[] {
   const row = (key: string, label: string, cell: (o: OptionFacts) => Cell): CompareRow => {
     const cells = options.map(cell);
     return { key, label, cells, differs: cells.some((c) => !sameCell(c, cells[0]!)) };
@@ -234,7 +236,7 @@ export function compareRows(options: OptionFacts[], now: string, names: Record<s
       return { text: margin ?? gap ?? formatRatio(o.ratio), sub: margin || gap ? `ratio ${formatRatio(o.ratio)}` : undefined, state: o.state };
     }),
     row("deadline", "Last date to act", (o) => (o.deadline
-      ? { text: `${formatDate(o.deadline)} · ${daysText(daysUntil(now, o.deadline))}`, sub: o.bindingLever && o.levers.length > 1 ? `set by ${leverName(o.bindingLever).toLowerCase()}` : undefined }
+      ? { text: opts.historical ? formatDate(o.deadline) : `${formatDate(o.deadline)} · ${daysText(daysUntil(now, o.deadline))}`, sub: o.bindingLever && o.levers.length > 1 ? `set by ${leverName(o.bindingLever).toLowerCase()}` : undefined }
       : { text: "unknown" })),
     row("slack", "Slack", (o) => ({ text: slackText(o.slackDays, o.slackLeg), tone: o.slackDays !== null && o.slackDays <= 0 ? "amber" : undefined })),
     row("cost", "Cost (synthetic)", (o) => ({ text: costText(o.cost, o.costUnit) })),

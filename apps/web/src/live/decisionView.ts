@@ -251,7 +251,7 @@ export function buildDecisionScreen(input: DecisionScreenInput): DecisionScreenD
       };
     });
   }
-  const rows = compareRows(options.map((o) => o.facts), now, names);
+  const rows = compareRows(options.map((o) => o.facts), now, names, { historical: !awaiting });
 
   // Header deadline: the engine's PNR now, else the top-ranked option's own deadline.
   const livePnr = liveStation?.pnr?.pnrDate ? { date: liveStation.pnr.pnrDate, daysLeft: liveStation.pnr.daysRemaining ?? undefined } : null;

@@ -143,8 +143,12 @@ describe("compareRows", () => {
     const rec = compareRows([{ ...c, available: undefined, required: undefined, gap: 14.8 }, { ...a, available: undefined, unit: undefined }], NOW)[1]!;
     expect(rec.cells.map((x) => x.text)).toEqual(["−14.8 kL short", "1.061"]);
   });
+  it("drops the countdown for a historical proposal", () => {
+    expect(compareRows([a], NOW, {}, { historical: true }).find((r) => r.key === "deadline")!.cells[0]!.text).toBe("3 Feb");
+  });
   it("formats costs and slack", () => {
     expect(costText(0, "comfort and ops impact")).toBe("None (comfort and ops impact)");
+    expect(costText(0, "INR")).toBe("None");
     expect(costText(undefined)).toBe("unknown");
     expect(slackText(2)).toBe("2 d slack");
   });
