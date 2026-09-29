@@ -160,7 +160,7 @@ export function Brand() {
  */
 export function TopBar({ scope, season, pnr, sync, clock, user }: {
   scope: StationScope;
-  /** "Closing phase · next resupply 20 Nov 2027": the season this device's scenario runs on. */
+  /** "Closing phase": the season phase this device's scenario is in (the resupply date sits on the Command Season card). */
   season?: string;
   pnr?: { date: string; daysLeft: number; href: string };
   sync: React.ComponentProps<typeof SyncIndicator>;

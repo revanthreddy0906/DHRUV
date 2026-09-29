@@ -8,11 +8,11 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
 
 /* ---------- State ---------- */
 
-export const STATE_META: Record<Health, { word: string; Icon: typeof CircleCheck; text: string; tint: string; border: string; fill: string }> = {
+export const STATE_META: Record<Health, { word: string; Icon: typeof CircleCheck; text: string; tint: string; border: string; fill: string; stroke: string }> = {
   // GREEN is quiet (section 3.1): no tint and no green border anywhere it is used; only the word and icon are green.
-  GREEN: { word: "GREEN", Icon: CircleCheck, text: "text-ok", tint: "", border: "border-line", fill: "bg-ok" },
-  AMBER: { word: "AMBER", Icon: TriangleAlert, text: "text-warn", tint: "bg-warn-tint", border: "border-warn/45", fill: "bg-warn" },
-  RED: { word: "RED", Icon: OctagonAlert, text: "text-bad", tint: "bg-bad-tint", border: "border-bad/50", fill: "bg-bad" },
+  GREEN: { word: "GREEN", Icon: CircleCheck, text: "text-ok", tint: "", border: "border-line", fill: "bg-ok", stroke: "var(--state-green)" },
+  AMBER: { word: "AMBER", Icon: TriangleAlert, text: "text-warn", tint: "bg-warn-tint", border: "border-warn/45", fill: "bg-warn", stroke: "var(--state-amber)" },
+  RED: { word: "RED", Icon: OctagonAlert, text: "text-bad", tint: "bg-bad-tint", border: "border-bad/50", fill: "bg-bad", stroke: "var(--state-red)" },
 };
 
 /**

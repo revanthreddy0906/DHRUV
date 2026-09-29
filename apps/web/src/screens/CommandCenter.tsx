@@ -1,10 +1,17 @@
 import * as React from "react";
 import { MOMENTS, TIMELINES, HERO_TRACE, FRESHNESS_TRACE_HQ_2501600, START_TRACE, APPROVED_TRACE, CALENDAR, type MomentId } from "../data/demo";
 import { Frame } from "./Frame";
-import { IncidentStrip, NeedsAttention, RecentEvents, SeasonPanel, StationsTable, StatusLine, type AttentionView } from "../components/command";
+import { DecisionCallout, IncidentStrip, NeedsAttention, RecentEvents, SeasonPanel, StationsTable, StatusLine, SummaryCounts, type AttentionView, type DecisionCalloutView } from "../components/command";
+import { NetworkSchematic } from "../components/network";
+import { evaluate } from "@dhruv/engine";
+import { DIRECTOR_BEATS, season48 } from "@dhruv/seed";
+import { decisionsView } from "@dhruv/store";
+import { replayBeats } from "../live/beatReplay";
+import { buildDecisionScreen } from "../live/decisionView";
+import { networkView } from "../live/network";
 import { TraceDrawer, traceText } from "../components/trace";
 import { WhatIfDrawer } from "../components/whatif";
-import { cx } from "../components/primitives";
+import { Card, PageHeader, cx } from "../components/primitives";
 import { useDevice } from "../live/DeviceProvider";
 import { useLiveChrome } from "../live/chrome";
 import { liveCommandView, type CommandView } from "../live/command";
@@ -16,10 +23,12 @@ import { nodeLabel } from "../live/chrome";
 import { traceDrawerProps } from "../live/traceView";
 
 /** The signed-out preview: the same layout from the design fixture for `moment` (values frozen). */
-function fixtureCommandView(moment: MomentId): CommandView {
+function fixtureCommandView(moment: MomentId): CommandView & { callout?: DecisionCalloutView } {
   const m = MOMENTS[moment];
   const [d, mon, y, hm] = m.clock.split(" ");
   const now = new Date(`${d} ${mon} ${y} ${hm} UTC`).toISOString();
+  // The network for a signed-out preview: the season48 script replayed to the slip (beat 2), or none at the start.
+  const replayed = moment === "start" ? [] : replayBeats(season48, DIRECTOR_BEATS, { upTo: "2" });
   const off = m.stations.filter((s) => s.state !== "GREEN");
   const attention: AttentionView[] = [
     ...m.decisions.map((x): AttentionView => ({
@@ -58,6 +67,12 @@ function fixtureCommandView(moment: MomentId): CommandView {
       ] },
     },
     events: TIMELINES[moment].slice(0, 5).map((e) => ({ id: e.deviceSeq, text: e.summary, device: e.device, age: (e as { age?: string }).age ?? e.observedAt })),
+    summary: { stations: off.length, worst: off.some((s) => s.state === "RED") ? "RED" : off.length ? "AMBER" : undefined, incidents: m.incident ? 1 : 0, decisions: m.decisions.length },
+    network: networkView(season48, replayed, evaluate({ seed: season48, events: replayed }, now), now),
+    callout: m.decisions[0] && {
+      id: m.decisions[0].id, station: m.decisions[0].station, title: m.decisions[0].title, chain: [],
+      deadline: m.decisions[0].deadline === "no deadline" ? undefined : `Point of no return ${m.decisions[0].deadline}`, href: `/decisions/${m.decisions[0].id}?moment=${moment}`,
+    },
   };
 }
 
@@ -77,13 +92,31 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
   const [sim, setSim] = React.useState(whatIf);
   const [mathNode, setMathNode] = React.useState<string>();
 
+  // The top pending decision, phrased by the Decision screen's own view model (one source of wording).
+  const callout = React.useMemo((): DecisionCalloutView | undefined => {
+    const snap = device?.snapshot;
+    if (!ops || !snap || !device) return undefined;
+    const first = [...ops.openDecisions].sort((a, b) => (a.pnr ?? "9999").localeCompare(b.pnr ?? "9999"))[0];
+    if (!first) return undefined;
+    const events = snap.events.filter((e) => !snap.rejected.has(e.event_id));
+    const decision = decisionsView(events).find((d) => d.id === first.id);
+    if (!decision) return undefined;
+    const data = buildDecisionScreen({
+      decision, events, allEvents: snap.events, pendingIds: snap.pendingIds, rejected: snap.rejected, seed: snap.seed ?? season48,
+      evaluation: ops.evaluation, now: snap.now, identity: device.session.identity, stationName: nodeLabel,
+    });
+    return { id: data.id, station: data.station, title: data.title, chain: data.chain, deadline: data.deadline?.text, lead: data.deadline?.lead, href: `/decisions/${data.id}` };
+  }, [device, ops]);
+
   if (device && !ops) {
     return <Frame moment="start" nav="command"><p className="p-8 text-center text-sm text-fg-2">Loading this device's expedition state.</p></Frame>;
   }
 
   // Signed in, everything comes from this device; `moment` only picks the signed-out design fixture.
   const moment: MomentId = ops ? "start" : momentProp;
-  const view = ops && live ? liveCommandView(ops, live) : fixtureCommandView(moment);
+  const fixture = ops && live ? undefined : fixtureCommandView(moment);
+  const view: CommandView = fixture ?? liveCommandView(ops!, live!);
+  const top = fixture ? fixture.callout : callout;
   const fixtureTrace = moment === "hq-2501600" ? [...HERO_TRACE.slice(0, 7), ...FRESHNESS_TRACE_HQ_2501600, ...HERO_TRACE.slice(7)] : moment === "start" ? START_TRACE : moment === "hq-2501620" ? APPROVED_TRACE : HERO_TRACE;
 
   return (
@@ -102,16 +135,24 @@ export function CommandCenter({ moment: momentProp = "start", cascade = false, t
         {sim && (ops && live ? <LiveWhatIfDrawer ops={ops} role={live.role} onClose={() => setSim(false)} /> : <WhatIfDrawer onClose={() => setSim(false)} onDiscard={() => setSim(false)} />)}
       </>}>
       <div className="space-y-6 p-6">
+        <PageHeader title="Command center" subtitle="Is anything wrong, what must be decided by when, and how the stations are." actions={<SummaryCounts summary={view.summary} />} />
         <StatusLine text={view.status} />
         {view.incident && <IncidentStrip title={view.incident.title} confirmed={view.incident.confirmed} to="/incident" />}
-        <StationsTable rows={view.rows} className={cx(cascade && "dh-cascade-in")} onShowMath={ops ? setMathNode : undefined} />
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)_minmax(0,0.9fr)]">
           <NeedsAttention items={view.attention} allClear={view.allClear} />
+          {view.network && (
+            <Card heading="Network position" pad="none" meta={`${view.network.nodes.filter((n) => n.kind === "station").length} stations · ${view.network.nodes.filter((n) => n.kind === "team").length} team`}>
+              <NetworkSchematic view={view.network} />
+              <p className="border-t border-line px-4 py-2 text-xs text-fg-2">Solid lines are supply legs; dashed in a state colour, a delayed leg or an overdue team. Select a station to open it.</p>
+            </Card>
+          )}
           <div className="space-y-6">
-            <SeasonPanel season={view.season} />
             <RecentEvents events={view.events} />
+            <SeasonPanel season={view.season} />
           </div>
         </div>
+        <StationsTable rows={view.rows} className={cx(cascade && "dh-cascade-in")} onShowMath={ops ? setMathNode : undefined} />
+        {top && <DecisionCallout d={top} />}
       </div>
     </Frame>
   );

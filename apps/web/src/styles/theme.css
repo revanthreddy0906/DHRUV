@@ -101,6 +101,12 @@
   .dh-critical {
     background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--state-red) 14%, transparent) 0 6px, transparent 6px 12px);
   }
+  /* The network schematic's quiet 32 px grid (Command). */
+  .dh-grid {
+    background-image: linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
   /* SIMULATION overlay stripes */
   .dh-sim-stripes {
     background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent) 0 14px, transparent 14px 28px);
