@@ -1,0 +1,451 @@
+openapi: 3.1.0
+info:
+  title: DHRUV API
+  version: 0.1.0
+  description: |
+    Backend contract for DHRUV (SIH 2026, PS 26062), following Build Bible section 15.
+    All data is synthetic. Base path /api/v1, JSON only, 1 MB body limit.
+
+    Auth: POST /auth/login returns a JWT carrying device_id, role and node_id; send it as
+    `Authorization: Bearer <token>` on every other call. The server enforces the role-to-event-type
+    table (section 6) and the node rule (Station and Field Leads write only for their own node).
+
+    The server has no demo clock (section 8). Where demo time matters (approve, reject, scenarios)
+    the client may send it; otherwise the server uses the latest observed_at it has seen.
+
+    Not implemented yet: POST /ai/explain and POST /ai/brief (section 15; AI explainer is pending).
+    Admin endpoints exist only when DEMO_MODE=true (they are not registered otherwise) and require HQ_OPS.
+servers:
+  - url: http://localhost:4000/api/v1
+security:
+  - bearer: []
+
+paths:
+  /auth/login:
+    post:
+      summary: Demo login (role switcher with device id and fixed PIN per node)
+      description: The device ids SERVER and DIRECTOR are reserved for server-written events (403).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Token issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /state:
+    get:
+      summary: Seed plus all events, for the initial load
+      responses:
+        "200":
+          description: Snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StateResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /sync/push:
+    post:
+      summary: Idempotent upload of outbox events
+      description: |
+        Send events ordered by (priority, seq). Each event is validated on its own; invalid ones are
+        rejected with a code and the rest are processed. Re-sending an event already stored returns it
+        under `duplicates`. The same (device_id, seq) with a different event_id is DUPLICATE_SEQ_CONFLICT.
+        CLOCK_ADVANCED and LINK_STATE_SET are local-only and always rejected. Accepted events may make
+        the server emit CONFLICT_FLAGGED events, which arrive through /sync/pull.
+
+        Authorization rules applied to every event:
+        - actor_role must equal the token's role (SYSTEM is never accepted from a client), and that
+          role must be allowed to write the type.
+        - Station and Field Leads may only write for their own node, and only change records their
+          node owns: an incident's owner is the node that opened it, a conflict's owner is its
+          entity's node, and seeded stock, assets, people and missions belong to their seed node.
+        - DECISION_APPROVED / DECISION_REJECTED (offline station-level decisions) pass the same checks
+          as POST /decisions/{id}/approve and /reject, plus: node_id must be the decision's node, the
+          approver must be the sending device, the decision must not already be decided, and the
+          event cannot be dated before the proposal.
+        - CONFLICT_RESOLVED needs an existing, unresolved conflict_id, and resolver must be the
+          sending device.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushRequest" }
+      responses:
+        "200":
+          description: Per-event outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /sync/pull:
+    get:
+      summary: Events from other devices after a cursor
+      description: Store the returned cursor and send it as `since` next time. The caller's own events are never returned.
+      parameters:
+        - { name: since, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+      responses:
+        "200":
+          description: Events and the next cursor
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PullResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /storage:
+    get:
+      summary: Row counts of the server store (events log, projections, seed tables); never rows
+      responses:
+        "200":
+          description: Storage summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [engine, journal_mode, file, epoch, cursor, log, derived, reference]
+                properties:
+                  engine: { type: string, enum: [SQLite] }
+                  journal_mode: { type: string }
+                  file: { type: string }
+                  epoch: { type: string }
+                  cursor: { type: integer }
+                  log:
+                    type: object
+                    properties:
+                      table: { type: string }
+                      rows: { type: integer }
+                      by_type: { type: array, items: { type: object, properties: { type: { type: string }, n: { type: integer } } } }
+                      by_device: { type: array, items: { type: object, properties: { device_id: { type: string }, n: { type: integer }, last_seq: { type: integer } } } }
+                  derived: { type: array, items: { type: object, properties: { table: { type: string }, rows: { type: integer } } } }
+                  reference: { type: array, items: { type: object, properties: { table: { type: string }, rows: { type: integer } } } }
+        "401": { $ref: "#/components/responses/Error" }
+  /events:
+    post:
+      summary: Single online write (thin wrapper over push)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OpEvent" }
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PostEventResponse" }
+        "200":
+          description: Already stored (duplicate)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PostEventResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    get:
+      summary: Audit list, newest first
+      parameters:
+        - { name: entity_id, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { $ref: "#/components/schemas/EventType" } }
+        - { name: from, in: query, description: observed_at lower bound, schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: observed_at upper bound, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
+      responses:
+        "200":
+          description: Matching events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events: { type: array, items: { $ref: "#/components/schemas/OpEvent" } }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /decisions/{id}/approve:
+    post:
+      summary: Human approval of a proposed decision
+      description: |
+        Checks role (HQ Ops, or a Station Leader for station-level options at their node), that the
+        decision is still PROPOSED, the option's deadline, verify-first (verify_ack required when the
+        option lists requiresVerify), and that no open conflict touches the entities the approval will
+        change. Writes DECISION_APPROVED, then the chosen levers' follow-up events as SYSTEM
+        (HOLD_VESSEL: VESSEL_UPDATED and LEG_UPDATED).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApproveRequest" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApproveResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /decisions/{id}/reject:
+    post:
+      summary: Rejection (HQ Ops only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RejectRequest" }
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema: { type: object, required: [event_id], properties: { event_id: { type: string } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /scenarios/run:
+    post:
+      summary: What-if evaluation with the same engine; nothing is stored
+      description: Returns the engine's Evaluation. Answers 501 NOT_IMPLEMENTED until the engine lands.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScenarioRequest" }
+      responses:
+        "200":
+          description: Evaluation (engine output, see Build Bible section 7)
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+
+  /admin/seed:
+    post:
+      summary: Reset to Start (demo only, HQ_OPS), optionally to another Director scenario
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { scenario: { type: string, enum: [season48, aurora2016] } } }
+      responses:
+        "200":
+          description: Reset
+          content:
+            application/json:
+              schema: { type: object, required: [ok], properties: { ok: { type: boolean }, scenario: { type: string } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /admin/scenario:
+    get:
+      summary: The Director scenario the server was last reset to (demo only, HQ_OPS)
+      responses:
+        "200":
+          description: Active scenario
+          content:
+            application/json:
+              schema: { type: object, required: [scenario, title], properties: { scenario: { type: string }, title: { type: string } } }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /admin/director/{beat}:
+    post:
+      summary: Inject a server-side Scenario Director beat (demo only, HQ_OPS)
+      description: |
+        Beats of the active scenario (see /admin/scenario). season48 server beats: 1 (slip), 2 (decision
+        proposed), 5 (HQ's SK-2 edit), 11 (approval). Client beats (3, 4, 6, 7, 8, 9) must run on the device's
+        own tab through the Director panel and answer 400 here; beat 10 is emergent. An operator step that is
+        an approval (aurora2016 A8) can also run here.
+      parameters:
+        - { name: beat, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Beat applied
+          content:
+            application/json:
+              schema: { type: object, required: [events_created], properties: { events_created: { type: integer } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /openapi.yaml:
+    get:
+      summary: This document
+      security: []
+      responses:
+        "200":
+          description: OpenAPI YAML
+          content:
+            application/yaml:
+              schema: { type: string }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  responses:
+    Error:
+      description: Section 15 error shape
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+    ErrorCode:
+      type: string
+      enum:
+        [ROLE_FORBIDDEN, NODE_FORBIDDEN, INVALID_EVENT, DUPLICATE_SEQ_CONFLICT, NOT_FOUND, RATE_LIMITED, UNAUTHORIZED, DECISION_NOT_PROPOSED, DEADLINE_PASSED, VERIFY_REQUIRED, CONFLICT_OPEN, NOT_IMPLEMENTED, INTERNAL_ERROR, RESET_TO_START]
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { $ref: "#/components/schemas/ErrorCode" }
+            message: { type: string }
+            details: {}
+
+    LoginRole: { type: string, enum: [HQ_OPS, STATION_LEADER, FIELD_LEAD] }
+    ActorRole: { type: string, enum: [HQ_OPS, STATION_LEADER, FIELD_LEAD, SYSTEM] }
+    EventType:
+      type: string
+      description: >-
+        Payload shape per type is the zod schema in packages/shared/src/events.ts (payloadSchemas).
+        STOCK_COUNTED is {item_id, qty, reason?}; reason is optional, at most 200 characters after trimming.
+      enum:
+        [STOCK_COUNTED, STOCK_ISSUED, STOCK_RECEIVED, BURN_RATE_CHANGED, SHIPMENT_CREATED, LEG_UPDATED, LEG_DELAYED, VESSEL_UPDATED, PERSON_STATUS_SET, PERSON_MOVED, CHECKIN_RECORDED, ASSET_STATUS_SET, MISSION_UPDATED, ASSIGNMENT_SET, LINK_STATE_SET, INCIDENT_OPENED, INCIDENT_UPDATED, DECISION_PROPOSED, DECISION_APPROVED, DECISION_REJECTED, CONFLICT_FLAGGED, CONFLICT_RESOLVED, CLOCK_ADVANCED]
+
+    OpEvent:
+      type: object
+      description: Section 6 envelope. Priority must equal the type's default (stock may also use 4; payload.critical allows higher).
+      required: [event_id, device_id, seq, type, entity_type, entity_id, node_id, payload, observed_at, created_at_client, priority, actor_role, schema_version]
+      properties:
+        event_id: { type: string, format: uuid }
+        device_id: { type: string, examples: [MAITRI-TAB-01] }
+        seq: { type: integer, minimum: 1, description: per-device monotonic counter }
+        type: { $ref: "#/components/schemas/EventType" }
+        entity_type: { type: string, examples: [asset] }
+        entity_id: { type: string, examples: [SK-2] }
+        node_id: { type: string, examples: [MAITRI] }
+        payload: { type: object, additionalProperties: true }
+        observed_at: { type: string, format: date-time, description: when the fact was true in the world (demo time) }
+        created_at_client: { type: string, format: date-time }
+        recorded_at_server: { type: string, format: date-time, description: set by the server }
+        priority: { type: integer, minimum: 0, maximum: 5, description: "0 incident ... 5 attachments" }
+        actor_role: { $ref: "#/components/schemas/ActorRole" }
+        schema_version: { type: integer, const: 1 }
+
+    LoginRequest:
+      type: object
+      required: [device_id, pin, role, node_id]
+      properties:
+        device_id: { type: string, examples: [HQ-WEB-01] }
+        pin: { type: string, examples: [HQ-2027] }
+        role: { $ref: "#/components/schemas/LoginRole" }
+        node_id: { type: string, examples: [HQ] }
+    LoginResponse:
+      type: object
+      required: [token, role, node_id]
+      properties:
+        token: { type: string }
+        role: { $ref: "#/components/schemas/LoginRole" }
+        node_id: { type: string }
+
+    PushRequest:
+      type: object
+      required: [device_id, events]
+      properties:
+        device_id: { type: string, description: must match the token's device }
+        events: { type: array, maxItems: 1000, items: { $ref: "#/components/schemas/OpEvent" } }
+        epoch: { type: string, description: "Log epoch the device loaded; a stale one is refused with 409 RESET_TO_START" }
+    PushResponse:
+      type: object
+      required: [accepted, duplicates, rejected, recorded_at_server]
+      properties:
+        accepted: { type: array, items: { type: string } }
+        duplicates: { type: array, items: { type: string } }
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [event_id, code]
+            properties:
+              event_id: { type: string }
+              code: { $ref: "#/components/schemas/ErrorCode" }
+              message: { type: string }
+        recorded_at_server: { type: string, format: date-time }
+
+    PullResponse:
+      type: object
+      required: [events, cursor]
+      properties:
+        events: { type: array, items: { $ref: "#/components/schemas/OpEvent" } }
+        cursor: { type: integer }
+        epoch: { type: string, description: Changes on every Reset to Start }
+
+    PostEventResponse:
+      type: object
+      required: [event_id, recorded_at_server]
+      properties:
+        event_id: { type: string }
+        recorded_at_server: { type: string, format: date-time }
+
+    StateResponse:
+      type: object
+      required: [seed, events, cursor]
+      properties:
+        seed:
+          type: object
+          description: Section 14 reference tables, one array of rows per table (see Seed in packages/shared/src/api.ts).
+          required: [nodes, vessels, shipments, legs, inventory_items, consumption_profiles, cargo_items, personnel, assets, missions, levers, dependencies, link_state]
+          additionalProperties: { type: array, items: { type: object } }
+        events: { type: array, items: { $ref: "#/components/schemas/OpEvent" } }
+        cursor: { type: integer }
+        epoch: { type: string, description: Identifies this run of the log; changes on every Reset to Start }
+
+    ApproveRequest:
+      type: object
+      required: [chosen_option_id, verify_ack]
+      properties:
+        chosen_option_id: { type: string }
+        verify_ack: { type: boolean }
+        observed_at: { type: string, format: date-time, description: demo-clock time of the approval (optional) }
+    ApproveResponse:
+      type: object
+      required: [event_id, follow_up_event_ids]
+      properties:
+        event_id: { type: string }
+        follow_up_event_ids: { type: array, items: { type: string } }
+    RejectRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+        observed_at: { type: string, format: date-time }
+
+    ScenarioRequest:
+      type: object
+      required: [overlay]
+      properties:
+        overlay: { type: array, items: { $ref: "#/components/schemas/OpEvent" } }
+        now: { type: string, format: date-time, description: demo-clock time to evaluate at }

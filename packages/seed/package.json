@@ -1,0 +1,20 @@
+{
+  "name": "@dhruv/seed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests yet\" && exit 0",
+    "lint": "echo \"no lint config yet\" && exit 0"
+  },
+  "dependencies": {
+    "@dhruv/engine": "workspace:*",
+    "@dhruv/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

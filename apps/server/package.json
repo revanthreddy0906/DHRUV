@@ -1,0 +1,36 @@
+{
+  "name": "@dhruv/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "echo \"no lint config yet\" && exit 0",
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@dhruv/engine": "workspace:*",
+    "@dhruv/seed": "workspace:*",
+    "@dhruv/shared": "workspace:*",
+    "@fastify/cors": "^9.0.1",
+    "better-sqlite3": "^12.11.1",
+    "fastify": "^4.28.1",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@dhruv/store": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.16.5",
+    "fake-indexeddb": "^6.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "6.0.3",
+    "vitest": "^2.1.1",
+    "yaml": "^2.6.0"
+  }
+}

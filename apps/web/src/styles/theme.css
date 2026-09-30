@@ -1,0 +1,125 @@
+/* DHRUV design tokens — "Warm polar" (frontend-redesign; adapted for WCAG AA from the v0 mock).
+   docs/ui-redesign/CLAUDE.md section 4. This is the only file in src/ that holds colour values.
+   Import once from the app entry: @import "tailwindcss"; @import "./styles/theme.css";          */
+
+:root {
+  /* Surfaces */
+  --bg: #f3f1eb;
+  --surface: #ffffff;
+  --chrome: #fbfaf7; /* the Field Lead header */
+  --surface-elevated: #e9e6de;
+  --border: #d8d5cc;
+  --border-strong: #bdb8ac;
+  --border-control: #7a7468; /* inputs, selects, checkboxes */
+
+  /* Text */
+  --text-primary: #222725;
+  --text-secondary: #58635d;
+  --text-muted: #656c66;
+
+  /* State (always with a word + icon). GREEN is never tinted on overview screens. */
+  --state-green: #3d6b4b;
+  --state-amber: #8f5a12;
+  --state-red: #b23a2c;
+  --state-green-tint: #e7efe8;
+  --state-amber-tint: #f7ebd3;
+  --state-red-tint: #f8e3df;
+
+  /* Interaction only, never a state */
+  --accent: #955e36; /* copper */
+  --accent-tint: #f3e6da;
+  --on-accent: #ffffff;
+  --focus-ring: var(--accent);
+
+  /* The one shadow: right-hand drawers only */
+  --drawer-shadow: 0 8px 24px rgba(34, 39, 37, 0.12);
+
+  /* Motion */
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 250ms;
+  --cascade-step: 250ms;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-chrome: var(--chrome);
+  --color-elevated: var(--surface-elevated);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-line-ctrl: var(--border-control);
+  --color-fg: var(--text-primary);
+  --color-fg-2: var(--text-secondary);
+  --color-fg-3: var(--text-muted);
+  --color-ok: var(--state-green);
+  --color-warn: var(--state-amber);
+  --color-bad: var(--state-red);
+  --color-ok-tint: var(--state-green-tint);
+  --color-warn-tint: var(--state-amber-tint);
+  --color-bad-tint: var(--state-red-tint);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-on-accent: var(--on-accent);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* 4 chips and tags, 6 buttons and inputs, 8 cards and drawers (the maximum). */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --shadow-drawer: var(--drawer-shadow);
+
+  /* Type scale (section 4): five sizes, nothing below 12 px. Tailwind's other sizes are unset. */
+  --text-*: initial;
+  --text-xs: 12px;               /* small / meta */
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;               /* body */
+  --text-sm--line-height: 20px;
+  --text-heading: 15px;          /* section heading, 600 */
+  --text-heading--line-height: 22px;
+  --text-title: 20px;            /* screen title, 600 */
+  --text-title--line-height: 28px;
+  --text-headline: 28px;         /* headline number, mono 600 */
+  --text-headline--line-height: 34px;
+}
+
+@layer base {
+  html, body { background: var(--bg); color: var(--text-primary); }
+  body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+}
+
+@layer components {
+  /* STALE value (section 5): italics only; the amber dot and the word "stale" sit beside it. */
+  .dh-stale { font-style: italic; }
+  /* CRITICAL value: the only place the 135° hatch is allowed. */
+  .dh-critical {
+    background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--state-red) 14%, transparent) 0 6px, transparent 6px 12px);
+  }
+  /* The network map's quiet 32 px grid (Command). */
+  .dh-grid {
+    background-image: linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  /* SIMULATION overlay stripes */
+  .dh-sim-stripes {
+    background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent) 0 14px, transparent 14px 28px);
+  }
+  .dh-cascade-in { animation: dh-cascade var(--cascade-step) ease-out both; }
+  @keyframes dh-cascade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .dh-drain-out { animation: dh-drain var(--dur-slow) ease-in both; }
+  @keyframes dh-drain { to { opacity: 0; transform: translateX(24px); } }
+  /* A dialog the user opened (the approval confirmation): opacity only, 150 ms. */
+  .dh-fade-in { animation: dh-fade 150ms ease-out both; }
+  @keyframes dh-fade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .dh-cascade-in, .dh-drain-out, .dh-fade-in { animation: none; }
+    * { transition-duration: 0ms !important; }
+  }
+}

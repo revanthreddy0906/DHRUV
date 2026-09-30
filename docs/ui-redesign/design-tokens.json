@@ -1,0 +1,283 @@
+{
+  "name": "DHRUV",
+  "version": 1,
+  "meta": {
+    "source": "DHRUV 'Warm polar' palette (frontend-redesign, adapted from the v0 mock in docs/ui-redesign/reference/v0-warm-polar; replaces 'Polar light'); apps/web/src/styles/theme.css"
+  },
+  "color": {
+    "themes": [
+      {
+        "id": "light",
+        "name": "Warm polar"
+      }
+    ],
+    "tokens": [
+      {
+        "name": "bg",
+        "value": "#f3f1eb",
+        "usage": "App background behind every surface; warm ivory so white cards separate on a projector."
+      },
+      {
+        "name": "surface",
+        "value": "#ffffff",
+        "usage": "Cards, panels, drawers, top bar, sidebar."
+      },
+      {
+        "name": "chrome",
+        "value": "#fbfaf7",
+        "usage": "Top bar, sidebar and the Demo dock: the frame around the content, a step lighter than bg."
+      },
+      {
+        "name": "surface-elevated",
+        "value": "#e9e6de",
+        "usage": "Table headers, hover fills, secondary buttons."
+      },
+      {
+        "name": "border",
+        "value": "#d8d5cc",
+        "usage": "Hairline dividers and card outlines. Decorative only; never the only cue for a control."
+      },
+      {
+        "name": "border-strong",
+        "value": "#bdb8ac",
+        "usage": "Secondary button outline, chart gridlines, timeline connectors."
+      },
+      {
+        "name": "border-control",
+        "value": "#7a7468",
+        "usage": "Input, select and checkbox borders: 4.3:1 on surface, 3.7:1 on surface-elevated."
+      },
+      {
+        "name": "text-primary",
+        "value": "#222725",
+        "usage": "Body text, values and headings on bg, surface, surface-elevated and every tint (14.7:1 or better)."
+      },
+      {
+        "name": "text-secondary",
+        "value": "#58635d",
+        "usage": "Labels, metadata, ages, captions on bg, surface, surface-elevated and every tint (5.9:1 or better)."
+      },
+      {
+        "name": "text-muted",
+        "value": "#656c66",
+        "usage": "Quieter metadata (device ids, tick labels, footnotes) on bg, surface, surface-elevated and every tint (4.7:1 or better)."
+      },
+      {
+        "name": "state-green",
+        "value": "#3d6b4b",
+        "usage": "GREEN: sufficient. Always with the word GREEN and a check icon. 5.9:1 on surface, 5.1:1 or better on every ground and tint."
+      },
+      {
+        "name": "state-amber",
+        "value": "#8f5a12",
+        "usage": "AMBER: attention, aging, uncertainty, verify. Always with the word and a triangle icon. 6.0:1 on surface, 5.1:1 or better on every ground and tint."
+      },
+      {
+        "name": "state-red",
+        "value": "#b23a2c",
+        "usage": "RED: below threshold or blocked. Always with the word and an octagon icon. 5.7:1 on surface, 4.9:1 or better on every ground and tint. Green and red are close in lightness: never rely on hue alone."
+      },
+      {
+        "name": "state-green-tint",
+        "value": "#e7efe8",
+        "usage": "Ground behind a GREEN badge or a GREEN approval confirmation."
+      },
+      {
+        "name": "state-amber-tint",
+        "value": "#f7ebd3",
+        "usage": "Ground behind AMBER badges, verify gates, straddle flags, pending-sync counter."
+      },
+      {
+        "name": "state-red-tint",
+        "value": "#f8e3df",
+        "usage": "Ground behind RED badges, RED dimension chips, PNR strip, incident strip."
+      },
+      {
+        "name": "accent",
+        "value": "#955e36",
+        "usage": "Actions, selection, links (Show the math), focus ring, now-marker. Interaction only, never a state. 5.9:1 on surface."
+      },
+      {
+        "name": "accent-tint",
+        "value": "#f3e6da",
+        "usage": "Selected nav item and selected scenario ground."
+      },
+      {
+        "name": "on-accent",
+        "value": "#ffffff",
+        "usage": "Text and icons on an accent fill (primary button, Check in): 5.9:1."
+      },
+      {
+        "name": "focus-ring",
+        "value": "{accent}",
+        "usage": "2px solid focus outline, 2px offset, on every interactive element: 5.9:1 on surface."
+      }
+    ]
+  },
+  "type": {
+    "fonts": [],
+    "families": {
+      "sans": "\"Inter\", ui-sans-serif, system-ui, sans-serif",
+      "mono": "\"JetBrains Mono\", ui-monospace, Menlo, monospace"
+    },
+    "groups": [
+      {
+        "name": "Interface",
+        "family": "sans",
+        "styles": [
+          {
+            "name": "screen-title",
+            "fontSize": "20px",
+            "lineHeight": "28px",
+            "fontWeight": 600,
+            "sample": "Personnel and Missions · Maitri",
+            "usage": "One per screen."
+          },
+          {
+            "name": "card-title",
+            "fontSize": "18px",
+            "lineHeight": "24px",
+            "fontWeight": 600,
+            "sample": "Maitri",
+            "usage": "Station name, decision title."
+          },
+          {
+            "name": "body",
+            "fontSize": "14px",
+            "lineHeight": "20px",
+            "fontWeight": 400,
+            "sample": "Fuel: C-104 misses vessel cutoff",
+            "usage": "Default UI text."
+          },
+          {
+            "name": "small",
+            "fontSize": "12px",
+            "lineHeight": "16px",
+            "fontWeight": 400,
+            "sample": "Check-ins every 4 h · next due 11:00",
+            "usage": "Secondary lines, reasons, captions."
+          },
+          {
+            "name": "section-label",
+            "fontSize": "11px",
+            "lineHeight": "16px",
+            "fontWeight": 600,
+            "letterSpacing": "0.08em",
+            "sample": "DECISION QUEUE",
+            "usage": "Uppercase section headers in text-secondary."
+          }
+        ]
+      },
+      {
+        "name": "Numbers and traces",
+        "family": "mono",
+        "styles": [
+          {
+            "name": "ratio-xl",
+            "fontSize": "30px",
+            "lineHeight": "36px",
+            "fontWeight": 600,
+            "sample": "0.697",
+            "usage": "Option and before/after ratios."
+          },
+          {
+            "name": "ratio",
+            "fontSize": "18px",
+            "lineHeight": "28px",
+            "fontWeight": 600,
+            "sample": "1.0606",
+            "usage": "Dimension chip ratio."
+          },
+          {
+            "name": "clock",
+            "fontSize": "13px",
+            "lineHeight": "20px",
+            "fontWeight": 600,
+            "letterSpacing": "0.025em",
+            "sample": "24 JAN 2027 08:00",
+            "usage": "Demo clock, absolute sim time."
+          },
+          {
+            "name": "trace",
+            "fontSize": "12px",
+            "lineHeight": "20px",
+            "fontWeight": 400,
+            "sample": "[R03] Diesel availability vs requirement: 92.0 / 132.0 = 0.697 -> RED",
+            "usage": "Trace lines, formulas, ids, timestamps, coordinates."
+          },
+          {
+            "name": "wordmark",
+            "fontSize": "17px",
+            "lineHeight": "24px",
+            "fontWeight": 700,
+            "letterSpacing": "0.2em",
+            "sample": "DHRUV",
+            "usage": "Product name in the top bar; no logo exists."
+          }
+        ]
+      }
+    ]
+  },
+  "spacing": {
+    "tokens": [
+      {
+        "name": "space-1",
+        "value": "4px",
+        "usage": "Base unit; icon-to-label gaps."
+      },
+      {
+        "name": "space-2",
+        "value": "8px",
+        "usage": "Chip grid gaps, list gaps."
+      },
+      {
+        "name": "space-3",
+        "value": "12px",
+        "usage": "Chip padding, card grid gaps."
+      },
+      {
+        "name": "space-4",
+        "value": "16px",
+        "usage": "Card padding; column gutters."
+      },
+      {
+        "name": "space-5",
+        "value": "20px",
+        "usage": "Large panel and station card padding; screen gutter."
+      },
+      {
+        "name": "space-6",
+        "value": "24px",
+        "usage": "Large panel padding upper bound."
+      }
+    ]
+  },
+  "radius": {
+    "tokens": [
+      {
+        "name": "radius-sm",
+        "value": "4px",
+        "usage": "Tags, tier badges, freshness chips."
+      },
+      {
+        "name": "radius-md",
+        "value": "8px",
+        "usage": "Buttons, dimension chips, inputs."
+      },
+      {
+        "name": "radius-lg",
+        "value": "12px",
+        "usage": "Cards and drawers. Maximum radius in the system."
+      }
+    ]
+  },
+  "shadow": {
+    "tokens": [
+      {
+        "name": "drawer-shadow",
+        "value": "-12px 0 32px rgba(15,27,45,0.12)",
+        "usage": "Only on right-hand drawers (trace, sync, what-if). Elevation is otherwise borders and contrast."
+      }
+    ]
+  }
+}

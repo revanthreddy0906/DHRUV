@@ -1,0 +1,317 @@
+import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { LiveDecisionDetail, LiveDecisionsIndex } from "../screens/DecisionLive";
+import { QuietLine } from "../screens/Frame";
+import { LiveCargoScreen } from "../screens/CargoLive";
+import { LiveInventoryScreen, LivePersonnelScreen } from "../screens/OpsLive";
+import { LiveIncidentScreen, LiveMapScreen } from "../screens/IncidentLive";
+import { LiveAuditScreen } from "../screens/AuditLive";
+import { LiveDataScreen } from "../screens/DataLive";
+import { LiveGraphScreen } from "../screens/GraphLive";
+import { LiveStockCard } from "../screens/StockCardLive";
+import { LiveAssetRecord, LivePersonRecord } from "../screens/RecordsLive";
+import { LiveFieldScreen } from "../screens/FieldLive";
+import { LiveDirector } from "../screens/DirectorLive";
+import { LiveStationScreen, StationsIndex } from "../screens/StationLive";
+import { useDevice, useDuplicateDevice, useSessionRestoring, useSignIn } from "../live/DeviceProvider";
+import { login } from "../live/session";
+import type { Role } from "../data/types";
+import { MOMENTS, type MomentId } from "../data/demo";
+import { CommandCenter } from "../screens/CommandCenter";
+import {
+  AuditScreen, CargoScreen, DecisionDetailScreen, DirectorScreen, FieldScreen, FreshnessStates, IncidentScreen,
+  InventoryScreen, LoginScreen, MapScreen, PersonnelScreen, SyncScreen,
+} from "../screens/Screens";
+
+/**
+ * Screen content is still the design's demo moments (fixtures standing in for evaluate()), picked
+ * with `?moment=`; F2+ replace it with live state. The chrome (top bar, sidebar, offline banner,
+ * comms strip) is live once this tab is signed in.
+ */
+
+function useMoment(fallback: MomentId): MomentId {
+  const [params] = useSearchParams();
+  const m = params.get("moment");
+  return m && m in MOMENTS ? (m as MomentId) : fallback;
+}
+
+const flag = (params: URLSearchParams, key: string) => params.get(key) === "1";
+
+function CommandRoute() {
+  const [params] = useSearchParams();
+  return (
+    <CommandCenter
+      key={params.toString()}
+      moment={useMoment("start")}
+      cascade={flag(params, "cascade")}
+      trace={flag(params, "trace")}
+      whatIf={flag(params, "whatif")}
+      stationsInEmergency={flag(params, "stations")}
+    />
+  );
+}
+
+const DECISION_MOMENTS = ["slip", "hq-2501600", "hq-2501620", "maitri-2501600"] as const;
+type DecisionMoment = (typeof DECISION_MOMENTS)[number];
+
+function DecisionRoute() {
+  const device = useDevice();
+  const { decisionId = "DEC-01" } = useParams();
+  const moment = useMoment("hq-2501600");
+  if (device) return <LiveDecisionDetail key={decisionId} id={decisionId} />;
+  const m: DecisionMoment = (DECISION_MOMENTS as readonly string[]).includes(moment) ? (moment as DecisionMoment) : "hq-2501600";
+  return <DecisionDetailScreen key={m} moment={m} />;
+}
+
+/**
+ * /decisions: signed in, the decision waiting (or the latest); signed out, the design reference.
+ * No redirect while the session restores, so a reload never lands on a fixed decision id.
+ */
+function DecisionsIndexRoute() {
+  if (useDevice()) return <LiveDecisionsIndex />;
+  return <DecisionDetailScreen moment="hq-2501600" />;
+}
+
+/** Cargo, Inventory and Personnel take a coarser state than the moment. */
+function useOpsState() {
+  const moment = useMoment("slip");
+  return moment === "start" || moment === "hq-2501620" ? "start" : moment === "hq-2600900" ? "uncertain" : "slip";
+}
+
+function CargoRoute() {
+  const device = useDevice();
+  const state = useOpsState();
+  if (device) return <LiveCargoScreen />;
+  return <CargoScreen key={state} state={state} />;
+}
+
+function InventoryRoute() {
+  const device = useDevice();
+  const [params] = useSearchParams();
+  const s = useOpsState();
+  const state = flag(params, "empty") ? "empty" : s === "uncertain" ? "start" : s;
+  if (device) return <LiveInventoryScreen />;
+  return <InventoryScreen key={state} state={state} role={params.get("role") === "HQ_OPS" ? "HQ_OPS" : "STATION_LEADER"} />;
+}
+
+function PersonnelRoute() {
+  const device = useDevice();
+  const [params] = useSearchParams();
+  const s = useOpsState();
+  const role = params.get("role");
+  if (device) return <LivePersonnelScreen />;
+  return <PersonnelScreen state={s === "uncertain" ? "start" : s} role={role === "HQ_OPS" || role === "FIELD_LEAD" ? role : "STATION_LEADER"} />;
+}
+
+/** Signed out, the Director cannot reach any device: say so, and keep the design mock below for reference. */
+/** A live-only screen opened without a device (yet): it renders as soon as the tab's session is restored. */
+function SignedOut({ what }: { what: string }) {
+  return (
+    <div className="min-h-screen bg-bg">
+      <div role="alert" className="flex items-center gap-3 border-b border-warn/60 bg-warn-tint px-6 py-3 text-sm text-fg">
+        <b>This tab is not signed in.</b> {what}, so it needs a signed-in device.
+        <Link to="/login" className="ml-auto rounded-md border border-accent px-3 py-1 font-semibold text-accent hover:bg-accent-tint">Sign in</Link>
+      </div>
+    </div>
+  );
+}
+
+function DirectorSignedOut() {
+  return (
+    <div className="min-h-screen bg-bg">
+      <div role="alert" className="flex items-center gap-3 border-b border-warn/60 bg-warn-tint px-6 py-3 text-sm text-fg">
+        <b>This tab is not signed in.</b> The Director runs as an HQ Ops device: sign in here as HQ Ops (for example HQ-WEB-02), then use Demo Director in the sidebar.
+        <Link to="/login?role=HQ_OPS" className="ml-auto rounded-md border border-accent px-3 py-1 font-semibold text-accent hover:bg-accent-tint">Sign in as HQ Ops</Link>
+      </div>
+      <div className="pointer-events-none opacity-50"><DirectorScreen /></div>
+    </div>
+  );
+}
+
+function MapRoute() {
+  const device = useDevice();
+  const moment = useMoment("maitri-2501600");
+  if (device) return <LiveMapScreen />;
+  return <MapScreen key={moment} moment={moment} />;
+}
+
+function IncidentRoute() {
+  const [params] = useSearchParams();
+  if (useDevice()) return <LiveIncidentScreen />;
+  return <IncidentScreen conflictOpen={flag(params, "conflict")} />;
+}
+
+function AuditRoute() {
+  const [params] = useSearchParams();
+  if (useDevice()) return <LiveAuditScreen />;
+  return <AuditScreen key={params.toString()} emptyFilter={flag(params, "empty")} />;
+}
+
+function SyncRoute() {
+  const [params] = useSearchParams();
+  const link = params.get("link");
+  return <SyncScreen key={params.toString()} link={link === "DEGRADED" || link === "ONLINE" ? link : "OFFLINE"} stalled={flag(params, "stalled")} />;
+}
+
+const ROLES: Role[] = ["HQ_OPS", "STATION_LEADER", "FIELD_LEAD"];
+
+/** Real login against the server. `?error=1` shows the static wrong-PIN design state instead. */
+function LoginRoute() {
+  const [params] = useSearchParams();
+  const signIn = useSignIn();
+  const navigate = useNavigate();
+  const role = params.get("role");
+  if (flag(params, "error")) return <LoginScreen error />;
+  return (
+    <LoginScreen
+      // Keyed by role so /login?role=... preselects the role even when already on the login page.
+      key={role ?? "default"}
+      initialRole={ROLES.includes(role as Role) ? (role as Role) : "STATION_LEADER"}
+      onSubmit={async (req) => {
+        await signIn(await login(req));
+        navigate(req.role === "FIELD_LEAD" ? "/field" : "/command");
+      }}
+    />
+  );
+}
+
+function Home() {
+  return <Navigate to={useDevice() ? "/command" : "/login"} replace />;
+}
+
+/** A signed-in Field Lead device gets the live screen; otherwise the static preview for the gallery. */
+function FieldRoute() {
+  const [params] = useSearchParams();
+  const device = useDevice();
+  if (device?.session.identity.role === "FIELD_LEAD") return <LiveFieldScreen />;
+  return <FieldScreen offline={flag(params, "offline")} />;
+}
+
+/** Every screen and demo moment the design covers, for review. Dev only. */
+const GALLERY: { group: string; links: [string, string][] }[] = [
+  { group: "Command Center", links: [
+    ["Start · all GREEN", "/command?moment=start"],
+    ["After the slip", "/command?moment=slip"],
+    ["Slip with cascade + trace", "/command?moment=slip&cascade=1&trace=1"],
+    ["HQ 25 Jan 16:00 · before sync", "/command?moment=hq-2501600&trace=1"],
+    ["HQ 25 Jan 16:10 · conflict flagged", "/command?moment=hq-2501610"],
+    ["Maitri tablet 16:00 · offline, INC-01", "/command?moment=maitri-2501600"],
+    ["Maitri tablet · station cards in emergency", "/command?moment=maitri-2501600&stations=1"],
+    ["HQ 16:20 · approved", "/command?moment=hq-2501620"],
+    ["What-if (burn +15 %)", "/command?moment=hq-2501620&whatif=1"],
+    ["HQ 26 Jan 09:00 · C-104 UNCERTAIN", "/command?moment=hq-2600900"],
+  ] },
+  { group: "Decision Detail", links: [
+    ["After the slip", "/decisions/DEC-01?moment=slip"],
+    ["HQ 16:00 · straddle, verify gate", "/decisions/DEC-01?moment=hq-2501600"],
+    ["HQ 16:20 · after sync", "/decisions/DEC-01?moment=hq-2501620"],
+    ["Station Leader · approval not allowed", "/decisions/DEC-01?moment=maitri-2501600"],
+  ] },
+  { group: "Operations", links: [
+    ["Cargo · start (edit ETA preview)", "/cargo?moment=start"],
+    ["Cargo · after the slip", "/cargo?moment=slip"],
+    ["Cargo · C-104 UNCERTAIN", "/cargo?moment=hq-2600900"],
+    ["Inventory · start", "/inventory?moment=start"],
+    ["Inventory · after the slip", "/inventory?moment=slip"],
+    ["Inventory · HQ read-only", "/inventory?moment=slip&role=HQ_OPS"],
+    ["Inventory · empty", "/inventory?empty=1"],
+    ["Personnel and Missions", "/personnel?moment=slip"],
+    ["Personnel · Field Lead", "/personnel?moment=slip&role=FIELD_LEAD"],
+    ["Map", "/map?moment=maitri-2501600"],
+  ] },
+  { group: "Incident, sync, audit", links: [
+    ["Incident INC-01", "/incident"],
+    ["Incident · SK-2 conflict open", "/incident?conflict=1"],
+    ["Sync drawer · offline", "/sync?link=OFFLINE"],
+    ["Sync drawer · degraded drain", "/sync?link=DEGRADED"],
+    ["Sync drawer · stalled item", "/sync?link=ONLINE&stalled=1"],
+    ["Audit + Review queue", "/audit"],
+    ["Audit · empty filter", "/audit?empty=1"],
+  ] },
+  { group: "Other", links: [
+    ["Login", "/login"],
+    ["Login · wrong PIN", "/login?error=1"],
+    ["Field Lead (mobile)", "/field"],
+    ["Field Lead · offline", "/field?offline=1"],
+    ["Director panel", "/director"],
+    ["Freshness and state chips", "/states"],
+  ] },
+];
+
+function Gallery() {
+  return (
+    <div className="min-h-screen bg-bg p-8 text-fg">
+      <h1 className="font-mono text-title font-bold tracking-[0.2em]">DHRUV · screens</h1>
+      <p className="mt-1 text-sm text-fg-2">Design import: every screen at each demo moment. Values are frozen fixtures until the engine and live sync are wired.</p>
+      <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
+        {GALLERY.map((g) => (
+          <section key={g.group}>
+            <h2 className="mb-2 text-xs font-semibold text-fg-2">{g.group}</h2>
+            <ul className="space-y-1">
+              {g.links.map(([label, to]) => (
+                <li key={to}><Link to={to} className="text-sm text-accent hover:underline">{label}</Link></li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Shown instead of the app when another tab already acts as this tab's device. */
+function DuplicateDevice({ deviceId, onSignOut }: { deviceId: string; onSignOut: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg p-8 text-fg">
+      <div role="alert" className="max-w-lg rounded-lg border border-warn/60 bg-surface p-6">
+        <p className="text-sm font-semibold text-warn"><span className="font-mono">{deviceId}</span> is open in another tab</p>
+        <p className="mt-2 text-sm text-fg-2">
+          One tab is one device. This tab is not syncing and does not answer the Director, so nothing is written twice. Use the other tab, or sign out here and sign in as another device.
+        </p>
+        <button type="button" onClick={onSignOut} className="mt-4 rounded-lg border border-line-strong px-3 py-1.5 text-sm hover:border-accent">Sign out of this tab</button>
+      </div>
+    </div>
+  );
+}
+
+export function App() {
+  const [params] = useSearchParams();
+  const device = useDevice();
+  const duplicate = useDuplicateDevice();
+  const restoring = useSessionRestoring();
+  if (duplicate.deviceId) return <DuplicateDevice deviceId={duplicate.deviceId} onSignOut={duplicate.signOut} />;
+  // A saved session is restoring: not signed out, so no design fixture and no redirect to /login.
+  if (restoring) return <div className="h-screen w-full bg-bg"><QuietLine>Checking this device's data…</QuietLine></div>;
+  // Hidden Director (?director=1): live when this tab is signed in, the design mock otherwise.
+  if (flag(params, "director")) return device ? <LiveDirector /> : <DirectorScreen />;
+  return (
+    <div className="h-screen w-full">
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/screens" element={<Gallery />} />
+        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/command" element={<CommandRoute />} />
+        <Route path="/decisions" element={<DecisionsIndexRoute />} />
+        <Route path="/decisions/:decisionId" element={<DecisionRoute />} />
+        <Route path="/stations" element={device ? <StationsIndex /> : <SignedOut what="The Station page evaluates this device's own events" />} />
+        <Route path="/stations/:nodeId" element={device ? <LiveStationScreen /> : <SignedOut what="The Station page evaluates this device's own events" />} />
+        <Route path="/cargo" element={<CargoRoute />} />
+        <Route path="/inventory" element={<InventoryRoute />} />
+        <Route path="/inventory/:itemId" element={device ? <LiveStockCard /> : <SignedOut what="The stock card reads this device's own ledger" />} />
+        <Route path="/personnel" element={<PersonnelRoute />} />
+        <Route path="/personnel/:personId" element={device ? <LivePersonRecord /> : <SignedOut what="The person record reads this device's own history" />} />
+        <Route path="/assets/:assetId" element={device ? <LiveAssetRecord /> : <SignedOut what="The asset record reads this device's own history" />} />
+        <Route path="/map" element={<MapRoute />} />
+        <Route path="/incident" element={<IncidentRoute />} />
+        <Route path="/audit" element={<AuditRoute />} />
+        <Route path="/graph" element={device ? <LiveGraphScreen /> : <SignedOut what="Connections shows the links behind this device's own data" />} />
+        <Route path="/data" element={device ? <LiveDataScreen /> : <SignedOut what="Where data lives reads this device's own store" />} />
+        <Route path="/sync" element={<SyncRoute />} />
+        <Route path="/what-if" element={<Navigate to="/command?moment=hq-2501620&whatif=1" replace />} />
+        <Route path="/field" element={<FieldRoute />} />
+        <Route path="/director" element={device ? <LiveDirector /> : <DirectorSignedOut />} />
+        <Route path="/states" element={<FreshnessStates />} />
+        <Route path="*" element={<Navigate to="/command" replace />} />
+      </Routes>
+    </div>
+  );
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@dhruv/map",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "echo \"no lint config yet\" && exit 0",
+    "demo": "vite serve preview --port 5190 --strictPort"
+  },
+  "dependencies": {
+    "@dhruv/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.22",
+    "happy-dom": "^15.11.0",
+    "leaflet": "^1.9.4",
+    "typescript": "6.0.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.1"
+  }
+}
